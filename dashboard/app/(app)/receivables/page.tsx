@@ -19,13 +19,13 @@ export default async function Receivables() {
       </p>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="Scheduled (open pipeline)" value={money(summary.scheduled_minor)}
+        <Stat label="Scheduled (open pipeline)" value={money(summary.scheduled_minor)} href="/explore/receivables?arg=scheduled"
           help="Future installments on active plans — money on the books not yet due or collected." />
-        <Stat label="Due in the next 30 days" value={money(summary.next_30d_minor)} tone="good"
+        <Stat label="Due in the next 30 days" value={money(summary.next_30d_minor)} tone="good" href="/explore/receivables?arg=next30"
           help="Projected cash: scheduled installments with a due date inside 30 days." />
-        <Stat label="Late" value={money(summary.late_minor)} tone="warn"
+        <Stat label="Late" value={money(summary.late_minor)} tone="warn" href="/explore/receivables?arg=late"
           help="Past due, under 14 days." />
-        <Stat label="Delinquent" value={money(summary.delinquent_minor)} tone="bad"
+        <Stat label="Delinquent" value={money(summary.delinquent_minor)} tone="bad" href="/explore/receivables?arg=delinquent"
           help="14+ days past due." />
       </div>
 

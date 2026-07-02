@@ -27,6 +27,21 @@ export async function saveKeyAction(_prev: unknown, formData: FormData) {
   }
 }
 
+export async function runGhlSyncAction() {
+  const user = await requireSession();
+  if (user.role !== "admin") return { ok: false, message: "Only admins can run the sync" };
+  try {
+    const { syncAllGhl } = await import("@/lib/sync/ghl");
+    const results = await syncAllGhl({ sinceDays: 365 });
+    revalidatePath("/connections"); revalidatePath("/overview"); revalidatePath("/calls");
+    const parts = Object.entries(results).map(([loc, r]: [string, any]) =>
+      r.error ? `${loc}: ${r.error}` : `${loc}: ${r.calendars} calendars, ${r.appointments} appointments, ${r.contacts} contacts, ${r.forms} form submissions`);
+    return { ok: true, message: parts.length ? parts.join(" | ") : "No GHL locations connected yet — install the app first" };
+  } catch (err) {
+    return { ok: false, message: String(err instanceof Error ? err.message : err) };
+  }
+}
+
 export async function runBackfillAction() {
   const user = await requireSession();
   if (user.role !== "admin") return { ok: false, message: "Only admins can run the backfill" };

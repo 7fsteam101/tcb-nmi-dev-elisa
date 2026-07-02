@@ -149,6 +149,8 @@ async function normalizeGhl(eventType: string, payload: any): Promise<string> {
     return "opt-in recorded";
   }
 
+  if (event === "contact_upserted") return "contact enriched"; // identity-only event (backfill/pull)
+
   if (event === "intake_submitted") {
     const oppId = await findOrCreateActiveOpportunity(contactId);
     await sql`

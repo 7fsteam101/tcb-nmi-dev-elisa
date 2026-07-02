@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { campaignTable, dailySeries, overviewKpis } from "@/lib/kpi";
 import { isDemoMode, reportTimezone } from "@/lib/settings";
 import { money, num, pct } from "@/lib/format";
@@ -26,13 +27,13 @@ export default async function Marketing() {
       </p>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="Ad spend" value={money(spend)} />
-        <Stat label="Cost per lead" value={leads ? money(Math.round(spend / leads)) : "—"}
+        <Stat label="Ad spend" value={money(spend)} href="/explore/adspend" />
+        <Stat label="Cost per lead" value={leads ? money(Math.round(spend / leads)) : "—"} href="/explore/leads"
           help="Spend / unique opt-ins (our count, not Meta's)." />
-        <Stat label="Cost per booked call" value={booked ? money(Math.round(spend / booked)) : "—"}
+        <Stat label="Cost per booked call" value={booked ? money(Math.round(spend / booked)) : "—"} href="/explore/booked"
           help="Spend / unique paid bookings. The number that matters most before close rate." />
         <Stat label="ROAS (net cash)" value={spend ? `${(netCash / spend).toFixed(2)}x` : "—"}
-          tone={spend && netCash / spend >= 2 ? "good" : "warn"}
+          tone={spend && netCash / spend >= 2 ? "good" : "warn"} href="/explore/cash"
           help="Net cash collected / ad spend, same window. Cash-basis, not booked revenue." />
       </div>
 
@@ -52,7 +53,11 @@ export default async function Marketing() {
           <tbody>
             {campaigns.map((c: any) => (
               <tr key={c.campaign_name}>
-                <td>{c.campaign_name}</td>
+                <td>
+                  <Link href={`/explore/adspend?arg=${encodeURIComponent(c.campaign_name)}`} style={{ color: "var(--accent)" }}>
+                    {c.campaign_name}
+                  </Link>
+                </td>
                 <td className="text-right">{money(c.spend_minor)}</td>
                 <td className="text-right">{num(c.meta_leads)}</td>
                 <td className="text-right">{c.cpl_minor ? money(c.cpl_minor) : "—"}</td>

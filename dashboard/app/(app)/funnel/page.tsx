@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { pipelineByStage, leakage, cancellationReasons, dailySeries, objectionBreakdown } from "@/lib/kpi";
 import { isDemoMode, reportTimezone } from "@/lib/settings";
 import { num, pct } from "@/lib/format";
@@ -28,21 +29,21 @@ export default async function Funnel() {
       </p>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="Bookings" value={num(leak.bookings)} help="Unique paid strategy-call bookings in range." />
+        <Stat label="Bookings" value={num(leak.bookings)} href="/explore/booked" help="Unique paid strategy-call bookings in range." />
         <Stat label="Reached a taken call" value={`${num(leak.taken)} (${pct(bookings ? Number(leak.taken) / bookings : 0)})`}
-          tone={bookings && Number(leak.taken) / bookings >= 0.5 ? "good" : "bad"}
+          tone={bookings && Number(leak.taken) / bookings >= 0.5 ? "good" : "bad"} href="/explore/taken"
           help="Bookings whose call has actually happened, however many reschedules it took." />
         <Stat label="Rescheduled at least once" value={`${num(leak.with_reschedule)} (${pct(bookings ? Number(leak.with_reschedule) / bookings : 0)})`}
-          tone="warn" help="Bookings that moved their slot one or more times." />
-        <Stat label="Avg reschedules per booking" value={Number(leak.avg_reschedules).toFixed(2)}
+          tone="warn" href="/explore/reschedules" help="Bookings that moved their slot one or more times." />
+        <Stat label="Avg reschedules per booking" value={Number(leak.avg_reschedules).toFixed(2)} href="/explore/reschedules"
           help="Across all bookings in range, including the ones that never moved." />
       </div>
       <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="Rescheduled 2+ times" value={num(leak.with_multi_reschedule)} tone="warn" />
-        <Stat label="Hit a no-show" value={num(leak.with_no_show)} tone="bad" help="Bookings with at least one no-show slot." />
-        <Stat label="No-show recovered" value={num(leak.no_show_recovered)} tone="good"
+        <Stat label="Rescheduled 2+ times" value={num(leak.with_multi_reschedule)} tone="warn" href="/explore/reschedules" />
+        <Stat label="Hit a no-show" value={num(leak.with_no_show)} tone="bad" href="/explore/no_shows" help="Bookings with at least one no-show slot." />
+        <Stat label="No-show recovered" value={num(leak.no_show_recovered)} tone="good" href="/explore/no_shows"
           help="No-showed bookings that later rebooked and took the call. The saved ones." />
-        <Stat label="Cancelled" value={num(leak.cancelled)} tone="bad" help="Bookings with a cancelled slot (by lead or team)." />
+        <Stat label="Cancelled" value={num(leak.cancelled)} tone="bad" href="/explore/cancellations" help="Bookings with a cancelled slot (by lead or team)." />
       </div>
 
       <SectionTitle>Reschedules per day</SectionTitle>
@@ -56,11 +57,11 @@ export default async function Funnel() {
           <SectionTitle>Pipeline by stage (all open + closed)</SectionTitle>
           <Card>
             {stages.map((s: any) => (
-              <div key={s.stage} className="mb-2 flex items-center gap-2">
+              <Link key={s.stage} href={`/explore/stage?arg=${s.stage}`} className="mb-2 flex items-center gap-2 rounded px-1 hover:bg-white/5">
                 <div className="w-44 shrink-0 text-xs capitalize" style={{ color: "var(--muted)" }}>{label(s.stage)}</div>
                 <div className="h-3 rounded" style={{ width: `${(Number(s.n) / maxStage) * 100}%`, minWidth: 4, background: "var(--accent)" }} />
                 <div className="text-xs">{num(s.n)}</div>
-              </div>
+              </Link>
             ))}
           </Card>
         </div>

@@ -26,35 +26,35 @@ export default async function Overview() {
       <p className="mb-6 text-sm" style={{ color: "var(--muted)" }}>Last 30 days</p>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="Leads (unique opt-ins)" value={num(k.leads)} href="/marketing"
+        <Stat label="Leads (unique opt-ins)" value={num(k.leads)} href="/explore/leads"
           help="Unique lead-form submissions. A returning lead re-counts only after 30 days." />
         <Stat label="Calls booked" value={num(k.booked)}
-          help="Unique $25-paid strategy-call bookings, counted once per booking regardless of reschedules." href="/calls" />
-        <Stat label="Calls taken" value={num(k.taken)} href="/calls"
+          help="Unique $25-paid strategy-call bookings, counted once per booking regardless of reschedules." href="/explore/booked" />
+        <Stat label="Calls taken" value={num(k.taken)} href="/explore/taken"
           help="Appointment slots that actually happened, by event start date." />
-        <Stat label="Deals won" value={num(k.deals_won)} tone="good" href="/reps"
+        <Stat label="Deals won" value={num(k.deals_won)} tone="good" href="/explore/deals"
           help="Opportunities marked Won (PIF or payment plan), by deal close date." />
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="Show rate" value={pct(showRate)} tone={showRate >= 0.7 ? "good" : showRate >= 0.5 ? "warn" : "bad"}
+        <Stat label="Show rate" value={pct(showRate)} tone={showRate >= 0.7 ? "good" : showRate >= 0.5 ? "warn" : "bad"} href="/explore/no_shows"
           help="Taken / (taken + no-shows), on slots that reached their time." />
-        <Stat label="Close rate (on taken)" value={pct(closeRate)} tone={closeRate >= 0.25 ? "good" : "warn"}
+        <Stat label="Close rate (on taken)" value={pct(closeRate)} tone={closeRate >= 0.25 ? "good" : "warn"} href="/explore/deals"
           help="Deals won / calls taken. The closer-facing variant." />
-        <Stat label="Booked-to-taken" value={pct(bookedToTaken)} tone={bookedToTaken >= 0.5 ? "good" : "bad"} href="/funnel"
+        <Stat label="Booked-to-taken" value={pct(bookedToTaken)} tone={bookedToTaken >= 0.5 ? "good" : "bad"} href="/explore/booked"
           help="Of all bookings, how many have had their call actually happen. THE bottleneck metric." />
-        <Stat label="Reschedules" value={num(k.reschedules)} tone="warn" href="/funnel"
+        <Stat label="Reschedules" value={num(k.reschedules)} tone="warn" href="/explore/reschedules"
           help="Appointment slots moved to a new time (each move counts once)." />
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat label="Cash collected" value={money(k.cash_collected_minor)}
-          help="Gross program payments (NMI), excluding the $25 booking fees, before reversals." href="/receivables" />
-        <Stat label="Net of reversals" value={money(netCash)} tone={Number(k.reversals_minor) > 0 ? "warn" : "good"}
+          help="Gross program payments (NMI), excluding the $25 booking fees, before reversals." href="/explore/cash" />
+        <Stat label="Net of reversals" value={money(netCash)} tone={Number(k.reversals_minor) > 0 ? "warn" : "good"} href="/explore/cash"
           help="Cash collected minus refunds and chargebacks." />
-        <Stat label="Booked revenue" value={money(k.booked_revenue_minor)}
+        <Stat label="Booked revenue" value={money(k.booked_revenue_minor)} href="/explore/deals"
           help="Total contract value of deals won (excludes refunded deals)." />
-        <Stat label="Ad spend / ROAS" value={`${money(k.ad_spend_minor)} / ${roas.toFixed(1)}x`} href="/marketing"
+        <Stat label="Ad spend / ROAS" value={`${money(k.ad_spend_minor)} / ${roas.toFixed(1)}x`} href="/explore/adspend"
           help="Meta spend, and net cash collected divided by spend." />
       </div>
 

@@ -7,6 +7,7 @@ import { Card, SectionTitle, Badge, STATUS_TONE, label } from "@/components/ui";
 import { dateTime } from "@/lib/format";
 import { KeyForm } from "./key-form";
 import { BackfillButton } from "./backfill-button";
+import { GhlControls } from "./ghl-controls";
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +60,15 @@ export default async function Connections() {
               Safe to run again any time — records update in place, nothing duplicates.
             </p>
             <BackfillButton />
+          </Card>
+          <SectionTitle>GoHighLevel</SectionTitle>
+          <Card>
+            <p className="mb-3 text-sm" style={{ color: "var(--muted)" }}>
+              One Marketplace app, one connection per sub-account. Install pulls calendars, bookings
+              (with full reschedule history), contacts, and opt-in form submissions — then categorize the
+              calendars in Admin, Calendars.
+            </p>
+            <GhlControls appRegistered={Boolean(process.env.GHL_CLIENT_ID)} />
           </Card>
         </div>
         <div>

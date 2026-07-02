@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { repPerformance } from "@/lib/kpi";
 import { isDemoMode } from "@/lib/settings";
 import { money, num, pct } from "@/lib/format";
@@ -38,7 +39,11 @@ export default async function Reps() {
           <tbody>
             {reps.map((r: any) => (
               <tr key={r.id}>
-                <td>{r.full_name}</td>
+                <td>
+                  <Link href={`/explore/rep?arg=${r.id}&title=${encodeURIComponent(r.full_name)}`} style={{ color: "var(--accent)" }}>
+                    {r.full_name}
+                  </Link>
+                </td>
                 <td className="capitalize" style={{ color: "var(--muted)" }}>{label(r.role)}</td>
                 <td className="text-right">{num(r.taken)}</td>
                 <td className="text-right">{num(r.closed)}</td>

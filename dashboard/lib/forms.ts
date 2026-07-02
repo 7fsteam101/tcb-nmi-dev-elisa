@@ -27,7 +27,8 @@ async function apptContext(appointmentId: string) {
   const [row] = await sql`
     select a.id as appointment_id, a.status as appointment_status, c.id as call_id,
            o.id as opportunity_id, o.close_id as opp_close_id, o.stage,
-           ct.id as contact_id, ct.close_id as lead_close_id, ct.full_name, c.is_demo
+           ct.id as contact_id, ct.close_id as lead_close_id, ct.full_name, c.is_demo,
+           ct.ghl_marketing_id, ct.ghl_repair_id
     from sales.appointment a
     join sales.call c on c.id = a.call_id
     join sales.opportunity o on o.id = c.opportunity_id
@@ -164,11 +165,9 @@ function buildNote(name: string, input: SalesCallInput): string {
   return lines.join("\n");
 }
 
+// Every form outcome fans out to all three systems: Supabase (already written),
+// Close (stage + note), and GHL (note on the contact in its sub-account).
 async function queueCloseSync(ctx: any, stage: string | null, note: string, results: string[]) {
-  if (!ctx.opp_close_id && !ctx.lead_close_id) {
-    results.push("Close not linked on this record — nothing pushed (will link once the Close sync runs)");
-    return;
-  }
   if (stage && ctx.opp_close_id) {
     await queueWriteback("close", "close_update_opportunity_stage", ctx.opp_close_id, { stage_label: stage }, "dashboard_form");
     results.push(`Close opportunity stage push queued (${stage})`);
@@ -177,10 +176,19 @@ async function queueCloseSync(ctx: any, stage: string | null, note: string, resu
     await queueWriteback("close", "close_create_note", ctx.lead_close_id, { lead_id: ctx.lead_close_id, note }, "dashboard_form");
     results.push("Close note queued");
   }
+  const ghlId = ctx.ghl_marketing_id ?? ctx.ghl_repair_id;
+  if (ghlId) {
+    await queueWriteback("ghl", "ghl_create_contact_note", ghlId, { note }, "dashboard_form");
+    results.push("GHL note queued");
+  }
+  if (!ctx.opp_close_id && !ctx.lead_close_id && !ghlId) {
+    results.push("No Close/GHL ids on this record yet — outcome stored locally, pushes once the syncs link it");
+    return;
+  }
   try {
     const d = await dispatchPending();
-    if (d.sent > 0) results.push(`Pushed to Close now (${d.sent} update${d.sent > 1 ? "s" : ""})`);
-    else if (d.waiting > 0) results.push("Queued — pushes automatically once the Close API key is connected");
+    if (d.sent > 0) results.push(`Pushed now (${d.sent} update${d.sent > 1 ? "s" : ""})`);
+    else if (d.waiting > 0) results.push("Queued — pushes automatically once the target system's credentials are connected");
   } catch { /* the cron sweep retries */ }
 }
 
