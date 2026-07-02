@@ -52,7 +52,8 @@ export const EXPLORE: Record<string, ExploreDef> = {
       { key: "current_status", label: "Current status", kind: "label" },
     ],
     query: (demo, days) => sql`
-      select c.scheduled_at, ct.full_name as contact_name, ct.close_id, rep.full_name as closer,
+      select coalesce(c.current_scheduled_at, c.scheduled_at) as scheduled_at,
+             ct.full_name as contact_name, ct.close_id, rep.full_name as closer,
              c.booking_source_channel,
              (select count(*) from sales.appointment a where a.call_id = c.id) as slots,
              (select a.status from sales.appointment a where a.call_id = c.id and a.is_current) as current_status
@@ -60,9 +61,9 @@ export const EXPLORE: Record<string, ExploreDef> = {
       join sales.opportunity o on o.id = c.opportunity_id
       join core.contact ct on ct.id = o.contact_id
       left join sales.rep rep on rep.id = c.rep_id
-      where c.is_demo = ${demo} and c.type = 'strategy' and c.is_primary
-        and c.scheduled_at >= now() - make_interval(days => ${days})
-      order by c.scheduled_at desc limit 500`,
+      where c.is_demo = ${demo} and c.type = 'strategy' and c.is_primary and c.is_booking
+        and coalesce(c.current_scheduled_at, c.scheduled_at) >= now() - make_interval(days => ${days})
+      order by 1 desc limit 500`,
   },
   taken: {
     title: "Calls taken",
@@ -305,5 +306,25 @@ export const EXPLORE: Record<string, ExploreDef> = {
       where c.is_demo = ${demo} and c.rep_id = ${arg ?? null}
         and a.scheduled_for >= now() - make_interval(days => ${days})
       order by a.scheduled_for desc limit 500`,
+  },
+  reversals: {
+    title: "Refunds and chargebacks",
+    description: "Every reversal netted out of cash collected.",
+    page: "receivables",
+    columns: [
+      { key: "occurred_at", label: "When", kind: "datetime" },
+      ...contactCols,
+      { key: "type", label: "Type", kind: "label" },
+      { key: "amount_minor", label: "Amount", kind: "money" },
+      { key: "reason", label: "Reason" },
+    ],
+    query: (demo, days) => sql`
+      select v.occurred_at, coalesce(ct.full_name, '(unlinked)') as contact_name, ct.close_id,
+             v.type, v.amount_minor, v.reason
+      from finance.reversal v
+      left join sales.deal d on d.id = v.deal_id
+      left join core.contact ct on ct.id = d.contact_id
+      where v.is_demo = ${demo} and v.occurred_at >= now() - make_interval(days => ${days})
+      order by v.occurred_at desc limit 500`,
   },
 };

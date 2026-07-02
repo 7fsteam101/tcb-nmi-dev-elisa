@@ -36,7 +36,7 @@ export default async function Overview({ searchParams }: { searchParams: Promise
         <Stat label="Leads (unique opt-ins)" value={num(k.leads)} href={`/explore/leads?days=${days}`}
           help="Unique lead-form submissions. A returning lead re-counts only after 30 days." />
         <Stat label="Calls booked" value={num(k.booked)}
-          help="Unique $25-paid strategy-call bookings, counted once per booking regardless of reschedules." href={`/explore/booked?days=${days}`} />
+          help="Unique strategy-call bookings on booking calendars, counted once regardless of reschedules. The $25 payment match attaches as Stripe data lands." href={`/explore/booked?days=${days}`} />
         <Stat label="Calls taken" value={num(k.taken)} href={`/explore/taken?days=${days}`}
           help="Appointment slots that actually happened, by event start date." />
         <Stat label="Deals won" value={num(k.deals_won)} tone="good" href={`/explore/deals?days=${days}`}
@@ -59,7 +59,7 @@ export default async function Overview({ searchParams }: { searchParams: Promise
       <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat label="Cash collected" value={money(k.cash_collected_minor)}
           help="Gross program payments (NMI), excluding the $25 booking fees, before reversals." href={`/explore/cash?days=${days}`} />
-        <Stat label="Net of reversals" value={money(netCash)} tone={Number(k.reversals_minor) > 0 ? "warn" : "good"} href={`/explore/cash?days=${days}`}
+        <Stat label="Net of reversals" value={money(netCash)} tone={Number(k.reversals_minor) > 0 ? "warn" : "good"} href={`/explore/reversals?days=${days}`}
           help="Cash collected minus refunds and chargebacks." />
         <Stat label="Booked revenue" value={money(k.booked_revenue_minor)} href={`/explore/deals?days=${days}`}
           help="Total contract value of deals won (excludes refunded deals)." />
@@ -69,16 +69,16 @@ export default async function Overview({ searchParams }: { searchParams: Promise
 
       <SectionTitle>Daily activity</SectionTitle>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-        <Card>
+        <Card href={`/explore/leads?days=${days}`}>
           <div className="mb-2 text-xs" style={{ color: "var(--muted)" }}>Leads per day</div>
           <MiniBars data={series.map((d: any) => Number(d.leads))} labels={dayLabels} />
         </Card>
-        <Card>
+        <Card href={`/explore/taken?days=${days}`}>
           <div className="mb-2 text-xs" style={{ color: "var(--muted)" }}>Calls booked vs taken per day</div>
           <MiniBars data={series.map((d: any) => Number(d.booked))} labels={dayLabels} color="var(--accent)" height={28} />
           <MiniBars data={series.map((d: any) => Number(d.taken))} labels={dayLabels} color="var(--good)" height={28} />
         </Card>
-        <Card>
+        <Card href={`/explore/cash?days=${days}`}>
           <div className="mb-2 text-xs" style={{ color: "var(--muted)" }}>Cash collected per day</div>
           <MiniBars data={series.map((d: any) => Number(d.cash_minor))} labels={dayLabels} color="var(--good)" />
         </Card>

@@ -41,7 +41,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 input[type="checkbox"] { width: auto; }
 
 .btn {
-  background: var(--accent);
+  background: #2563eb;
   color: #fff;
   border-radius: 8px;
   padding: 0.5rem 1rem;

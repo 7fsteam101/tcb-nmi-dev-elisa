@@ -113,14 +113,14 @@ async function resolveCallType(locationId: string, calendarId: string | null, ca
   return { type: (m?.active ? m.call_type : "strategy") as "readiness" | "strategy" | "follow_up", isBooking: m?.is_booking ?? true };
 }
 
-async function findOrCreateCall(oppId: string, type: string, startTime: string | null, source?: string): Promise<string> {
+async function findOrCreateCall(oppId: string, type: string, startTime: string | null, source?: string, isBooking = true): Promise<string> {
   const rows = type === "strategy"
     ? await sql`select id from sales.call where opportunity_id = ${oppId} and type = 'strategy' and is_primary limit 1`
     : await sql`select id from sales.call where opportunity_id = ${oppId} and type = ${type} order by created_at desc limit 1`;
   if (rows.length) return rows[0].id;
   const created = await sql`
-    insert into sales.call (opportunity_id, type, scheduled_at, booking_source_channel, is_primary)
-    values (${oppId}, ${type}, ${startTime ?? new Date().toISOString()}, ${source ?? null}, ${type === "strategy"})
+    insert into sales.call (opportunity_id, type, scheduled_at, booking_source_channel, is_primary, is_booking)
+    values (${oppId}, ${type}, ${startTime ?? new Date().toISOString()}, ${source ?? null}, ${type === "strategy"}, ${isBooking})
     returning id`;
   return created[0].id;
 }
@@ -167,7 +167,7 @@ async function normalizeGhl(eventType: string, payload: any): Promise<string> {
     p.appointment?.calendar_name ?? p.appointment?.calendarName ?? null,
   );
   const oppId = await findOrCreateActiveOpportunity(contactId, p.source);
-  const callId = await findOrCreateCall(oppId, calendar.type, startTime, p.source);
+  const callId = await findOrCreateCall(oppId, calendar.type, startTime, p.source, calendar.isBooking);
   const slot = await currentSlot(callId);
 
   switch (event) {
@@ -229,8 +229,23 @@ async function normalizeGhl(eventType: string, payload: any): Promise<string> {
 // ---------------------------------------------------------------------
 async function normalizeStripe(eventType: string, payload: any): Promise<string> {
   const obj = payload?.data?.object ?? payload;
-  if (!["charge.succeeded", "payment_intent.succeeded", "checkout.session.completed"].includes(payload?.type ?? eventType))
-    return `ignored stripe event ${payload?.type ?? eventType}`;
+  const type = payload?.type ?? eventType;
+
+  // refunds net out cash and feed the refund-rate widget
+  if (type === "charge.refunded" || type === "refund.created") {
+    const chargeId = obj.charge ?? obj.id;
+    const [pay] = await sql`
+      select id, deal_id, amount_minor from finance.successful_payment where stripe_charge_id = ${chargeId} limit 1`;
+    await sql`
+      insert into finance.reversal (deal_id, payment_id, type, amount_minor, reason, occurred_at)
+      values (${pay?.deal_id ?? null}, ${pay?.id ?? null}, 'refund',
+              ${obj.amount_refunded ?? obj.amount ?? pay?.amount_minor ?? 0},
+              ${obj.reason ?? "stripe refund"}, now())`;
+    return pay ? "refund recorded against the payment" : "refund recorded (no matching charge on file)";
+  }
+
+  if (!["charge.succeeded", "payment_intent.succeeded", "checkout.session.completed"].includes(type))
+    return `ignored stripe event ${type}`;
   const amount = obj.amount_received ?? obj.amount_total ?? obj.amount ?? 0;
   const email = obj.billing_details?.email ?? obj.customer_details?.email ?? obj.receipt_email ?? null;
   const chargeId = obj.id;
@@ -261,6 +276,18 @@ async function normalizeStripe(eventType: string, payload: any): Promise<string>
 // ---------------------------------------------------------------------
 async function normalizeNmi(eventType: string, payload: any): Promise<string> {
   const p = payload ?? {};
+  // refunds / voids -> reversal
+  const action = String(p.type ?? p.action_type ?? "").toLowerCase();
+  if (action === "refund" || action === "void" || action === "chargeback") {
+    const [pay] = await sql`
+      select id, deal_id, amount_minor from finance.successful_payment
+      where nmi_transaction_id = ${p.original_transaction_id ?? p.transactionid ?? ""} limit 1`;
+    await sql`
+      insert into finance.reversal (deal_id, payment_id, type, amount_minor, reason, occurred_at)
+      values (${pay?.deal_id ?? null}, ${pay?.id ?? null}, ${action === "chargeback" ? "chargeback" : "refund"},
+              ${Math.round(parseFloat(p.amount ?? "0") * 100) || (pay?.amount_minor ?? 0)}, ${`nmi ${action}`}, now())`;
+    return `nmi ${action} recorded`;
+  }
   if (String(p.response ?? p.response_code ?? "1") !== "1" && p.condition !== "complete")
     return "ignored non-approved NMI post";
   const amountMinor = Math.round(parseFloat(p.amount ?? "0") * 100);

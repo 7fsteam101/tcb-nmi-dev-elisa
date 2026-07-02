@@ -11,14 +11,15 @@ export async function overviewKpis({ demo, days, tz }: Params) {
       (select count(*) from sales.opt_in o, range r
         where o.is_demo = ${demo} and o.submitted_at >= r.since and o.counts_as_unique) as leads,
       (select count(*) from sales.call c, range r
-        where c.is_demo = ${demo} and c.type = 'strategy' and c.is_primary
-          and not coalesce(c.is_duplicate, false) and c.scheduled_at >= r.since) as booked,
+        where c.is_demo = ${demo} and c.type = 'strategy' and c.is_primary and c.is_booking
+          and not coalesce(c.is_duplicate, false)
+          and coalesce(c.current_scheduled_at, c.scheduled_at) >= r.since) as booked,
       (select count(*) from sales.appointment a, range r
         where a.is_demo = ${demo} and a.status = 'taken' and a.scheduled_for >= r.since) as taken,
       (select count(*) from sales.appointment a, range r
         where a.is_demo = ${demo} and a.status = 'no_show' and a.scheduled_for >= r.since) as no_shows,
       (select count(*) from sales.deal d, range r
-        where d.is_demo = ${demo} and d.deal_close_date >= r.since::date) as deals_won,
+        where d.is_demo = ${demo} and d.deal_close_date >= r.since::date and d.status <> 'refunded') as deals_won,
       (select coalesce(sum(d.total_contract_value_minor), 0) from sales.deal d, range r
         where d.is_demo = ${demo} and d.deal_close_date >= r.since::date and d.status <> 'refunded') as booked_revenue_minor,
       (select coalesce(sum(p.amount_minor), 0) from finance.successful_payment p, range r
@@ -44,10 +45,11 @@ export async function leadershipCloseRate({ demo, days }: Omit<Params, "tz">) {
     with range as (select now() - make_interval(days => ${days}) as since)
     select
       (select count(*) from sales.deal d, range r
-        where d.is_demo = ${demo} and d.deal_close_date >= r.since::date) as deals_won,
+        where d.is_demo = ${demo} and d.deal_close_date >= r.since::date and d.status <> 'refunded') as deals_won,
       (select count(*) from sales.call c, range r
-        where c.is_demo = ${demo} and c.type = 'strategy' and c.is_primary
-          and not coalesce(c.is_duplicate, false) and c.scheduled_at >= r.since) as booked
+        where c.is_demo = ${demo} and c.type = 'strategy' and c.is_primary and c.is_booking
+          and not coalesce(c.is_duplicate, false)
+          and coalesce(c.current_scheduled_at, c.scheduled_at) >= r.since) as booked
   `;
   return row;
 }
@@ -58,10 +60,11 @@ export async function dailySeries({ demo, days, tz }: Params) {
       select generate_series(current_date - ${days - 1}::int, current_date, interval '1 day')::date as day
     )
     select d.day,
-      (select count(*) from sales.opt_in o where o.is_demo = ${demo}
+      (select count(*) from sales.opt_in o where o.is_demo = ${demo} and o.counts_as_unique
         and (o.submitted_at at time zone ${tz})::date = d.day) as leads,
       (select count(*) from sales.call c where c.is_demo = ${demo} and c.type = 'strategy' and c.is_primary
-        and (c.scheduled_at at time zone ${tz})::date = d.day) as booked,
+        and c.is_booking and not coalesce(c.is_duplicate, false)
+        and (coalesce(c.current_scheduled_at, c.scheduled_at) at time zone ${tz})::date = d.day) as booked,
       (select count(*) from sales.appointment a where a.is_demo = ${demo} and a.status = 'taken'
         and (a.scheduled_for at time zone ${tz})::date = d.day) as taken,
       (select count(*) from sales.appointment a where a.is_demo = ${demo} and a.status = 'rescheduled'
@@ -100,8 +103,8 @@ export async function leakage({ demo, days }: Omit<Params, "tz">) {
         bool_or(a.status in ('cancelled_by_lead','cancelled_by_team')) as cancelled
       from sales.call c
       join sales.appointment a on a.call_id = c.id
-      where c.is_demo = ${demo} and c.type = 'strategy' and c.is_primary
-        and c.scheduled_at >= now() - make_interval(days => ${days})
+      where c.is_demo = ${demo} and c.type = 'strategy' and c.is_primary and c.is_booking
+        and coalesce(c.current_scheduled_at, c.scheduled_at) >= now() - make_interval(days => ${days})
       group by c.id)
     select
       count(*) as bookings,
@@ -129,7 +132,7 @@ export async function cancellationReasons({ demo, days }: Omit<Params, "tz">) {
 
 export async function upcomingAppointments(demo: boolean) {
   return sql`
-    select a.id, a.scheduled_for, a.status, a.seq, ct.full_name as contact_name,
+    select a.id, a.scheduled_for, a.status, a.seq, ct.full_name as contact_name, ct.id as contact_id,
            rep.full_name as closer, c.booking_source_channel, o.stage
     from sales.appointment a
     join sales.call c on c.id = a.call_id
@@ -143,7 +146,7 @@ export async function upcomingAppointments(demo: boolean) {
 
 export async function recentCallOutcomes(demo: boolean) {
   return sql`
-    select c.id, c.occurred_at, c.disposition, ct.full_name as contact_name,
+    select c.id, c.occurred_at, c.disposition, ct.full_name as contact_name, ct.id as contact_id,
            rep.full_name as closer, d.total_contract_value_minor, d.plan_type_snapshot
     from sales.call c
     join sales.opportunity o on o.id = c.opportunity_id

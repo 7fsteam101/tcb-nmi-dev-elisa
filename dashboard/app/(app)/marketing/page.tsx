@@ -37,14 +37,14 @@ export default async function Marketing({ searchParams }: { searchParams: Promis
         <Stat label="Cost per lead" value={leads ? money(Math.round(spend / leads)) : "—"} href={`/explore/leads?days=${days}`}
           help="Spend / unique opt-ins (our count, not Meta's)." />
         <Stat label="Cost per booked call" value={booked ? money(Math.round(spend / booked)) : "—"} href={`/explore/booked?days=${days}`}
-          help="Spend / unique paid bookings. The number that matters most before close rate." />
+          help="Spend / unique bookings on booking calendars. The number that matters most before close rate." />
         <Stat label="ROAS (net cash)" value={spend ? `${(netCash / spend).toFixed(2)}x` : "—"}
           tone={spend && netCash / spend >= 2 ? "good" : "warn"} href={`/explore/cash?days=${days}`}
           help="Net cash collected / ad spend, same window. Cash-basis, not booked revenue." />
       </div>
 
       <SectionTitle>Spend per day</SectionTitle>
-      <Card>
+      <Card href={`/explore/adspend?days=${days}`}>
         <MiniBars data={series.map((d: any) => Number(d.spend_minor))}
           labels={series.map((d: any) => new Date(d.day).toLocaleDateString("en-US", { month: "short", day: "numeric" }))} />
       </Card>

@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
     returning id`;
   const delinquent = await sql`
     update finance.receivable set status = 'delinquent'
-    where status = 'late' and due_date < current_date - 14 and not is_demo
+    where status = 'late' and due_date <= current_date - 14 and not is_demo
     returning id`;
   return NextResponse.json({ ok: true, marked_late: late.length, marked_delinquent: delinquent.length });
 }

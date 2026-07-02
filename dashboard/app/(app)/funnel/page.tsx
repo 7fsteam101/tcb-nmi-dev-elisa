@@ -35,7 +35,7 @@ export default async function Funnel({ searchParams }: { searchParams: Promise<{
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="Bookings" value={num(leak.bookings)} href={`/explore/booked?days=${days}`} help="Unique paid strategy-call bookings in range." />
+        <Stat label="Bookings" value={num(leak.bookings)} href={`/explore/booked?days=${days}`} help="Unique strategy-call bookings on booking calendars in range." />
         <Stat label="Reached a taken call" value={`${num(leak.taken)} (${pct(bookings ? Number(leak.taken) / bookings : 0)})`}
           tone={bookings && Number(leak.taken) / bookings >= 0.5 ? "good" : "bad"} href={`/explore/taken?days=${days}`}
           help="Bookings whose call has actually happened, however many reschedules it took." />
@@ -53,7 +53,7 @@ export default async function Funnel({ searchParams }: { searchParams: Promise<{
       </div>
 
       <SectionTitle>Reschedules per day</SectionTitle>
-      <Card>
+      <Card href={`/explore/reschedules?days=${days}`}>
         <MiniBars data={series.map((d: any) => Number(d.rescheduled))} color="var(--warn)"
           labels={series.map((d: any) => new Date(d.day).toLocaleDateString("en-US", { month: "short", day: "numeric" }))} />
       </Card>
@@ -78,7 +78,7 @@ export default async function Funnel({ searchParams }: { searchParams: Promise<{
               <thead><tr><th>Reason</th><th className="text-right">Count</th></tr></thead>
               <tbody>
                 {reasons.map((r: any) => (
-                  <tr key={r.reason}><td>{r.reason}</td><td className="text-right">{num(r.n)}</td></tr>
+                  <tr key={r.reason}><td><Link href={`/explore/cancellations?days=${days}`} style={{ color: "var(--accent)" }}>{r.reason}</Link></td><td className="text-right">{num(r.n)}</td></tr>
                 ))}
                 {reasons.length === 0 && <tr><td colSpan={2} style={{ color: "var(--muted)" }}>Nothing recorded yet</td></tr>}
               </tbody>
@@ -90,7 +90,7 @@ export default async function Funnel({ searchParams }: { searchParams: Promise<{
               <thead><tr><th>Objection</th><th className="text-right">Raised</th><th className="text-right">Led to loss</th></tr></thead>
               <tbody>
                 {objections.map((o: any) => (
-                  <tr key={o.name}><td>{o.name}</td><td className="text-right">{num(o.n)}</td>
+                  <tr key={o.name}><td><Link href={`/explore/objections?days=${days}`} style={{ color: "var(--accent)" }}>{o.name}</Link></td><td className="text-right">{num(o.n)}</td>
                     <td className="text-right">{Number(o.led_to_loss) > 0 ? <Badge tone="bad">{num(o.led_to_loss)}</Badge> : "0"}</td></tr>
                 ))}
                 {objections.length === 0 && <tr><td colSpan={3} style={{ color: "var(--muted)" }}>Captured from the Sales Call form as reps submit</td></tr>}

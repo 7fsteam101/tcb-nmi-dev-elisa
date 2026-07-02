@@ -33,7 +33,7 @@ export default async function Calls() {
             {upcoming.map((a: any) => (
               <tr key={a.id}>
                 <td>{dateTime(a.scheduled_for, tz)}</td>
-                <td>{a.contact_name}</td>
+                <td><Link href={`/contacts/${a.contact_id}`} style={{ color: "var(--accent)" }}>{a.contact_name}</Link></td>
                 <td>{a.closer ?? "—"}</td>
                 <td>{a.seq > 1 ? <Badge tone="warn">{`#${a.seq}`}</Badge> : "#1"}</td>
                 <td><Badge tone={STATUS_TONE[a.status] ?? "neutral"}>{label(a.status)}</Badge></td>
@@ -55,7 +55,7 @@ export default async function Calls() {
             {outcomes.map((c: any) => (
               <tr key={c.id}>
                 <td>{dateTime(c.occurred_at, tz)}</td>
-                <td>{c.contact_name}</td>
+                <td><Link href={`/contacts/${c.contact_id}`} style={{ color: "var(--accent)" }}>{c.contact_name}</Link></td>
                 <td>{c.closer ?? "—"}</td>
                 <td><Badge tone={STATUS_TONE[c.disposition] ?? "neutral"}>{label(c.disposition)}</Badge></td>
                 <td>{c.total_contract_value_minor ? `${money(c.total_contract_value_minor)} (${label(c.plan_type_snapshot)})` : "—"}</td>
