@@ -91,5 +91,3 @@ export const STATUS_TONE: Record<string, "good" | "warn" | "bad" | "neutral" | "
 };
 
 export const label = (s: string | null | undefined) => (s ?? "—").replaceAll("_", " ");
-
-export { StatSpark } from "./stat-spark";

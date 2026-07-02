@@ -2,7 +2,8 @@ import { overviewKpis, dailySeries, leakage, leadershipCloseRate } from "@/lib/k
 import { overviewComparison, deltaPct } from "@/lib/kpi-series";
 import { isDemoMode, reportTimezone } from "@/lib/settings";
 import { money, num, pct } from "@/lib/format";
-import { Card, SectionTitle, MiniBars, StatSpark } from "@/components/ui";
+import { Card, SectionTitle, MiniBars } from "@/components/ui";
+import { StatSpark } from "@/components/stat-spark";
 import { PresetBar } from "@/components/preset-bar";
 import { requireAccess } from "@/lib/access";
 
