@@ -40,6 +40,7 @@ One scheduled slot of a strategy booking. Each reschedule = a new row; terminal 
 | ix_appt_scheduled_for | CREATE INDEX ix_appt_scheduled_for ON sales.appointment USING btree (scheduled_for) |
 | idx_appt_scheduled_for | CREATE INDEX idx_appt_scheduled_for ON sales.appointment USING btree (scheduled_for) |
 | idx_appt_status | CREATE INDEX idx_appt_status ON sales.appointment USING btree (status) |
+| idx_appt_reason_fk | CREATE INDEX idx_appt_reason_fk ON sales.appointment USING btree (reason_id) |
 
 ## Triggers
 

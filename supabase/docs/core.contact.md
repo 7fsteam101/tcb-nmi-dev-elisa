@@ -40,6 +40,7 @@ One real person = the Close "Lead" (1:1). Extra emails/phones live in contact_id
 | Name | Definition |
 | ---- | ---------- |
 | contact_pkey | CREATE UNIQUE INDEX contact_pkey ON core.contact USING btree (id) |
+| uq_contact_close_id | CREATE UNIQUE INDEX uq_contact_close_id ON core.contact USING btree (close_id) WHERE (close_id IS NOT NULL) |
 
 ## Triggers
 

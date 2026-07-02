@@ -18,6 +18,7 @@ Dashboard login accounts (scrypt password hashes). Verified server-side only; no
 | last_login_at | timestamp with time zone |  | true |  |  | Last successful login. |
 | created_at | timestamp with time zone | now() | false |  |  | When this row was created. |
 | updated_at | timestamp with time zone | now() | false |  |  | When this row was last updated (auto-maintained). |
+| page_overrides | jsonb | '{}'::jsonb | false |  |  | Per-user page access overrides on top of the role defaults: {"\<page\>": true\|false}. Absent key = role default. Pages: overview, funnel, calls, receivables, reps, marketing, forms. Admin-only pages (connections, admin) never override. |
 
 ## Constraints
 

@@ -65,6 +65,11 @@ All calls in one table (type = readiness/strategy/follow_up). The strategy call 
 | uq_primary_strategy | CREATE UNIQUE INDEX uq_primary_strategy ON sales.call USING btree (opportunity_id) WHERE ((type = 'strategy'::call_type) AND is_primary) |
 | ix_call_opp | CREATE INDEX ix_call_opp ON sales.call USING btree (opportunity_id) |
 | idx_call_type | CREATE INDEX idx_call_type ON sales.call USING btree (type) |
+| idx_call_booking_payment_fk | CREATE INDEX idx_call_booking_payment_fk ON sales.call USING btree (booking_payment_id) |
+| idx_call_cancel_reason_fk | CREATE INDEX idx_call_cancel_reason_fk ON sales.call USING btree (cancellation_reason_id) |
+| idx_call_dq_reason_fk | CREATE INDEX idx_call_dq_reason_fk ON sales.call USING btree (dq_reason_id) |
+| idx_call_nafa_fk | CREATE INDEX idx_call_nafa_fk ON sales.call USING btree (nafa_id) |
+| idx_call_rep_fk | CREATE INDEX idx_call_rep_fk ON sales.call USING btree (rep_id) |
 
 ## Triggers
 

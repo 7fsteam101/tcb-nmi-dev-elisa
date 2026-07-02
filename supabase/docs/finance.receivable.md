@@ -42,6 +42,7 @@ One scheduled installment of a payment-plan version. Drives pipeline value, proj
 | ix_receivable_due | CREATE INDEX ix_receivable_due ON finance.receivable USING btree (due_date) |
 | idx_receivable_due | CREATE INDEX idx_receivable_due ON finance.receivable USING btree (due_date) |
 | idx_receivable_status | CREATE INDEX idx_receivable_status ON finance.receivable USING btree (status) |
+| idx_receivable_payment_fk | CREATE INDEX idx_receivable_payment_fk ON finance.receivable USING btree (payment_id) |
 
 ## Triggers
 

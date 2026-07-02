@@ -10,7 +10,7 @@ A sales-cycle instance and the main reporting unit. Contact : Opportunity = 1:N 
 | ---- | ---- | ------- | -------- | -------- | ------- | ------- |
 | id | uuid | gen_random_uuid() | false | [sales.opt_in](sales.opt_in.md) [credit.intake_submission](credit.intake_submission.md) [credit.nafa](credit.nafa.md) [sales.call](sales.call.md) [sales.deal](sales.deal.md) |  | Primary key (uuid, auto-generated). |
 | contact_id | uuid |  | false |  | [core.contact](core.contact.md) | FK to the contact. |
-| stage | opportunity_stage | 'lead_opt_in'::opportunity_stage | false |  |  | The Close pipeline stage — a faithful mirror of Close (the system of record). Users may move an opportunity to any stage, in any direction, and this reflects it. The discipline that our automations never OVERWRITE a won opportunity (they create a NEW opportunity for new activity instead) is enforced in the sync/automation layer, NOT by a database constraint. Reaching won_pif or won_pp triggers client onboarding (a fulfilment record). ACTIVE: lead_opt_in, strategy_call_booked, intake_form_submitted, audit_complete, intake_form_needed, call_confirmed, no_show, call_canceled_by_lead, follow_up_call_booked, warm_list, contract_sent, contract_signed. WON: deposit, won_pif, won_pp. LOST: call_canceled_by_team, lost, dq_on_call. |
+| stage | opportunity_stage | 'lead_opt_in'::opportunity_stage | false |  |  | The Close pipeline stage; a faithful mirror of Close. Users can move it to any stage, in any direction, and this reflects it. Our automations never overwrite a won opportunity; they create a new one for new activity. The enum holds BOTH the live pipeline (eligibility_call_booked, call_completed, closing, closed_won, interested_partner, active_partner, not_a_fit, ...) and the redesigned 18-stage pipeline, so the mirror survives the client's migration. WON-type today: closed_won, active_partner (redesign: deposit, won_pif, won_pp). LOST-type: lost, not_a_fit (redesign adds: call_canceled_by_team, dq_on_call). Reaching a won stage triggers client onboarding. |
 | qualified | boolean | true | false |  |  | Default true until disqualified. |
 | dq_stage | dq_stage |  | true |  |  | Where disqualification happened: setting or closing. |
 | dq_reason_id | uuid |  | true |  | [core.dq_reason](core.dq_reason.md) | FK to the disqualification reason (if disqualified). |
@@ -48,6 +48,11 @@ A sales-cycle instance and the main reporting unit. Contact : Opportunity = 1:N 
 | ix_opp_contact | CREATE INDEX ix_opp_contact ON sales.opportunity USING btree (contact_id) |
 | idx_opportunity_stage | CREATE INDEX idx_opportunity_stage ON sales.opportunity USING btree (stage) |
 | idx_opportunity_opened | CREATE INDEX idx_opportunity_opened ON sales.opportunity USING btree (opened_at) |
+| uq_opportunity_close_id | CREATE UNIQUE INDEX uq_opportunity_close_id ON sales.opportunity USING btree (close_id) WHERE (close_id IS NOT NULL) |
+| idx_opp_current_nafa_fk | CREATE INDEX idx_opp_current_nafa_fk ON sales.opportunity USING btree (current_nafa_id) |
+| idx_opp_dq_reason_fk | CREATE INDEX idx_opp_dq_reason_fk ON sales.opportunity USING btree (dq_reason_id) |
+| idx_opp_lost_reason_fk | CREATE INDEX idx_opp_lost_reason_fk ON sales.opportunity USING btree (lost_reason_id) |
+| idx_opp_owner_rep_fk | CREATE INDEX idx_opp_owner_rep_fk ON sales.opportunity USING btree (owner_rep_id) |
 
 ## Triggers
 

@@ -43,6 +43,8 @@ A cleared transaction. Cash collected = NMI gross, excludes booking_25, net of r
 | ix_payment_receivable | CREATE INDEX ix_payment_receivable ON finance.successful_payment USING btree (receivable_id) |
 | ix_payment_occurred | CREATE INDEX ix_payment_occurred ON finance.successful_payment USING btree (occurred_at) |
 | idx_payment_occurred | CREATE INDEX idx_payment_occurred ON finance.successful_payment USING btree (occurred_at) |
+| idx_payment_rep_fk | CREATE INDEX idx_payment_rep_fk ON finance.successful_payment USING btree (rep_id) |
+| idx_payment_strategy_fk | CREATE INDEX idx_payment_strategy_fk ON finance.successful_payment USING btree (strategy_call_id) |
 
 ## Triggers
 
