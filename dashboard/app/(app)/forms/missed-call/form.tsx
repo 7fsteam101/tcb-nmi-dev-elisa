@@ -34,8 +34,8 @@ export function MissedCallForm({ options }: { options: FormOptions }) {
         </select>
       </Field>
       {what === "rescheduled" && (
-        <Field label="New date and time">
-          <input type="datetime-local" name="newTime" required />
+        <Field label="New date and time (leave empty if not set yet — it goes to the rebook-pending queue)">
+          <input type="datetime-local" name="newTime" />
         </Field>
       )}
       <Field label="Reason">

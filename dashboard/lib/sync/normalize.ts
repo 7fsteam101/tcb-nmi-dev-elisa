@@ -45,6 +45,7 @@ async function normalizeClose(eventType: string, payload: any): Promise<string> 
       fullName: data.display_name ?? data.name,
       email: c?.emails?.[0]?.email,
       phone: c?.phones?.[0]?.phone,
+      createdSource: "close_lead_sync",
     });
     return "lead mirrored";
   }
@@ -54,14 +55,14 @@ async function normalizeClose(eventType: string, payload: any): Promise<string> 
     if (data.status_label && !stage) throw new Error(`Unmapped Close stage label: ${data.status_label}`);
 
     // contact by lead close_id (stub if we have not seen the lead yet)
-    const { id: contactId } = await upsertContact({ closeId: data.lead_id, fullName: data.lead_name });
+    const { id: contactId } = await upsertContact({ closeId: data.lead_id, fullName: data.lead_name, createdSource: "close_lead_sync" });
 
     const existing = await sql`select id, stage from sales.opportunity where close_id = ${data.id} limit 1`;
     if (existing.length) {
       await sql`
         update sales.opportunity set
           stage = coalesce(${stage}::public.opportunity_stage, stage),
-          closed_at = case when ${stage ?? null}::text = any(${TERMINAL}) then coalesce(closed_at, now())
+          closed_at = case when ${stage ?? "__none__"} in ${sql(TERMINAL)} then coalesce(closed_at, now())
                            when ${stage ?? null}::text is not null then null else closed_at end
         where id = ${existing[0].id}`;
       if (stage && WON.includes(stage)) {
@@ -74,7 +75,7 @@ async function normalizeClose(eventType: string, payload: any): Promise<string> 
       insert into sales.opportunity (contact_id, stage, opened_at, close_id, cohort_month, closed_at)
       values (${contactId}, ${stage ?? "lead_opt_in"}, coalesce(${data.date_created ?? null}, now()), ${data.id},
               date_trunc('month', now())::date,
-              case when ${stage ?? null}::text = any(${TERMINAL}) then now() else null end)`;
+              case when ${stage ?? "__none__"} in ${sql(TERMINAL)} then now() else null end)`;
     return "opportunity created (mirror)";
   }
   return `ignored object_type ${objectType ?? "unknown"}`;
@@ -108,7 +109,7 @@ async function stampAttribution(oppId: string, source: string | null, kind: "tou
   await sql`
     update sales.opportunity set
       first_touch_channel = coalesce(first_touch_channel, ${source}),
-      last_touch_channel = case when stage = any(${OPEN_GUARD}) then last_touch_channel else ${source} end,
+      last_touch_channel = case when stage::text in ${sql(OPEN_GUARD)} then last_touch_channel else ${source} end,
       converting_touch_channel = case when ${kind} = 'booking' then coalesce(converting_touch_channel, ${source}) else converting_touch_channel end
     where id = ${oppId}`;
 }
@@ -150,6 +151,7 @@ async function findOrCreateCall(oppId: string, type: string, startTime: string |
 async function normalizeGhl(eventType: string, payload: any): Promise<string> {
   const p = payload ?? {};
   const pc = p.contact ?? {};
+  const event = p.tcb_event ?? eventType;
   const { id: contactId } = await upsertContact({
     ghlMarketingId: pc.id,
     fullName: pc.name ?? pc.full_name,
@@ -157,8 +159,9 @@ async function normalizeGhl(eventType: string, payload: any): Promise<string> {
     lastName: pc.last_name,
     email: pc.email,
     phone: pc.phone,
+    createdSource: event === "form_submitted" ? "ghl_form_submission"
+      : event === "contact_upserted" ? "ghl_contact_sync" : "ghl_appointment",
   });
-  const event = p.tcb_event ?? eventType;
 
   if (event === "form_submitted") {
     const source = p.form?.source ?? "meta_ads";
@@ -206,16 +209,24 @@ async function normalizeGhl(eventType: string, payload: any): Promise<string> {
       return `booking slot recorded (${calendar.type} calendar)`;
     }
     case "appointment_rescheduled": {
-      if (slot && ["scheduled", "confirmed"].includes(slot.status)) {
+      if (slot && ["scheduled", "confirmed", "pending_rebook"].includes(slot.status)) {
         await sql`
           update sales.appointment set status = 'rescheduled', rescheduled_at = now(),
             moved_by = ${p.moved_by === "closer" ? "closer" : "lead_link"},
             reason_id = (select id from core.cancellation_reason where name = ${p.reason ?? ""} limit 1)
           where id = ${slot.id}`;
       }
-      await addSlot(callId, startTime, (slot?.seq ?? 0) + 1);
-      await sql`update sales.call set current_scheduled_at = ${startTime} where id = ${callId}`;
-      return "reschedule recorded (old slot kept, new slot current)";
+      if (startTime) {
+        await addSlot(callId, startTime, (slot?.seq ?? 0) + 1);
+        await sql`update sales.call set current_scheduled_at = ${startTime} where id = ${callId}`;
+        return "reschedule recorded (old slot kept, new slot current)";
+      }
+      // reschedule with no new date -> dateless pending_rebook slot
+      await sql`update sales.appointment set is_current = false where call_id = ${callId}`;
+      await sql`
+        insert into sales.appointment (call_id, seq, scheduled_for, status, is_current)
+        values (${callId}, ${(slot?.seq ?? 0) + 1}, null, 'pending_rebook', true)`;
+      return "reschedule recorded with no new date (rebook pending)";
     }
     case "appointment_confirmed": {
       if (slot && slot.status === "scheduled")
@@ -257,8 +268,44 @@ async function normalizeStripe(eventType: string, payload: any): Promise<string>
   const obj = payload?.data?.object ?? payload;
   const type = payload?.type ?? eventType;
 
+  // disputes: the CASE lives in finance.dispute (status lifecycle + evidence
+  // deadline); the money movement lands in finance.reversal on withdrawal/loss
+  if (type.startsWith("charge.dispute.")) {
+    const [pay] = await sql`
+      select id, deal_id from finance.successful_payment where stripe_charge_id = ${obj.charge ?? ""} limit 1`;
+    const fundsWithdrawn = type === "charge.dispute.funds_withdrawn" ? true
+      : type === "charge.dispute.funds_reinstated" ? false : undefined;
+    await sql`
+      insert into finance.dispute (payment_id, deal_id, processor, external_dispute_id, external_charge_id,
+                                   amount_minor, reason, status, evidence_due_by, opened_at, closed_at, funds_withdrawn)
+      values (${pay?.id ?? null}, ${pay?.deal_id ?? null}, 'stripe', ${obj.id}, ${obj.charge ?? null},
+              ${obj.amount ?? 0}, ${obj.reason ?? null}, ${obj.status ?? "needs_response"},
+              ${obj.evidence_details?.due_by ? new Date(obj.evidence_details.due_by * 1000).toISOString() : null},
+              ${obj.created ? new Date(obj.created * 1000).toISOString() : new Date().toISOString()},
+              ${["won", "lost", "charge_refunded", "warning_closed"].includes(obj.status) ? new Date().toISOString() : null},
+              ${fundsWithdrawn ?? false})
+      on conflict (external_dispute_id) do update set
+        status = excluded.status,
+        evidence_due_by = excluded.evidence_due_by,
+        closed_at = excluded.closed_at,
+        funds_withdrawn = coalesce(${fundsWithdrawn ?? null}, finance.dispute.funds_withdrawn),
+        payment_id = coalesce(finance.dispute.payment_id, excluded.payment_id),
+        deal_id = coalesce(finance.dispute.deal_id, excluded.deal_id)`;
+    // funds actually pulled, or case lost -> the money movement is a reversal
+    if (type === "charge.dispute.funds_withdrawn" || (type === "charge.dispute.closed" && obj.status === "lost")) {
+      const exists = await sql`select 1 from finance.reversal where reason = ${"stripe dispute " + obj.id} limit 1`;
+      if (!exists.length) {
+        await sql`
+          insert into finance.reversal (deal_id, payment_id, type, amount_minor, reason, occurred_at)
+          values (${pay?.deal_id ?? null}, ${pay?.id ?? null}, 'chargeback', ${obj.amount ?? 0},
+                  ${"stripe dispute " + obj.id}, now())`;
+      }
+    }
+    return `dispute ${obj.status} recorded`;
+  }
+
   // refunds net out cash and feed the refund-rate widget
-  if (type === "charge.refunded" || type === "refund.created") {
+  if (type === "charge.refunded" || type === "refund.created" || type === "refund.updated") {
     const chargeId = obj.charge ?? obj.id;
     const [pay] = await sql`
       select id, deal_id, amount_minor from finance.successful_payment where stripe_charge_id = ${chargeId} limit 1`;

@@ -29,7 +29,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     : [];
   return (
     <div className="flex min-h-screen">
-      <aside className="sticky top-0 flex h-screen w-52 shrink-0 flex-col border-r p-4" style={{ borderColor: "var(--line)" }}>
+      <aside className="sticky top-0 flex h-screen w-52 shrink-0 flex-col border-r p-4" style={{ borderColor: "var(--line)", background: "var(--nav)" }}>
         <Link href="/overview" className="mb-6 block">
           <div className="text-sm font-bold leading-tight">The Credit Brothers</div>
           <div className="text-[11px]" style={{ color: "var(--muted)" }}>Sales System</div>

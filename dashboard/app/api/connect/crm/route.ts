@@ -10,6 +10,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "admin login required" }, { status: 401 });
   if (!process.env.GHL_CLIENT_ID)
     return NextResponse.json({ error: "GHL app not registered yet — set GHL_CLIENT_ID / GHL_CLIENT_SECRET" }, { status: 400 });
-  const redirect = `https://${req.headers.get("host")}/api/connect/ghl/callback`;
+  const redirect = `https://${req.headers.get("host")}/api/connect/crm/callback`;
   return NextResponse.redirect(ghlInstallUrl(redirect));
 }

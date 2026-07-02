@@ -3,10 +3,12 @@ import { checkCronSecret } from "@/lib/webhook";
 import { dispatchPending } from "@/lib/sync/writeback";
 import { processPending } from "@/lib/sync/ingest";
 import { syncAllGhl } from "@/lib/sync/ghl";
+import { reconcileStripe } from "@/lib/sync/stripe-reconcile";
 
 // Daily sweep: push pending write-backs to Close/GHL, retry failed inbound
-// events, and pull the last 48h of GHL activity (appointments/contacts/forms)
-// as a safety net under the webhooks. Also fired inline after form submits.
+// events, pull the last 48h of GHL activity, and reconcile Stripe (charges,
+// refunds, disputes) as the safety net under the webhooks. Also fired inline
+// after form submits.
 export async function GET(req: NextRequest) {
   const denied = checkCronSecret(req);
   if (denied) return denied;
@@ -14,5 +16,7 @@ export async function GET(req: NextRequest) {
   const inbound = await processPending();
   let ghl: unknown = "no ghl connections";
   try { ghl = await syncAllGhl({ sinceDays: 2 }); } catch (err) { ghl = String(err); }
-  return NextResponse.json({ ok: true, writeback, inbound, ghl });
+  let stripe: unknown;
+  try { stripe = await reconcileStripe({ sinceDays: 3 }); } catch (err) { stripe = String(err); }
+  return NextResponse.json({ ok: true, writeback, inbound, ghl, stripe });
 }

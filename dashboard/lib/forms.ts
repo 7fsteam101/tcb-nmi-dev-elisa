@@ -329,11 +329,15 @@ export async function submitMissedCall(input: MissedCallInput) {
           reason_id = ${input.reasonId ?? null} where id = ${input.appointmentId}`;
       const [prev] = await sql`select seq from sales.appointment where id = ${input.appointmentId}`;
       await sql`update sales.appointment set is_current = false where call_id = ${ctx.call_id}`;
+      // no new date yet -> a dateless pending_rebook slot (the "Reschedule-no-date" queue)
       await sql`
         insert into sales.appointment (call_id, seq, scheduled_for, status, is_current, is_demo)
-        values (${ctx.call_id}, ${prev.seq + 1}, ${input.newTime ?? new Date().toISOString()}, 'scheduled', true, ${ctx.is_demo})`;
+        values (${ctx.call_id}, ${prev.seq + 1}, ${input.newTime ?? null},
+                ${input.newTime ? "scheduled" : "pending_rebook"}::public.appointment_status, true, ${ctx.is_demo})`;
       await sql`update sales.call set current_scheduled_at = ${input.newTime ?? null} where id = ${ctx.call_id}`;
-      results.push("Reschedule recorded — old slot kept in history, new slot live");
+      results.push(input.newTime
+        ? "Reschedule recorded — old slot kept in history, new slot live"
+        : "Reschedule recorded with NO date yet — sits in the rebook-pending queue until a new time is set");
     } else {
       await sql`
         update sales.appointment set status = ${input.what}, reason_id = ${input.reasonId ?? null}

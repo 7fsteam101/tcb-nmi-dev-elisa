@@ -10,7 +10,7 @@ export function GhlControls({ appRegistered }: { appRegistered: boolean }) {
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap gap-2">
-        <a href="/api/connect/ghl" className={`btn inline-block ${appRegistered ? "" : "pointer-events-none opacity-50"}`}>
+        <a href="/api/connect/crm" className={`btn inline-block ${appRegistered ? "" : "pointer-events-none opacity-50"}`}>
           Install / connect a sub-account
         </a>
         <button className="btn btn-ghost" disabled={pending}

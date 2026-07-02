@@ -15,6 +15,8 @@ export type IncomingContact = {
   ghlMarketingId?: string;
   ghlRepairId?: string;
   sourceChannel?: string;
+  /** Where a NEWLY created contact was born (never overwrites an existing contact's source). */
+  createdSource?: string;
 };
 
 export async function findContact(c: IncomingContact): Promise<string | null> {
@@ -72,10 +74,11 @@ export async function upsertContact(c: IncomingContact): Promise<{ id: string; c
   }
   const rows = await sql`
     insert into core.contact (full_name, first_name, last_name, primary_email, primary_phone,
-                              lifecycle_status, close_id, ghl_marketing_id, ghl_repair_id)
+                              lifecycle_status, close_id, ghl_marketing_id, ghl_repair_id, created_source)
     values (${c.fullName ?? [c.firstName, c.lastName].filter(Boolean).join(" ") ?? "Unknown"},
             ${c.firstName ?? null}, ${c.lastName ?? null}, ${c.email ?? null}, ${c.phone ?? null},
-            'lead', ${c.closeId ?? null}, ${c.ghlMarketingId ?? null}, ${c.ghlRepairId ?? null})
+            'lead', ${c.closeId ?? null}, ${c.ghlMarketingId ?? null}, ${c.ghlRepairId ?? null},
+            ${c.createdSource ?? "unknown"})
     returning id`;
   return { id: rows[0].id, created: true };
 }

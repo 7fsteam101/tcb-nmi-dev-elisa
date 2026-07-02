@@ -1,10 +1,11 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #0b1120;
-  --panel: #111a2e;
-  --panel-2: #17233c;
-  --line: #223050;
+  --bg: #0C1117;      /* dashboard background (Katie) */
+  --nav: #1A1F28;     /* side nav bar (Katie) */
+  --panel: #131922;
+  --panel-2: #1A2230;
+  --line: #262e3a;
   --text: #e7edf7;
   --muted: #9db0cd;
   --accent: #4f8ef7;
