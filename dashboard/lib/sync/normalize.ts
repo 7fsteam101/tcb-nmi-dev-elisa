@@ -98,6 +98,21 @@ async function addSlot(callId: string, startTime: string | null, seq: number) {
     values (${callId}, ${seq}, ${startTime ?? new Date().toISOString()}, 'scheduled', true)`;
 }
 
+// Attribution stamps (automation logic, per the locked rules):
+//   first_touch: only if empty (set once, at the first touch)
+//   last_touch: every touch while the opportunity is still open
+//   converting_touch: the booking's source (kind = "booking")
+const OPEN_GUARD = ["deposit", "won_pif", "won_pp", "closed_won", "active_partner", "lost", "dq_on_call", "call_canceled_by_team", "not_a_fit"];
+async function stampAttribution(oppId: string, source: string | null, kind: "touch" | "booking") {
+  if (!source) return;
+  await sql`
+    update sales.opportunity set
+      first_touch_channel = coalesce(first_touch_channel, ${source}),
+      last_touch_channel = case when stage = any(${OPEN_GUARD}) then last_touch_channel else ${source} end,
+      converting_touch_channel = case when ${kind} = 'booking' then coalesce(converting_touch_channel, ${source}) else converting_touch_channel end
+    where id = ${oppId}`;
+}
+
 // Calendar categorization: every GHL appointment resolves its call type through
 // sync.calendar_map (admin-managed). Unknown calendars auto-register as strategy
 // and surface in the admin panel for review.
@@ -146,13 +161,15 @@ async function normalizeGhl(eventType: string, payload: any): Promise<string> {
   const event = p.tcb_event ?? eventType;
 
   if (event === "form_submitted") {
-    const oppId = await findOrCreateActiveOpportunity(contactId, p.form?.source ?? "meta_ads");
+    const source = p.form?.source ?? "meta_ads";
+    const oppId = await findOrCreateActiveOpportunity(contactId, source);
     await sql`
       insert into sales.opt_in (contact_id, opportunity_id, submitted_at, goal, credit_score_range, blocker,
                                 source_channel, source_campaign, utm, counts_as_unique)
       values (${contactId}, ${oppId}, now(), ${p.form?.goal ?? "other"}, ${p.form?.credit_score_range ?? null},
-              ${p.form?.blocker ?? null}, ${p.form?.source ?? "meta_ads"}, ${p.form?.campaign ?? null}, ${p.form?.utm ?? null},
+              ${p.form?.blocker ?? null}, ${source}, ${p.form?.campaign ?? null}, ${p.form?.utm ?? null},
               not exists (select 1 from sales.opt_in where contact_id = ${contactId} and submitted_at > now() - interval '30 days'))`;
+    await stampAttribution(oppId, source, "touch");
     return "opt-in recorded";
   }
 
@@ -182,8 +199,10 @@ async function normalizeGhl(eventType: string, payload: any): Promise<string> {
       if (!slot) await addSlot(callId, startTime, 1);
       else if (["taken", "no_show", "cancelled_by_lead", "cancelled_by_team", "rescheduled"].includes(slot.status))
         await addSlot(callId, startTime, slot.seq + 1); // terminal slots are immutable — new slot
-      if (calendar.type === "strategy" && calendar.isBooking)
+      if (calendar.type === "strategy" && calendar.isBooking) {
         await sql`update sales.opportunity set stage = 'strategy_call_booked' where id = ${oppId} and stage = 'lead_opt_in'`;
+        await stampAttribution(oppId, p.source ?? null, "booking"); // the booking source = the converting touch
+      }
       return `booking slot recorded (${calendar.type} calendar)`;
     }
     case "appointment_rescheduled": {
