@@ -1,9 +1,11 @@
 import { formOptions } from "@/lib/form-options";
 import { PostCallForm } from "./form";
+import { requireAccess } from "@/lib/access";
 
 export const dynamic = "force-dynamic";
 
 export default async function PostCallPage() {
+  await requireAccess("forms");
   const options = await formOptions();
   return (
     <div>

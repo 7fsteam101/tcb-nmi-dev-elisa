@@ -1,24 +1,20 @@
 import Link from "next/link";
 import { requireSession } from "@/lib/auth";
 import { isDemoMode } from "@/lib/settings";
+import { pagesForUser, PAGE_LABELS } from "@/lib/access";
 import { LogoutButton, NavLink } from "./nav";
-
-const NAV = [
-  { href: "/overview", label: "Overview" },
-  { href: "/funnel", label: "Funnel & Leakage" },
-  { href: "/calls", label: "Calls" },
-  { href: "/receivables", label: "Receivables" },
-  { href: "/reps", label: "Reps & Commission" },
-  { href: "/marketing", label: "Marketing" },
-  { href: "/forms", label: "Forms" },
-  { href: "/connections", label: "Connections" },
-  { href: "/settings", label: "Settings" },
-];
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireSession();
   const demo = await isDemoMode();
-  const nav = user.role === "admin" ? [...NAV, { href: "/admin", label: "Admin" }] : NAV;
+  // nav = the pages this user can actually open (role defaults + admin overrides)
+  const pages = await pagesForUser(user);
+  const nav = [
+    ...pages.map((p) => ({ href: `/${p}`, label: PAGE_LABELS[p] })),
+    ...(user.role === "admin" ? [{ href: "/connections", label: "Connections" }] : []),
+    { href: "/settings", label: "Settings" },
+    ...(user.role === "admin" ? [{ href: "/admin", label: "Admin" }] : []),
+  ];
   return (
     <div className="flex min-h-screen">
       <aside className="sticky top-0 flex h-screen w-52 shrink-0 flex-col border-r p-4" style={{ borderColor: "var(--line)" }}>

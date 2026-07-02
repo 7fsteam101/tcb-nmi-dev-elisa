@@ -2,10 +2,12 @@ import { campaignTable, dailySeries, overviewKpis } from "@/lib/kpi";
 import { isDemoMode, reportTimezone } from "@/lib/settings";
 import { money, num, pct } from "@/lib/format";
 import { Card, Stat, SectionTitle, MiniBars } from "@/components/ui";
+import { requireAccess } from "@/lib/access";
 
 export const dynamic = "force-dynamic";
 
 export default async function Marketing() {
+  await requireAccess("marketing");
   const demo = await isDemoMode();
   const tz = await reportTimezone();
   const p = { demo, days: 30, tz };

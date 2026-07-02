@@ -3,6 +3,7 @@ import { requireSession } from "@/lib/auth";
 import { AdminTab } from "./tabs";
 
 const TABS = [
+  { href: "/admin/users", label: "Users & Access" },
   { href: "/admin/options", label: "Form Options" },
   { href: "/admin/team", label: "Team" },
   { href: "/admin/pricing", label: "Offers & Pricing" },

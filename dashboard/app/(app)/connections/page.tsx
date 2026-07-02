@@ -1,5 +1,7 @@
 import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { sql } from "@/lib/db";
+import { requireSession } from "@/lib/auth";
 import { listConnections } from "@/lib/sync/providers";
 import { Card, SectionTitle, Badge, STATUS_TONE, label } from "@/components/ui";
 import { dateTime } from "@/lib/format";
@@ -9,6 +11,8 @@ import { BackfillButton } from "./backfill-button";
 export const dynamic = "force-dynamic";
 
 export default async function Connections() {
+  const user = await requireSession();
+  if (user.role !== "admin") redirect("/overview");
   const [connections, queue, events] = await Promise.all([
     listConnections(),
     sql`select status, count(*) as n from sync.writeback_queue group by status`,

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Card } from "@/components/ui";
+import { requireAccess } from "@/lib/access";
 
 const FORMS = [
   { href: "/forms/sales-call", title: "Sales Call Report", desc: "Log a strategy-call outcome: taken or missed, offer, close, DQ, objections. Creates the deal and pushes the result to Close." },
@@ -7,7 +8,8 @@ const FORMS = [
   { href: "/forms/post-call", title: "Post-Call Notes", desc: "Notes and objections after a taken call. Posts the note to the lead in Close." },
 ];
 
-export default function FormsIndex() {
+export default async function FormsIndex() {
+  await requireAccess("forms");
   return (
     <div>
       <h1 className="text-xl font-semibold">Forms</h1>

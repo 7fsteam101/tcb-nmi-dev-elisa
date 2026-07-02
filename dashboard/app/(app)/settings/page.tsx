@@ -1,8 +1,8 @@
-import { sql } from "@/lib/db";
+import Link from "next/link";
 import { requireSession } from "@/lib/auth";
 import { isDemoMode, reportTimezone } from "@/lib/settings";
-import { Card, SectionTitle, Badge, label } from "@/components/ui";
-import { DemoToggle, ChangePasswordForm, AddUserForm } from "./forms";
+import { Card, SectionTitle } from "@/components/ui";
+import { DemoToggle, ChangePasswordForm } from "./forms";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +10,6 @@ export default async function Settings() {
   const user = await requireSession();
   const demo = await isDemoMode();
   const tz = await reportTimezone();
-  const users = await sql`select email, full_name, role, active, last_login_at from core.app_user order by created_at`;
 
   return (
     <div>
@@ -40,29 +39,16 @@ export default async function Settings() {
         </div>
         {user.role === "admin" && (
           <div>
-            <SectionTitle>Add a user</SectionTitle>
-            <Card><AddUserForm /></Card>
+            <SectionTitle>Users</SectionTitle>
+            <Card>
+              <p className="mb-3 text-sm" style={{ color: "var(--muted)" }}>
+                Logins, roles, and per-page access live in the admin panel.
+              </p>
+              <Link href="/admin/users" className="btn inline-block">Manage users & access</Link>
+            </Card>
           </div>
         )}
       </div>
-
-      <SectionTitle>Logins</SectionTitle>
-      <Card>
-        <table>
-          <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Last login</th></tr></thead>
-          <tbody>
-            {users.map((u: any) => (
-              <tr key={u.email}>
-                <td>{u.full_name}</td>
-                <td>{u.email}</td>
-                <td className="capitalize">{label(u.role)}</td>
-                <td><Badge tone={u.active ? "good" : "neutral"}>{u.active ? "active" : "disabled"}</Badge></td>
-                <td style={{ color: "var(--muted)" }}>{u.last_login_at ? new Date(u.last_login_at).toLocaleString("en-US") : "never"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </Card>
     </div>
   );
 }

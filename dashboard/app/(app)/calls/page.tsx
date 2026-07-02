@@ -3,10 +3,12 @@ import { upcomingAppointments, recentCallOutcomes } from "@/lib/kpi";
 import { isDemoMode, reportTimezone } from "@/lib/settings";
 import { dateTime, money } from "@/lib/format";
 import { Card, SectionTitle, Badge, STATUS_TONE, label } from "@/components/ui";
+import { requireAccess } from "@/lib/access";
 
 export const dynamic = "force-dynamic";
 
 export default async function Calls() {
+  await requireAccess("calls");
   const demo = await isDemoMode();
   const tz = await reportTimezone();
   const [upcoming, outcomes] = await Promise.all([upcomingAppointments(demo), recentCallOutcomes(demo)]);

@@ -2,10 +2,12 @@ import { pipelineByStage, leakage, cancellationReasons, dailySeries, objectionBr
 import { isDemoMode, reportTimezone } from "@/lib/settings";
 import { num, pct } from "@/lib/format";
 import { Card, Stat, SectionTitle, MiniBars, Badge, label } from "@/components/ui";
+import { requireAccess } from "@/lib/access";
 
 export const dynamic = "force-dynamic";
 
 export default async function Funnel() {
+  await requireAccess("funnel");
   const demo = await isDemoMode();
   const tz = await reportTimezone();
   const [stages, leak, reasons, series, objections] = await Promise.all([

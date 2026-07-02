@@ -1,9 +1,11 @@
 import { formOptions } from "@/lib/form-options";
 import { SalesCallForm } from "./form";
+import { requireAccess } from "@/lib/access";
 
 export const dynamic = "force-dynamic";
 
 export default async function SalesCallPage() {
+  await requireAccess("forms");
   const options = await formOptions();
   return (
     <div>

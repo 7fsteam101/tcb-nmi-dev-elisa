@@ -2,10 +2,12 @@ import { receivablesSummary, receivablesList } from "@/lib/kpi";
 import { isDemoMode } from "@/lib/settings";
 import { money, shortDate } from "@/lib/format";
 import { Card, Stat, SectionTitle, Badge, STATUS_TONE, label } from "@/components/ui";
+import { requireAccess } from "@/lib/access";
 
 export const dynamic = "force-dynamic";
 
 export default async function Receivables() {
+  await requireAccess("receivables");
   const demo = await isDemoMode();
   const [summary, list] = await Promise.all([receivablesSummary(demo), receivablesList(demo)]);
 

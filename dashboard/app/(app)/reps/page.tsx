@@ -2,10 +2,12 @@ import { repPerformance } from "@/lib/kpi";
 import { isDemoMode } from "@/lib/settings";
 import { money, num, pct } from "@/lib/format";
 import { Card, SectionTitle, Badge, InfoTip, label } from "@/components/ui";
+import { requireAccess } from "@/lib/access";
 
 export const dynamic = "force-dynamic";
 
 export default async function Reps() {
+  await requireAccess("reps");
   const demo = await isDemoMode();
   const reps = await repPerformance({ demo, days: 30 });
 
