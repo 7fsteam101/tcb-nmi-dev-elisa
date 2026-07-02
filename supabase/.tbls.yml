@@ -1,0 +1,8 @@
+name: The Credit Brothers - Sales System (Supabase / Postgres)
+include:
+  - core.*
+  - sales.*
+  - credit.*
+  - finance.*
+  - marketing.*
+  - delivery.*

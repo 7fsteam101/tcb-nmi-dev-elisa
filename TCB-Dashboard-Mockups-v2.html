@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Credit Brothers — Sales Base (Mockup v2)</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#f4f6f9;--panel:#fff;--ink:#0f172a;--muted:#64748b;--line:#e6e9ef;
+    --blue:#2563eb;--blue-bg:#eef4ff;--green:#16a34a;--green-bg:#eafaf0;
+    --amber:#d97706;--amber-bg:#fff6e8;--red:#dc2626;--red-bg:#fdecec;
+    --teal:#0d9488;--teal-bg:#e7f7f5;--purple:#7c3aed;--purple-bg:#f3edff;
+    --side:#10182b;--side-ink:#cbd5e1;--side-active:#1d2740;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:14px}
+  .app{display:flex;min-height:100vh}
+  .side{width:244px;background:var(--side);color:var(--side-ink);flex:0 0 244px;padding:14px 12px;position:sticky;top:0;height:100vh;overflow:auto}
+  .brand{display:flex;align-items:center;gap:9px;padding:6px 8px 12px;color:#fff;font-weight:700;font-size:15px}
+  .brand .logo{width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,#3b82f6,#7c3aed);display:flex;align-items:center;justify-content:center;font-size:12px}
+  .navgroup{margin:13px 6px 5px;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:#647089}
+  .nav a{display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:8px;color:var(--side-ink);text-decoration:none;cursor:pointer;font-size:13px;margin-bottom:1px}
+  .nav a:hover{background:#192238;color:#fff}
+  .nav a.active{background:var(--side-active);color:#fff;font-weight:600}
+  .nav a .ic{width:17px;text-align:center}
+  .main{flex:1;min-width:0;display:flex;flex-direction:column}
+  .topbar{background:#fff;border-bottom:1px solid var(--line);padding:13px 26px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:5}
+  .crumb{color:var(--muted);font-size:13px}.crumb b{color:var(--ink)}
+  .legend{margin-left:auto;display:flex;gap:8px;align-items:center;font-size:11.5px;color:var(--muted)}
+  .demo-tag{background:#fff7ed;color:#b45309;border:1px solid #fed7aa;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:600}
+  .content{padding:20px 26px 70px}
+  .page{display:none}.page.active{display:block}
+  h1.title{font-size:25px;margin:2px 0 4px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .sub{color:var(--muted);margin:0 0 16px}
+  .filters{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 18px}
+  .chip{background:#fff;border:1px solid var(--line);border-radius:9px;padding:7px 12px;font-size:13px;color:#334155;display:flex;align-items:center;gap:7px;cursor:pointer}
+  .chip:hover{border-color:#cbd5e1}.chip .v{color:#0f172a;font-weight:600}.chip.pill{background:#f1f5f9}
+  .chip .x{background:#e2761b;color:#fff;border-radius:5px;padding:1px 6px;font-size:11px}
+  .filters .right{margin-left:auto;display:flex;gap:14px;align-items:center;color:var(--muted);font-size:13px}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:13px;margin-bottom:15px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:15px 17px;position:relative;min-height:92px}
+  .card .lab{font-size:12.5px;font-weight:600;margin-bottom:7px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .card .num{font-size:28px;font-weight:800;letter-spacing:-.5px}
+  .card .hint{font-size:11.5px;color:var(--muted);margin-top:3px}
+  .card .go{position:absolute;top:12px;right:12px;width:24px;height:24px;border:1px solid var(--line);border-radius:7px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:12px}
+  .card.b{background:var(--blue-bg)}.card.b .lab,.card.b .num{color:var(--blue)}
+  .card.g{background:var(--green-bg)}.card.g .lab,.card.g .num{color:var(--green)}
+  .card.a{background:var(--amber-bg)}.card.a .lab,.card.a .num{color:var(--amber)}
+  .card.r{background:var(--red-bg)}.card.r .lab,.card.r .num{color:var(--red)}
+  .card.t{background:var(--teal-bg)}.card.t .lab,.card.t .num{color:var(--teal)}
+  .card.p{background:var(--purple-bg)}.card.p .lab,.card.p .num{color:var(--purple)}
+  .delta{font-size:11.5px;font-weight:700;margin-top:5px}.delta.up{color:var(--green)}.delta.down{color:var(--red)}
+  .rdy{font-size:9.5px;font-weight:800;letter-spacing:.03em;padding:2px 6px;border-radius:999px;text-transform:uppercase}
+  .rdy.now{background:#dcfce7;color:#15803d}.rdy.fix{background:#fef3c7;color:#b45309}.rdy.cap{background:#e2e8f0;color:#475569}
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:11px;margin-bottom:15px}
+  .tile{background:#fff;border:1px solid var(--line);border-radius:12px;padding:13px}
+  .tile .t-num{font-size:22px;font-weight:800}.tile .t-lab{font-size:12px;color:var(--muted);margin-top:3px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-bottom:15px}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:15px;margin-bottom:15px}
+  @media(max-width:1100px){.grid2,.grid3{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:15px 17px}
+  .panel h3{margin:0 0 2px;font-size:14.5px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+  .panel .psub{color:var(--muted);font-size:12px;margin:0 0 11px}
+  .chartbox{position:relative;height:230px}.chartbox.sm{height:185px}.chartbox.tall{height:290px}
+  .i{display:inline-flex;width:15px;height:15px;border-radius:50%;background:#e2e8f0;color:#475569;font-size:10px;align-items:center;justify-content:center;cursor:help;font-style:normal;font-weight:700;position:relative}
+  .i:hover .tip{display:block}
+  .tip{display:none;position:absolute;bottom:130%;left:50%;transform:translateX(-50%);background:#0f172a;color:#fff;padding:8px 10px;border-radius:8px;width:230px;font-size:12px;font-weight:400;line-height:1.4;z-index:20;box-shadow:0 8px 24px rgba(0,0,0,.18)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;color:var(--muted);font-weight:600;padding:9px 10px;border-bottom:1px solid var(--line);font-size:12px}
+  td{padding:9px 10px;border-bottom:1px solid #f1f4f8}
+  tr:hover td{background:#fafbfd}
+  .badge{padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:600}
+  .bd-g{background:var(--green-bg);color:var(--green)}.bd-a{background:var(--amber-bg);color:var(--amber)}
+  .bd-r{background:var(--red-bg);color:var(--red)}.bd-b{background:var(--blue-bg);color:var(--blue)}.bd-s{background:#f1f5f9;color:#475569}
+  .lead-leak{border-left:4px solid var(--red)}
+  .sectlabel{display:inline-block;color:#fff;font-weight:700;padding:5px 12px;border-radius:8px;margin:4px 0 12px;font-size:13px}
+  .note{background:#fff;border:1px solid var(--line);border-left:4px solid var(--blue);border-radius:10px;padding:11px 14px;color:#334155;font-size:13px;margin-bottom:15px}
+  .note.cap{border-left-color:#94a3b8}.note.fix{border-left-color:var(--amber)}
+  .reports{background:#0c1322;border:1px solid #1e293b;border-radius:18px;padding:28px;color:#e2e8f0}
+  .reports h2{text-align:center;color:#e0a93f;letter-spacing:.14em;margin:0 0 6px;font-size:20px}
+  .reports .ul{width:54px;height:3px;background:#e0a93f;margin:0 auto 16px;border-radius:2px}
+  .reports .intro{text-align:center;max-width:680px;margin:0 auto 20px;line-height:1.6;color:#cbd5e1}.reports .intro b{color:#fff}
+  .rcards{display:grid;grid-template-columns:repeat(4,1fr);gap:13px}@media(max-width:900px){.rcards{grid-template-columns:1fr 1fr}}
+  .rcard{border-radius:14px;padding:15px;color:#fff}.rcard .h{font-weight:700;font-size:14.5px;margin-bottom:9px}
+  .rcard .tagi{display:inline-block;background:rgba(0,0,0,.28);padding:6px 10px;border-radius:9px;font-size:11.5px;font-weight:600;line-height:1.35}
+  .rc-g{background:linear-gradient(135deg,#3f9d54,#2f7d41)}.rc-a{background:linear-gradient(135deg,#e0992f,#c97e1f)}
+  .rc-b{background:linear-gradient(135deg,#3f86d9,#2f6dc0)}.rc-p{background:linear-gradient(135deg,#9466e0,#7c4fd0)}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand"><span class="logo">CB</span> TCB · Sales Base</div>
+    <div class="navgroup">Overview</div>
+    <nav class="nav">
+      <a data-go="snapshot" class="active">Weekly Snapshot</a>
+      <a data-go="overview">Funnel Overview</a>
+    </nav>
+    <div class="navgroup">Acquisition</div>
+    <nav class="nav">
+      <a data-go="optins">Opt Ins &amp; Leads</a>
+      <a data-go="ads">Ads &amp; Attribution</a>
+      <a data-go="email">Email</a>
+    </nav>
+    <div class="navgroup">Calls &amp; Setting</div>
+    <nav class="nav">
+      <a data-go="appts">Appointments &amp; Leakage</a>
+      <a data-go="setters">Setters</a>
+    </nav>
+    <div class="navgroup">Sales</div>
+    <nav class="nav">
+      <a data-go="opps">Opportunities</a>
+      <a data-go="deals">Deals</a>
+      <a data-go="closers">Closers</a>
+      <a data-go="objections">Objections &amp; Calls</a>
+      <a data-go="projections">Sales Projections</a>
+    </nav>
+    <div class="navgroup">Finance</div>
+    <nav class="nav">
+      <a data-go="cash">Cash Collected</a>
+      <a data-go="receivables">Receivables</a>
+      <a data-go="refunds">Refunds</a>
+      <a data-go="commissions">Commissions</a>
+    </nav>
+    <div class="navgroup">Team &amp; Retention</div>
+    <nav class="nav">
+      <a data-go="teamhealth">Team Health</a>
+      <a data-go="retention">Retention</a>
+      <a data-go="leadscore">Lead Scoring</a>
+      <a data-go="reports">Reports</a>
+    </nav>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <span class="crumb">Sales Workspace › <b id="crumb">Weekly Snapshot</b></span>
+      <span class="legend">
+        <span class="rdy now">Live</span> buildable now
+        <span class="rdy fix">Needs fix</span> data fix first
+        <span class="rdy cap">Needs capture</span> new instrumentation
+      </span>
+      <span class="demo-tag">DEMO DATA</span>
+    </div>
+    <div class="content">
+
+      <!-- ===== WEEKLY SNAPSHOT ===== -->
+      <section class="page active" id="snapshot">
+        <h1 class="title">Weekly Snapshot</h1>
+        <p class="sub">The leadership view. Everything that matters for the week, in one screen.</p>
+        <div class="filters"><div class="chip pill">Week <span class="v">Jun 16 – Jun 22</span> ▾</div><div class="chip">Compare <span class="v">vs last week</span> ▾</div><div class="filters right"><span>Filter</span></div></div>
+        <div class="cards">
+          <div class="card"><div class="go">↗</div><div class="lab">Qualified Opt Ins <span class="rdy now">Live</span></div><div class="num">1,318</div><div class="delta up">▲ 6.2%</div></div>
+          <div class="card"><div class="go">↗</div><div class="lab">Calls Booked <span class="rdy now">Live</span></div><div class="num">540</div><div class="delta up">▲ 4.1%</div></div>
+          <div class="card a"><div class="go">↗</div><div class="lab">Calls Taken <span class="rdy now">Live</span></div><div class="num">156</div><div class="delta down">▼ 2.4%</div></div>
+          <div class="card g"><div class="go">↗</div><div class="lab">Closed <span class="rdy now">Live</span></div><div class="num">38</div><div class="delta up">▲ 8.6%</div></div>
+          <div class="card b"><div class="go">↗</div><div class="lab">Invoiced Revenue <span class="rdy now">Live</span></div><div class="num">$112,400</div><div class="delta up">▲ 11%</div></div>
+          <div class="card g"><div class="go">↗</div><div class="lab">Cash Collected <span class="rdy now">Live</span></div><div class="num">$104,860</div><div class="delta up">▲ 9.3%</div></div>
+          <div class="card t"><div class="go">↗</div><div class="lab">Pipeline Value <span class="rdy fix">Needs fix</span></div><div class="num">$346,653</div><div class="hint">open plans not yet collected</div></div>
+          <div class="card p"><div class="go">↗</div><div class="lab">Projected next 30 days <span class="rdy fix">Needs fix</span></div><div class="num">$198,400</div><div class="hint">scheduled receivables</div></div>
+        </div>
+        <div class="grid2">
+          <div class="panel"><h3>The week's funnel</h3><p class="psub">Opt in to cash</p><div class="chartbox tall"><canvas id="sn_funnel"></canvas></div></div>
+          <div class="panel"><h3>Cash collected, last 8 weeks</h3><p class="psub">New vs residual</p><div class="chartbox tall"><canvas id="sn_cash"></canvas></div></div>
+        </div>
+        <div class="note">The booked to taken step is still the leak. 540 booked, 156 taken (29%). Lifting that to 45% is roughly 9 more closes a week at no extra ad spend. Open the Appointments page to see why.</div>
+      </section>
+
+      <!-- ===== FUNNEL OVERVIEW ===== -->
+      <section class="page" id="overview">
+        <h1 class="title">Funnel Overview</h1>
+        <p class="sub">Spend to cash, with the dollar leak at each step.</p>
+        <div class="filters"><div class="chip pill">Date <span class="v">This month</span> ▾</div><div class="chip">Channel ▾</div><div class="chip">Closer ▾</div><div class="chip">Setter ▾</div><div class="filters right"><span>More</span><span>Filter</span></div></div>
+        <div class="cards">
+          <div class="card b"><div class="go">↗</div><div class="lab">Ad Spend <span class="rdy now">Live</span></div><div class="num">$48,200</div></div>
+          <div class="card"><div class="go">↗</div><div class="lab">Leads <span class="rdy now">Live</span></div><div class="num">1,420</div><div class="hint">$33.94 per lead</div></div>
+          <div class="card"><div class="go">↗</div><div class="lab">Booked <span class="rdy now">Live</span></div><div class="num">540</div><div class="hint">$89.26 per booked</div></div>
+          <div class="card a"><div class="go">↗</div><div class="lab">Taken <span class="rdy now">Live</span></div><div class="num">156</div><div class="hint">28.9% of booked</div></div>
+          <div class="card g"><div class="go">↗</div><div class="lab">Closed <span class="rdy now">Live</span></div><div class="num">38</div><div class="hint">24.4% of taken</div></div>
+          <div class="card g"><div class="go">↗</div><div class="lab">Cash <span class="rdy now">Live</span></div><div class="num">$104,860</div></div>
+        </div>
+        <div class="grid2">
+          <div class="panel"><h3>The funnel, step by step</h3><p class="psub">Where volume falls off</p><div class="chartbox tall"><canvas id="ov_funnel"></canvas></div></div>
+          <div class="panel"><h3>Conversion rates</h3><p class="psub">The chain that turns spend into cash</p><div class="chartbox tall"><canvas id="ov_rates"></canvas></div></div>
+        </div>
+      </section>
+
+      <!-- ===== OPT INS ===== -->
+      <section class="page" id="optins">
+        <span class="sectlabel" style="background:#5b54e6">Opt Ins</span>
+        <h1 class="title">Opt Ins &amp; Leads</h1>
+        <p class="sub">Every lead-form submission, by how it was acquired.</p>
+        <div class="filters"><div class="chip pill">Date <span class="v">This month</span> ▾</div><div class="chip">Channel ▾</div><div class="chip">Campaign ▾</div><div class="filters right"><span>Filter</span></div></div>
+        <div class="cards">
+          <div class="card"><div class="lab">Total Opt Ins <span class="rdy now">Live</span></div><div class="num">1,420</div></div>
+          <div class="card b"><div class="lab">Paid Opt Ins <span class="rdy now">Live</span></div><div class="num">1,040</div></div>
+          <div class="card p"><div class="lab">Organic Opt Ins <span class="rdy now">Live</span></div><div class="num">380</div></div>
+          <div class="card"><div class="lab">Cost per Opt In <span class="rdy now">Live</span></div><div class="num">$33.94</div></div>
+          <div class="card t"><div class="lab">Qualified Opt Ins <span class="rdy now">Live</span></div><div class="num">1,318</div></div>
+        </div>
+        <div class="grid2">
+          <div class="panel"><h3>Opt ins over time</h3><p class="psub">Daily, paid vs organic</p><div class="chartbox"><canvas id="oi_trend"></canvas></div></div>
+          <div class="panel"><h3>Lead volume by source <span class="i">i<span class="tip">Tracked via Dub links on every entry point: Meta ads, link in bio, DM setter links, email.</span></span> <span class="rdy fix">Needs fix</span></h3><p class="psub">Needs Dub for full accuracy</p><div class="chartbox"><canvas id="oi_source"></canvas></div></div>
+        </div>
+        <div class="grid2">
+          <div class="panel"><h3>By goal</h3><p class="psub">What the lead wants</p><div class="chartbox sm"><canvas id="oi_goal"></canvas></div></div>
+          <div class="panel"><h3>By credit-score range</h3><p class="psub">Self-reported at opt in</p><div class="chartbox sm"><canvas id="oi_score"></canvas></div></div>
+        </div>
+      </section>
+
+      <!-- ===== ADS ===== -->
+      <section class="page" id="ads">
+        <span class="sectlabel" style="background:#5b54e6">Ads &amp; Attribution</span>
+        <h1 class="title">Ads &amp; Attribution</h1>
+        <p class="sub">Meta spend tied through to buyers, not just cheap leads.</p>
+        <div class="filters"><div class="chip pill">Date <span class="v">This month</span> ▾</div><div class="chip">Campaign ▾</div><div class="chip">Ad ▾</div><div class="filters right"><span>Filter</span></div></div>
+        <div class="cards">
+          <div class="card b"><div class="lab">Spend <span class="rdy now">Live</span></div><div class="num">$48,200</div></div>
+          <div class="card"><div class="lab">CPC <span class="rdy now">Live</span></div><div class="num">$1.84</div></div>
+          <div class="card"><div class="lab">CTR <span class="rdy now">Live</span></div><div class="num">2.6%</div></div>
+          <div class="card"><div class="lab">Cost per Lead <span class="rdy now">Live</span></div><div class="num">$33.94</div></div>
+          <div class="card a"><div class="lab">Cost per Booked <span class="rdy now">Live</span></div><div class="num">$89.26</div></div>
+          <div class="card g"><div class="lab">ROAS, cash <span class="rdy fix">Needs fix</span></div><div class="num">2.17x</div></div>
+          <div class="card t"><div class="lab">ROAS, invoiced <span class="rdy fix">Needs fix</span></div><div class="num">2.33x</div></div>
+        </div>
+        <div class="grid2">
+          <div class="panel"><h3>Spend vs cash by campaign <span class="rdy fix">Needs fix</span></h3><p class="psub">Per-campaign ROAS needs Dub</p><div class="chartbox"><canvas id="ad_camp"></canvas></div></div>
+          <div class="panel"><h3>ROAS by campaign</h3><p class="psub">Cash collected over spend</p><div class="chartbox"><canvas id="ad_roas"></canvas></div></div>
+        </div>
+        <div class="panel"><h3>Ad performance</h3><p class="psub">Top ads this month</p>
+          <table><thead><tr><th>Ad</th><th>Spend</th><th>CTR</th><th>Leads</th><th>Booked</th><th>Closed</th><th>ROAS</th></tr></thead>
+          <tbody>
+            <tr><td>Contrarian A — "Don't pay your debt"</td><td>$18,200</td><td>3.1%</td><td>540</td><td>214</td><td>17</td><td><span class="badge bd-g">2.6x</span></td></tr>
+            <tr><td>House goal — "Buy in 2026"</td><td>$12,400</td><td>2.4%</td><td>360</td><td>132</td><td>9</td><td><span class="badge bd-a">1.9x</span></td></tr>
+            <tr><td>Score myth — "You don't need 550"</td><td>$9,600</td><td>2.2%</td><td>300</td><td>104</td><td>5</td><td><span class="badge bd-r">1.4x</span></td></tr>
+            <tr><td>Retarget — VSL viewers</td><td>$8,000</td><td>3.4%</td><td>220</td><td>90</td><td>7</td><td><span class="badge bd-g">3.1x</span></td></tr>
+          </tbody></table>
+        </div>
+      </section>
+
+      <!-- ===== EMAIL ===== -->
+      <section class="page" id="email">
+        <span class="sectlabel" style="background:#5b54e6">Email</span>
+        <h1 class="title">Email</h1>
+        <p class="sub">Nurture and reactivation performance.</p>
+        <div class="note cap">These metrics need email-platform instrumentation before they go live. Shown here with demo data so the page is ready when the data is.</div>
+        <div class="filters"><div class="chip pill">Date <span class="v">This month</span> ▾</div><div class="chip">Campaign ▾</div><div class="filters right"><span>Filter</span></div></div>
+        <div class="cards">
+          <div class="card"><div class="lab">Open Rate <span class="rdy cap">Needs capture</span></div><div class="num">41%</div></div>
+          <div class="card"><div class="lab">Click Rate <span class="rdy cap">Needs capture</span></div><div class="num">6.2%</div></div>
+          <div class="card r"><div class="lab">Unsubscribe Rate <span class="rdy cap">Needs capture</span></div><div class="num">0.4%</div></div>
+          <div class="card g"><div class="lab">Calls Booked from Email <span class="rdy cap">Needs capture</span></div><div class="num">34</div></div>
+        </div>
+        <div class="panel"><h3>Email engagement over time</h3><div class="chartbox"><canvas id="em_trend"></canvas></div></div>
+      </section>
+
+      <!-- ===== APPTS / LEAKAGE ===== -->
+      <section class="page" id="appts">
+        <span class="sectlabel" style="background:#2f6df6">Appointments</span>
+        <h1 class="title">Appointments &amp; Leakage <span class="i">i<span class="tip">An appointment is one scheduled slot of a booking. Each reschedule is a new slot, which is what makes "5 booked today, 3 rescheduled" possible.</span></span></h1>
+        <p class="sub">The bottleneck. This is where the most money leaks, so it gets the most attention.</p>
+        <div class="filters"><div class="chip pill">Date <span class="v">This month</span> ▾</div><div class="chip">Closer ▾</div><div class="chip">Setter ▾</div><div class="chip">Source ▾</div><div class="filters right"><span>Filter</span></div></div>
+        <div class="tiles">
+          <div class="tile"><div class="t-num">612</div><div class="t-lab">Appts Created</div></div>
+          <div class="tile"><div class="t-num">540</div><div class="t-lab">Appts Scheduled</div></div>
+          <div class="tile"><div class="t-num">470</div><div class="t-lab">Intake Forms Submitted</div></div>
+          <div class="tile"><div class="t-num">70</div><div class="t-lab">Intake Forms Needed</div></div>
+          <div class="tile"><div class="t-num">88</div><div class="t-lab">Appts Cancelled</div></div>
+          <div class="tile"><div class="t-num">452</div><div class="t-lab">Appts on Calendar</div></div>
+          <div class="tile"><div class="t-num">156</div><div class="t-lab">Appts Taken</div></div>
+        </div>
+        <div class="cards">
+          <div class="card a"><div class="lab">Show Rate <span class="rdy now">Live</span></div><div class="num">34.5%</div><div class="hint">taken / on calendar</div></div>
+          <div class="card r"><div class="lab">No-Show Rate <span class="rdy fix">Needs fix</span></div><div class="num">31%</div></div>
+          <div class="card a"><div class="lab">Reschedule Rate <span class="rdy now">Live</span></div><div class="num">39%</div></div>
+          <div class="card g"><div class="lab">No-Show Recoveries <span class="rdy now">Live</span></div><div class="num">17</div></div>
+        </div>
+        <div class="grid3">
+          <div class="panel"><h3>Booked vs Taken</h3><p class="psub">Unique contacts only</p><div class="chartbox sm"><canvas id="ap_bvt"></canvas></div></div>
+          <div class="panel"><h3>Cancellation Reason <span class="rdy cap">Needs capture</span></h3><p class="psub">Unique contacts only</p><div class="chartbox sm"><canvas id="ap_cancel"></canvas></div></div>
+          <div class="panel"><h3>Reschedules <span class="i">i<span class="tip">Counted when an appointment status = rescheduled. A no-show that later rebooks is a recovery, not a reschedule.</span></span></h3>
+            <div class="tiles" style="grid-template-columns:1fr 1fr;margin:6px 0 0">
+              <div class="tile"><div class="t-num">214</div><div class="t-lab">Total reschedules</div></div>
+              <div class="tile"><div class="t-num">2.1x</div><div class="t-lab">Avg per booking</div></div>
+              <div class="tile"><div class="t-num">61</div><div class="t-lab">Resched then showed</div></div>
+              <div class="tile"><div class="t-num">28%</div><div class="t-lab">Resched recovery</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="panel" style="margin-bottom:15px"><h3>Today's calendar <span class="i">i<span class="tip">Read from the Appointment status, not the opportunity stage. Rescheduled slots stay on today's count because each slot is its own record.</span></span></h3>
+          <p class="psub">Five booked for today, three rescheduled away. The rescheduled slots stay on today's count.</p>
+          <table><thead><tr><th>Lead</th><th>Closer</th><th>Scheduled for</th><th>Status</th><th>Reschedules</th></tr></thead>
+          <tbody>
+            <tr><td>Jordan M.</td><td>Elijah Hughes</td><td>9:00 AM</td><td><span class="badge bd-g">Taken</span></td><td>1</td></tr>
+            <tr class="lead-leak"><td>Dana R.</td><td>River Shaw</td><td>10:30 AM</td><td><span class="badge bd-a">Rescheduled</span></td><td>2</td></tr>
+            <tr class="lead-leak"><td>Marcus P.</td><td>Elijah Hughes</td><td>12:00 PM</td><td><span class="badge bd-a">Rescheduled</span></td><td>1</td></tr>
+            <tr><td>Tasha L.</td><td>River Shaw</td><td>2:00 PM</td><td><span class="badge bd-b">Confirmed</span></td><td>0</td></tr>
+            <tr class="lead-leak"><td>Priya N.</td><td>Elijah Hughes</td><td>3:30 PM</td><td><span class="badge bd-a">Rescheduled</span></td><td>3</td></tr>
+          </tbody></table>
+        </div>
+      </section>
+
+      <!-- ===== SETTERS ===== -->
+      <section class="page" id="setters">
+        <span class="sectlabel" style="background:#2f6df6">Setters</span>
+        <h1 class="title">Setters</h1>
+        <p class="sub">Setting performance. Speed to lead and confirm rate drive the show rate.</p>
+        <div class="filters"><div class="chip pill">Date <span class="v">This month</span> ▾</div><div class="chip">Setter ▾</div><div class="filters right"><span>Filter</span></div></div>
+        <div class="cards">
+          <div class="card b"><div class="lab">Calls Booked <span class="rdy now">Live</span></div><div class="num">540</div></div>
+          <div class="card t"><div class="lab">Median Speed to Lead <span class="rdy cap">Needs capture</span></div><div class="num">4m 12s</div></div>
+          <div class="card g"><div class="lab">Confirm Rate <span class="rdy cap">Needs capture</span></div><div class="num">71%</div></div>
+          <div class="card a"><div class="lab">Show Rate <span class="rdy now">Live</span></div><div class="num">34%</div></div>
+          <div class="card r"><div class="lab">DQ at Setting <span class="rdy cap">Needs capture</span></div><div class="num">9%</div></div>
+        </div>
+        <div class="grid2">
+          <div class="panel"><h3>Booked per setter by source</h3><div class="chartbox"><canvas id="st_source"></canvas></div></div>
+          <div class="panel"><h3>Speed to lead distribution</h3><p class="psub">Minutes to first contact</p><div class="chartbox"><canvas id="st_speed"></canvas></div></div>
+        </div>
+        <div class="panel"><h3>Setter leaderboard</h3>
+          <table><thead><tr><th>Setter</th><th>Booked</th><th>Confirmed</th><th>Shows</th><th>Speed to lead</th><th>Show rate</th></tr></thead>
+          <tbody>
+            <tr><td>Ava Bennett</td><td>184</td><td>142</td><td>71</td><td>2m 50s</td><td><span class="badge bd-g">39%</span></td></tr>
+            <tr><td>Leo Park</td><td>171</td><td>118</td><td>54</td><td>4m 30s</td><td><span class="badge bd-a">32%</span></td></tr>
+            <tr><td>Maya Cruz</td><td>185</td><td>121</td><td>49</td><td>6m 05s</td><td><span class="badge bd-r">26%</span></td></tr>
+          </tbody></table>
+        </div>
+      </section>
+
+      <!-- ===== OPPORTUNITIES ===== -->
+      <section class="page" id="opps">
+        <span class="sectlabel" style="background:#2f8174">Opportunities</span>
+        <h1 class="title">Opportunities</h1>
+        <p class="sub">The sales cycle by stage. One opportunity per active cycle, one close per opportunity.</p>
+        <div class="filters"><div class="chip pill">Date <span class="v">This month</span> ▾</div><div class="chip">Closer ▾</div><div class="chip">Stage ▾</div><div class="filters right"><span>Filter</span></div></div>
+        <div class="cards">
+          <div class="card b"><div class="lab">Open Opportunities <span class="rdy now">Live</span></div><div class="num">389</div></div>
+          <div class="card t"><div class="lab">In Follow-up <span class="rdy now">Live</span></div><div class="num">142</div></div>
+          <div class="card g"><div class="lab">Won this month <span class="rdy now">Live</span></div><div class="num">38</div></div>
+          <div class="card r"><div class="lab">Lost / DQ <span class="rdy now">Live</span></div><div class="num">96</div></div>
+        </div>
+        <div class="grid2">
+          <div class="panel"><h3>Pipeline by stage</h3><p class="psub">Active opportunities across the Close pipeline</p><div class="chartbox tall"><canvas id="op_stage"></canvas></div></div>
+          <div class="panel"><h3>Outcome split</h3><p class="psub">Won, lost, disqualified, open</p><div class="chartbox tall"><canvas id="op_outcome"></canvas></div></div>
+        </div>
+        <div class="grid3">
+          <div class="panel"><h3>Hot</h3><p class="psub">≤ 7 days</p><div class="num" style="font-size:26px;font-weight:800;color:var(--red)">33</div></div>
+          <div class="panel"><h3>Warm</h3><p class="psub">≤ 21 days</p><div class="num" style="font-size:26px;font-weight:800;color:var(--amber)">41</div></div>
+          <div class="panel"><h3>Cold</h3><p class="psub">30+ days</p><div class="num" style="font-size:26px;font-weight:800;color:var(--muted)">68</div></div>
+        </div>
+      </section>
+
+      <!-- ===== DEALS ===== -->
+      <section class="page" id="deals">
+        <span class="sectlabel" style="background:#2f7d41">Deals</span>
+        <h1 class="title">All Deals</h1>
+        <p class="sub">Closed-won deals, their value, and the cash taken up front.</p>
+        <div class="filters"><div class="chip pill">Deal Closed Date <span class="v">This month</span> ▾</div><div class="chip">Deal Type ▾</div><div class="chip">Contract Status is not <span class="x">Withdrawn</span> ▾</div><div class="chip">Offer ▾</div><div class="chip">Closer ▾</div><div class="filters right"><span>More</span><span>Filter</span></div></div>
+        <div class="cards">
+          <div class="card b"><div class="lab">All Deals <span class="rdy now">Live</span></div><div class="num">38</div></div>
+          <div class="card b"><div class="lab">Revenue <span class="rdy now">Live</span></div><div class="num">$112,400</div></div>
+          <div class="card g"><div class="lab">New Cash Upfront <span class="rdy now">Live</span></div><div class="num">$61,300</div></div>
+          <div class="card"><div class="lab">AOV, Revenue <span class="rdy now">Live</span></div><div class="num">$2,957</div></div>
+          <div class="card"><div class="lab">AOV, Cash <span class="rdy now">Live</span></div><div class="num">$1,613</div></div>
+        </div>
+        <div class="panel" style="margin-bottom:15px"><h3>New Cash Upfront per Closer</h3><div class="chartbox"><canvas id="dl_closer"></canvas></div></div>
+        <div class="grid2">
+          <div class="panel"><h3>Revenue per Offer</h3><div class="chartbox sm"><canvas id="dl_offer"></canvas></div></div>
+          <div class="panel"><h3>PIF vs Payment Plan</h3><div class="chartbox sm"><canvas id="dl_pif"></canvas></div></div>
+        </div>
+      </section>
+
+      <!-- ===== CLOSERS ===== -->
+      <section class="page" id="closers">
+        <span class="sectlabel" style="background:#2f7d41">Closers</span>
+        <h1 class="title">Closers</h1>
+        <p class="sub">Closing performance, cash, and commission.</p>
+        <div class="filters"><div class="chip pill">Date <span class="v">This month</span> ▾</div><div class="chip">Closer ▾</div><div class="filters right"><span>Filter</span></div></div>
+        <div class="cards">
+          <div class="card b"><div class="lab">Calls Taken <span class="rdy now">Live</span></div><div class="num">156</div></div>
+          <div class="card g"><div class="lab">Close Rate <span class="rdy now">Live</span></div><div class="num">24.4%</div></div>
+          <div class="card g"><div class="lab">Cash Collected <span class="rdy now">Live</span></div><div class="num">$104,860</div></div>
+          <div class="card a"><div class="lab">DQ at Closing <span class="rdy cap">Needs capture</span></div><div class="num">11%</div></div>
+          <div class="card p"><div class="lab">Commission Owed <span class="rdy fix">Needs fix</span></div><div class="num">$12,940</div></div>
+        </div>
+        <div class="panel" style="margin-bottom:15px"><h3>Closer leaderboard <span class="i">i<span class="tip">Commission is 10% of cash collected, rising to 15% if the rep's prior 2-week close rate is at or above 33.3%.</span></span></h3>
+          <table><thead><tr><th>Closer</th><th>Taken</th><th>Closed</th><th>Close rate</th><th>Cash</th><th>Tier</th><th>Commission</th></tr></thead>
+          <tbody>
+            <tr><td>Elijah Hughes</td><td>62</td><td>19</td><td><span class="badge bd-g">30.6%</span></td><td>$48,200</td><td><span class="badge bd-b">15%</span></td><td>$7,230</td></tr>
+            <tr><td>River Shaw</td><td>58</td><td>13</td><td><span class="badge bd-a">22.4%</span></td><td>$37,160</td><td><span class="badge bd-s">10%</span></td><td>$3,716</td></tr>
+            <tr><td>Sam Doyle</td><td>36</td><td>6</td><td><span class="badge bd-r">16.7%</span></td><td>$19,500</td><td><span class="badge bd-s">10%</span></td><td>$1,950</td></tr>
+          </tbody></table>
+        </div>
+        <div class="grid2">
+          <div class="panel"><h3>Close rate per closer</h3><div class="chartbox sm"><canvas id="cl_rate"></canvas></div></div>
+          <div class="panel"><h3>Cash per closer, last 6 months</h3><div class="chartbox sm"><canvas id="cl_cash"></canvas></div></div>
+        </div>
+      </section>
+
+      <!-- ===== OBJECTIONS ===== -->
+      <section class="page" id="objections">
+        <span class="sectlabel" style="background:#2f7d41">Objections &amp; Calls</span>
+        <h1 class="title">Objections &amp; Call Analysis</h1>
+        <p class="sub">What is killing deals on the call, powered by AI analysis of the SendBlue transcripts.</p>
+        <div class="note cap">Most of this page is unlocked by AI call analysis on the strategy-call transcripts. Demo data for now.</div>
+        <div class="filters"><div class="chip pill">Date <span class="v">This month</span> ▾</div><div class="chip">Closer ▾</div><div class="filters right"><span>Filter</span></div></div>
+        <div class="cards">
+          <div class="card a"><div class="lab">Top Objection <span class="rdy cap">Needs capture</span></div><div class="num" style="font-size:20px">Price</div></div>
+          <div class="card"><div class="lab">Offers Made <span class="rdy fix">Needs fix</span></div><div class="num">142</div></div>
+          <div class="card t"><div class="lab">Follow-up Close Rate <span class="rdy cap">Needs capture</span></div><div class="num">19%</div></div>
+          <div class="card"><div class="lab">Median Time to Close <span class="rdy fix">Needs fix</span></div><div class="num">6 days</div></div>
+        </div>
+        <div class="grid2">
+          <div class="panel"><h3>Objection breakdown</h3><p class="psub">Frequency on taken calls</p><div class="chartbox"><canvas id="ob_break"></canvas></div></div>
+          <div class="panel"><h3>Which objections lead to a loss</h3><p class="psub">Loss rate by objection</p><div class="chartbox"><canvas id="ob_loss"></canvas></div></div>
+        </div>
+        <div class="grid2">
+          <div class="panel"><h3>First call vs follow-up close rate</h3><div class="chartbox sm"><canvas id="ob_followup"></canvas></div></div>
+          <div class="panel"><h3>Time to close distribution</h3><div class="chartbox sm"><canvas id="ob_ttc"></canvas></div></div>
+        </div>
+      </section>
+
+      <!-- ===== PROJECTIONS ===== -->
+      <section class="page" id="projections">
+        <span class="sectlabel" style="background:#2f7d41">Projections</span>
+        <h1 class="title">Sales Projections</h1>
+        <p class="sub">Expected closes weighted by the closer's confidence.</p>
+        <div class="filters"><div class="chip pill">Scheduled For <span class="v">This month</span> ▾</div><div class="chip">Closer ▾</div><div class="chip">Acquisition Type ▾</div><div class="chip">Channel ▾</div><div class="filters right"><span>Filter</span></div></div>
+        <div class="cards">
+          <div class="card g"><div class="lab">Projected to Close <span class="rdy fix">Needs fix</span></div><div class="num">22</div></div>
+          <div class="card g"><div class="lab">Deals Projected Value <span class="rdy fix">Needs fix</span></div><div class="num">$64,200</div></div>
+          <div class="card t"><div class="lab">Weighted Pipeline <span class="rdy fix">Needs fix</span></div><div class="num">$41,800</div></div>
+        </div>
+        <div class="grid2">
+          <div class="panel"><h3>$ Projected by close confidence</h3><div class="chartbox"><canvas id="pj_value"></canvas></div></div>
+          <div class="panel"><h3># Deals by close confidence</h3><div class="chartbox"><canvas id="pj_count"></canvas></div></div>
+        </div>
+        <div class="panel"><h3>List of close calls</h3><p class="psub">Open calls weighted by confidence</p>
+          <table><thead><tr><th>Lead</th><th>Closer</th><th>Confidence</th><th>Offer</th><th>Deal size</th></tr></thead>
+          <tbody>
+            <tr><td>Shannon Young</td><td>Elijah Hughes</td><td><span class="badge bd-g">High</span></td><td>BDCR</td><td>$3,200</td></tr>
+            <tr><td>Rachael Dwyer</td><td>Elijah Hughes</td><td><span class="badge bd-a">Medium</span></td><td>BDCR</td><td>$2,500</td></tr>
+            <tr><td>Sandy Forster</td><td>River Shaw</td><td><span class="badge bd-a">Medium</span></td><td>BDCR</td><td>$2,500</td></tr>
+            <tr><td>Marcus Reed</td><td>River Shaw</td><td><span class="badge bd-r">Low</span></td><td>Coaching</td><td>$2,000</td></tr>
+          </tbody></table>
+        </div>
+      </section>
+
+      <!-- ===== CASH ===== -->
+      <section class="page" id="cash">
+        <span class="sectlabel" style="background:#7a6f57">Cash Collected</span>
+        <h1 class="title">Cash Collected</h1>
+        <p class="sub">Cash that cleared. Gross, before fees, excluding the $25 booking fee.</p>
+        <div class="filters"><div class="chip pill">Transaction Date <span class="v">This month</span> ▾</div><div class="chip">Processor ▾</div><div class="chip">Payment Type ▾</div><div class="filters right"><span>Filter</span></div></div>
+        <div class="cards">
+          <div class="card g"><div class="lab">Cash Collected <span class="rdy now">Live</span></div><div class="num">$104,860</div></div>
+          <div class="card b"><div class="lab">New Cash <span class="rdy now">Live</span></div><div class="num">$61,300</div></div>
+          <div class="card t"><div class="lab">Residual Cash <span class="rdy now">Live</span></div><div class="num">$43,560</div></div>
+          <div class="card"><div class="lab">Invoiced Revenue <span class="rdy now">Live</span></div><div class="num">$112,400</div></div>
+        </div>
+        <div class="grid2">
+          <div class="panel"><h3>Cash collected by month</h3><p class="psub">New vs residual</p><div class="chartbox"><canvas id="ca_month"></canvas></div></div>
+          <div class="panel"><h3>By processor</h3><p class="psub">NMI is program revenue; the $25 (Stripe) is excluded</p><div class="chartbox"><canvas id="ca_proc"></canvas></div></div>
+        </div>
+      </section>
+
+      <!-- ===== RECEIVABLES ===== -->
+      <section class="page" id="receivables">
+        <span class="sectlabel" style="background:#e3c038;color:#3b3b14">Receivables</span>
+        <h1 class="title">Receivables</h1>
+        <p class="sub">What is scheduled to come in, and how much has been collected. Built on the versioned payment plan.</p>
+        <div class="note fix">Gated on the payment-plan re-split fix. Once a re-split creates a new plan version instead of overwriting, these numbers stay accurate.</div>
+        <div class="filters"><div class="chip pill">Transaction Date ▾</div><div class="chip">Status ▾</div><div class="filters right"><span>Filter</span></div></div>
+        <div class="cards">
+          <div class="card b"><div class="lab">Total Receivables <span class="rdy fix">Needs fix</span></div><div class="num">$2,059,654</div></div>
+          <div class="card g"><div class="lab">Collected <span class="rdy fix">Needs fix</span></div><div class="num">$1,713,001</div></div>
+          <div class="card r"><div class="lab">Overdue <span class="rdy fix">Needs fix</span></div><div class="num">$135,684</div></div>
+          <div class="card a"><div class="lab">Collection Rate <span class="rdy fix">Needs fix</span></div><div class="num">83%</div></div>
+        </div>
+        <div class="panel" style="margin-bottom:15px"><h3>Receivables Collection % Rate</h3><p class="psub">Monthly. Future months read low because those installments are not due yet.</p><div class="chartbox"><canvas id="rc_rate"></canvas></div></div>
+        <div class="grid2">
+          <div class="panel"><h3>Recurring installment stack</h3><p class="psub">Projected future cash by month</p><div class="chartbox"><canvas id="rc_stack"></canvas></div></div>
+          <div class="panel"><h3>Delinquency</h3><p class="psub">Installments 14+ days late</p><div class="chartbox"><canvas id="rc_delinq"></canvas></div></div>
+        </div>
+      </section>
+
+      <!-- ===== REFUNDS ===== -->
+      <section class="page" id="refunds">
+        <span class="sectlabel" style="background:#b9532a">Refunds</span>
+        <h1 class="title">Refunds &amp; Chargebacks</h1>
+        <p class="sub">Reversals net out cash, drive churn, and trigger a commission clawback.</p>
+        <div class="filters"><div class="chip pill">Date <span class="v">This month</span> ▾</div><div class="chip">Type ▾</div><div class="filters right"><span>Filter</span></div></div>
+        <div class="cards">
+          <div class="card r"><div class="lab">Refund Amount <span class="rdy fix">Needs fix</span></div><div class="num">$6,940</div></div>
+          <div class="card a"><div class="lab">Refund Rate <span class="rdy fix">Needs fix</span></div><div class="num">5.8%</div></div>
+          <div class="card r"><div class="lab">Chargebacks <span class="rdy now">Live</span></div><div class="num">2</div></div>
+        </div>
+        <div class="grid2">
+          <div class="panel"><h3>Refunds over time</h3><div class="chartbox"><canvas id="rf_trend"></canvas></div></div>
+          <div class="panel"><h3>By reason</h3><div class="chartbox"><canvas id="rf_reason"></canvas></div></div>
+        </div>
+      </section>
+
+      <!-- ===== COMMISSIONS ===== -->
+      <section class="page" id="commissions">
+        <span class="sectlabel" style="background:#7c3aed">Commissions</span>
+        <h1 class="title">Commissions</h1>
+        <p class="sub">Auto-calculated from cleared cash, with the tier rules applied. Replaces the manual report.</p>
+        <div class="filters"><div class="chip pill">Period <span class="v">This month</span> ▾</div><div class="chip">Closer ▾</div><div class="chip">Status ▾</div><div class="filters right"><span>Filter</span></div></div>
+        <div class="cards">
+          <div class="card p"><div class="lab">Commission Owed <span class="rdy fix">Needs fix</span></div><div class="num">$12,940</div></div>
+          <div class="card g"><div class="lab">Paid <span class="rdy fix">Needs fix</span></div><div class="num">$9,180</div></div>
+          <div class="card a"><div class="lab">Pending Approval <span class="rdy fix">Needs fix</span></div><div class="num">$3,760</div></div>
+          <div class="card t"><div class="lab">Residual Component <span class="rdy fix">Needs fix</span></div><div class="num">$4,356</div></div>
+        </div>
+        <div class="panel" style="margin-bottom:15px"><h3>Commission per closer</h3><p class="psub">Base vs tier bonus vs residual</p><div class="chartbox"><canvas id="cm_closer"></canvas></div></div>
+        <div class="panel"><h3>Payout status</h3>
+          <table><thead><tr><th>Closer</th><th>Tier</th><th>Base (10%)</th><th>Tier bonus</th><th>Residual</th><th>Total</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td>Elijah Hughes</td><td><span class="badge bd-b">15%</span></td><td>$4,820</td><td>$2,410</td><td>$1,840</td><td>$7,230</td><td><span class="badge bd-g">Paid</span></td></tr>
+            <tr><td>River Shaw</td><td><span class="badge bd-s">10%</span></td><td>$3,716</td><td>—</td><td>$1,420</td><td>$3,716</td><td><span class="badge bd-a">Pending</span></td></tr>
+            <tr><td>Sam Doyle</td><td><span class="badge bd-s">10%</span></td><td>$1,950</td><td>—</td><td>$1,096</td><td>$1,950</td><td><span class="badge bd-a">Pending</span></td></tr>
+          </tbody></table>
+        </div>
+      </section>
+
+      <!-- ===== TEAM HEALTH ===== -->
+      <section class="page" id="teamhealth">
+        <span class="sectlabel" style="background:#0d9488">Team Health</span>
+        <h1 class="title">Team Health</h1>
+        <p class="sub">Operational discipline that quietly drives the numbers.</p>
+        <div class="filters"><div class="chip pill">Date <span class="v">This month</span> ▾</div><div class="chip">Rep ▾</div><div class="filters right"><span>Filter</span></div></div>
+        <div class="cards">
+          <div class="card t"><div class="lab">Avg Speed to Lead <span class="rdy cap">Needs capture</span></div><div class="num">4m 12s</div></div>
+          <div class="card a"><div class="lab">Report Submission Rate <span class="rdy cap">Needs capture</span></div><div class="num">78%</div><div class="hint">on time</div></div>
+          <div class="card b"><div class="lab">Calls Taken / Closer / Wk <span class="rdy now">Live</span></div><div class="num">18.4</div></div>
+        </div>
+        <div class="grid2">
+          <div class="panel"><h3>Speed to lead per closer</h3><div class="chartbox"><canvas id="th_speed"></canvas></div></div>
+          <div class="panel"><h3>Report submission, on time vs missing</h3><div class="chartbox"><canvas id="th_reports"></canvas></div></div>
+        </div>
+      </section>
+
+      <!-- ===== RETENTION ===== -->
+      <section class="page" id="retention">
+        <span class="sectlabel" style="background:#0d9488">Retention</span>
+        <h1 class="title">Retention</h1>
+        <p class="sub">What happens after the sale, where residual cash lives.</p>
+        <div class="filters"><div class="chip pill">Cohort <span class="v">Last 6 months</span> ▾</div><div class="filters right"><span>Filter</span></div></div>
+        <div class="cards">
+          <div class="card g"><div class="lab">Onboarding Completion <span class="rdy cap">Needs capture</span></div><div class="num">84%</div></div>
+          <div class="card r"><div class="lab">Delinquency (14+ days) <span class="rdy fix">Needs fix</span></div><div class="num">6.6%</div></div>
+          <div class="card t"><div class="lab">Collection Rate <span class="rdy fix">Needs fix</span></div><div class="num">83%</div></div>
+          <div class="card a"><div class="lab">Churn Rate <span class="rdy fix">Needs fix</span></div><div class="num">9%</div></div>
+        </div>
+        <div class="grid2">
+          <div class="panel"><h3>Onboarding funnel</h3><div class="chartbox"><canvas id="re_onboard"></canvas></div></div>
+          <div class="panel"><h3>Delinquency over time</h3><div class="chartbox"><canvas id="re_delinq"></canvas></div></div>
+        </div>
+      </section>
+
+      <!-- ===== LEAD SCORING ===== -->
+      <section class="page" id="leadscore">
+        <span class="sectlabel" style="background:#0d9488">Lead Scoring</span>
+        <h1 class="title">Lead Scoring</h1>
+        <p class="sub">The NAFA violation count is structured lead-quality data. Use it to route the best leads to the best closers.</p>
+        <div class="note cap">A forward-looking page. The violation count already exists in the NAFA, so this is buildable once the NAFA data lands in the layer.</div>
+        <div class="filters"><div class="chip pill">Date <span class="v">This month</span> ▾</div><div class="chip">Source ▾</div><div class="filters right"><span>Filter</span></div></div>
+        <div class="cards">
+          <div class="card b"><div class="lab">Avg Violation Count <span class="rdy cap">Needs capture</span></div><div class="num">11.4</div></div>
+          <div class="card g"><div class="lab">High-Score Leads <span class="rdy cap">Needs capture</span></div><div class="num">214</div><div class="hint">15+ violations</div></div>
+          <div class="card t"><div class="lab">Version A Share <span class="rdy cap">Needs capture</span></div><div class="num">31%</div></div>
+        </div>
+        <div class="grid2">
+          <div class="panel"><h3>Lead score distribution</h3><p class="psub">By violation-opportunity count</p><div class="chartbox"><canvas id="ls_dist"></canvas></div></div>
+          <div class="panel"><h3>Close rate by score band</h3><p class="psub">Higher score, higher close</p><div class="chartbox"><canvas id="ls_close"></canvas></div></div>
+        </div>
+      </section>
+
+      <!-- ===== REPORTS ===== -->
+      <section class="page" id="reports">
+        <div class="reports">
+          <h2>REPORTS</h2><div class="ul"></div>
+          <p class="intro"><b>End-of-activity reports that keep payroll, attribution, and lead history clean.</b> Submit one every time a sales activity finishes. They unlock commissions and feed the data tables.</p>
+          <div class="rcards">
+            <div class="rcard rc-g"><div class="h">Commission Report</div><span class="tagi">Weekly. Required to get paid via Gusto</span></div>
+            <div class="rcard rc-a"><div class="h">Missed Call Report</div><span class="tagi">When a call cancels, reschedules, or no-shows</span></div>
+            <div class="rcard rc-b"><div class="h">Sales Call Report</div><span class="tagi">After every completed sales call</span></div>
+            <div class="rcard rc-p"><div class="h">Post-Call Notes</div><span class="tagi">AI-generated post-call notes</span></div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<script>
+const links=document.querySelectorAll('.nav a'),pages=document.querySelectorAll('.page'),built={};
+links.forEach(a=>a.addEventListener('click',()=>{
+  links.forEach(x=>x.classList.remove('active'));a.classList.add('active');
+  const id=a.dataset.go;pages.forEach(p=>p.classList.toggle('active',p.id===id));
+  document.getElementById('crumb').textContent=a.textContent.trim();buildCharts(id);window.scrollTo(0,0);
+}));
+const GRID='#eef1f6';Chart.defaults.font.family='-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif';Chart.defaults.color='#64748b';Chart.defaults.font.size=11;
+const C={blue:'#2563eb',green:'#16a34a',amber:'#d97706',red:'#dc2626',teal:'#0d9488',purple:'#7c3aed',slate:'#94a3b8',ink:'#0f172a'};
+function bar(id,labels,data,colors,opts={}){const e=document.getElementById(id);if(!e)return;new Chart(e,{type:'bar',data:{labels,datasets:Array.isArray(data[0])?data:[{data,backgroundColor:colors||C.blue,borderRadius:6,maxBarThickness:44}]},options:{plugins:{legend:{display:!!opts.legend,position:'bottom'}},scales:{x:{grid:{display:false},stacked:!!opts.stack},y:{grid:{color:GRID},beginAtZero:true,stacked:!!opts.stack,...(opts.y||{})},...(opts.indexAxis==='y'?{}:{})},indexAxis:opts.indexAxis||'x'}});}
+function donut(id,labels,data,colors){const e=document.getElementById(id);if(!e)return;new Chart(e,{type:'doughnut',data:{labels,datasets:[{data,backgroundColor:colors,borderWidth:0}]},options:{cutout:'62%',plugins:{legend:{position:'bottom',labels:{boxWidth:11,padding:12}}}}});}
+function line(id,labels,sets,opts={}){const e=document.getElementById(id);if(!e)return;new Chart(e,{type:'line',data:{labels,datasets:sets.map(s=>({tension:.35,pointRadius:3,...s}))},options:{plugins:{legend:{display:sets.length>1,position:'bottom'}},scales:{x:{grid:{display:false}},y:{grid:{color:GRID},beginAtZero:true,...(opts.y||{})}}}});}
+function pct(v){return v+'%'}
+function buildCharts(p){
+  if(built[p])return;built[p]=true;
+  if(p==='snapshot'){
+    bar('sn_funnel',['Opt Ins','Booked','Taken','Closed'],[1318,540,156,38],[C.blue,C.blue,C.amber,C.green]);
+    line('sn_cash',['W1','W2','W3','W4','W5','W6','W7','W8'],[
+      {label:'New',data:[48,52,55,61,58,63,66,61].map(x=>x*1000),borderColor:C.blue,backgroundColor:'rgba(37,99,235,.06)',fill:true},
+      {label:'Residual',data:[31,33,35,38,40,41,43,44].map(x=>x*1000),borderColor:C.teal}],{y:{ticks:{callback:v=>'$'+(v/1000)+'k'}}});
+  }
+  if(p==='overview'){
+    bar('ov_funnel',['Spend(k)','Leads','Booked','On Cal','Taken','Closed'],[48,1420,540,452,156,38],[C.slate,C.blue,C.blue,C.teal,C.amber,C.green]);
+    line('ov_rates',['Lead→Book','Book→Taken','Show','Close','Full funnel'],[{label:'%',data:[38,29,34,24,7],borderColor:C.blue,backgroundColor:'rgba(37,99,235,.08)',fill:true,pointRadius:4}],{y:{max:50,ticks:{callback:pct}}});
+  }
+  if(p==='optins'){
+    line('oi_trend',['W1','W2','W3','W4'],[{label:'Paid',data:[230,265,255,290],borderColor:C.blue},{label:'Organic',data:[88,96,90,106],borderColor:C.purple}]);
+    bar('oi_source',['Meta','TikTok','IG DM','Referral','Email'],[1040,210,120,34,16],C.blue);
+    donut('oi_goal',['House','Car','Business','Personal'],[520,380,300,220],[C.blue,C.teal,C.purple,C.slate]);
+    donut('oi_score',['<500','500-579','580-639','640+'],[260,520,440,200],[C.red,C.amber,C.blue,C.green]);
+  }
+  if(p==='ads'){
+    bar('ad_camp',['Contrarian A','House goal','Score myth','Retarget'],[[{label:'Spend',data:[18200,12400,9600,8000],backgroundColor:C.slate,borderRadius:5,maxBarThickness:30},{label:'Cash',data:[47000,23500,13400,24800],backgroundColor:C.green,borderRadius:5,maxBarThickness:30}]],null,{legend:true,y:{ticks:{callback:v=>'$'+(v/1000)+'k'}}});
+    bar('ad_roas',['Contrarian A','House goal','Score myth','Retarget'],[2.6,1.9,1.4,3.1],[C.green,C.green,C.amber,C.green],{y:{ticks:{callback:v=>v+'x'}}});
+  }
+  if(p==='email'){line('em_trend',['W1','W2','W3','W4'],[{label:'Open %',data:[39,42,40,43],borderColor:C.blue},{label:'Click %',data:[5.8,6.4,6.0,6.5],borderColor:C.teal}],{y:{ticks:{callback:pct}}});}
+  if(p==='appts'){
+    donut('ap_bvt',['Taken','Not taken'],[156,384],[C.green,'#e6e9ef']);
+    donut('ap_cancel',['Reschedule','By lead','By team (DQ)','40-day wait','Other'],[214,38,22,18,10],[C.amber,C.red,C.purple,C.teal,C.slate]);
+  }
+  if(p==='setters'){
+    bar('st_source',['Ava','Leo','Maya'],[[{label:'Paid',data:[120,140,150],backgroundColor:C.blue,borderRadius:5,maxBarThickness:30},{label:'Organic',data:[64,31,35],backgroundColor:C.purple,borderRadius:5,maxBarThickness:30}]],null,{legend:true,stack:true});
+    bar('st_speed',['<2m','2-5m','5-10m','10m+'],[180,210,96,54],C.teal);
+  }
+  if(p==='opps'){
+    bar('op_stage',['Booked','Confirmed','Intake needed','Follow-up','Hot','Warm','Cold'],[120,86,40,54,33,41,68],C.teal,{indexAxis:'y'});
+    donut('op_outcome',['Won','Lost','DQ on call','Open'],[38,61,35,389],[C.green,C.red,C.purple,'#cbd5e1']);
+  }
+  if(p==='deals'){
+    bar('dl_closer',['Elijah Hughes','River Shaw','Sam Doyle'],[28400,21600,11300],C.green);
+    bar('dl_offer',['BDCR','Coaching'],[104400,8000],[C.blue,C.purple]);
+    donut('dl_pif',['Payment plan','Paid in full'],[26,12],[C.blue,C.green]);
+  }
+  if(p==='closers'){
+    bar('cl_rate',['Elijah','River','Sam'],[30.6,22.4,16.7],[C.green,C.amber,C.red],{y:{ticks:{callback:pct}}});
+    line('cl_cash',['Jan','Feb','Mar','Apr','May','Jun'],[{label:'Elijah',data:[38,41,44,46,47,48].map(x=>x*1000),borderColor:C.green},{label:'River',data:[30,32,34,35,36,37].map(x=>x*1000),borderColor:C.blue}],{y:{ticks:{callback:v=>'$'+(v/1000)+'k'}}});
+  }
+  if(p==='objections'){
+    bar('ob_break',['Price','Partner','Think about it','Timing','Trust'],[58,34,28,22,14],C.amber,{indexAxis:'y'});
+    bar('ob_loss',['Price','Partner','Think about it','Timing','Trust'],[44,52,68,40,71],C.red,{y:{ticks:{callback:pct}}});
+    bar('ob_followup',['1st call','Follow-up'],[24,19],[C.blue,C.teal],{y:{ticks:{callback:pct}}});
+    bar('ob_ttc',['Same day','1-3d','4-7d','8-14d','15d+'],[12,9,8,5,4],C.purple);
+  }
+  if(p==='projections'){
+    bar('pj_value',['High','Medium','Low'],[34000,21000,9200],[C.green,C.amber,C.red],{y:{ticks:{callback:v=>'$'+(v/1000)+'k'}}});
+    bar('pj_count',['High','Medium','Low'],[9,8,5],[C.green,C.amber,C.red]);
+  }
+  if(p==='cash'){
+    bar('ca_month',['Jan','Feb','Mar','Apr','May','Jun'],[[{label:'New',data:[58,62,68,72,79,61].map(x=>x*1000),backgroundColor:C.blue,borderRadius:5,maxBarThickness:34,stack:'s'},{label:'Residual',data:[28,31,35,38,41,44].map(x=>x*1000),backgroundColor:C.teal,borderRadius:5,maxBarThickness:34,stack:'s'}]],null,{legend:true,stack:true,y:{ticks:{callback:v=>'$'+(v/1000)+'k'}}});
+    donut('ca_proc',['NMI (program)','Stripe ($25, excl.)'],[104860,13500],[C.green,C.slate]);
+  }
+  if(p==='receivables'){
+    line('rc_rate',['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep'],[{label:'%',data:[100,100,98,91,87,82,40,0,0],borderColor:C.blue,pointRadius:4}],{y:{max:100,ticks:{callback:pct}}});
+    bar('rc_stack',['Jul','Aug','Sep','Oct','Nov','Dec'],[64,58,51,44,37,29].map(x=>x*1000),C.teal,{y:{ticks:{callback:v=>'$'+(v/1000)+'k'}}});
+    bar('rc_delinq',['Jan','Feb','Mar','Apr','May','Jun'],[4,5,7,6,9,7].map(x=>x*1000),C.red,{y:{ticks:{callback:v=>'$'+(v/1000)+'k'}}});
+  }
+  if(p==='refunds'){
+    line('rf_trend',['W1','W2','W3','W4'],[{label:'Refunds',data:[1200,800,2940,2000],borderColor:C.red,backgroundColor:'rgba(220,38,38,.08)',fill:true}],{y:{ticks:{callback:v=>'$'+v}}});
+    donut('rf_reason',['Changed mind','Could not afford','Dispute','Service'],[3,2,1,1],[C.amber,C.red,C.purple,C.slate]);
+  }
+  if(p==='commissions'){
+    bar('cm_closer',['Elijah','River','Sam'],[[{label:'Base',data:[4820,3716,1950],backgroundColor:C.purple,borderRadius:5,maxBarThickness:34,stack:'s'},{label:'Tier bonus',data:[2410,0,0],backgroundColor:C.blue,borderRadius:5,maxBarThickness:34,stack:'s'},{label:'Residual',data:[1840,1420,1096],backgroundColor:C.teal,borderRadius:5,maxBarThickness:34,stack:'s'}]],null,{legend:true,stack:true,y:{ticks:{callback:v=>'$'+(v/1000)+'k'}}});
+  }
+  if(p==='teamhealth'){
+    bar('th_speed',['Elijah','River','Sam'],[3.1,4.5,6.1],[C.green,C.amber,C.red],{y:{ticks:{callback:v=>v+'m'}}});
+    bar('th_reports',['Elijah','River','Sam'],[[{label:'On time',data:[88,74,62],backgroundColor:C.green,borderRadius:5,maxBarThickness:34,stack:'s'},{label:'Missing',data:[12,26,38],backgroundColor:'#e6e9ef',borderRadius:5,maxBarThickness:34,stack:'s'}]],null,{legend:true,stack:true,y:{ticks:{callback:pct}}});
+  }
+  if(p==='retention'){
+    bar('re_onboard',['Closed','Paid 2nd','Logged in','Submitted intake','Active'],[100,88,84,80,76],C.teal,{y:{ticks:{callback:pct}}});
+    line('re_delinq',['Jan','Feb','Mar','Apr','May','Jun'],[{label:'Delinquency %',data:[4,5,7,6,9,7],borderColor:C.red}],{y:{ticks:{callback:pct}}});
+  }
+  if(p==='leadscore'){
+    bar('ls_dist',['<5','5-9','10-14','15-19','20+'],[60,210,320,180,90],C.blue);
+    bar('ls_close',['<5','5-9','10-14','15-19','20+'],[3,12,21,29,34],[C.red,C.amber,C.blue,C.green,C.green],{y:{ticks:{callback:pct}}});
+  }
+}
+buildCharts('snapshot');
+</script>
+</body>
+</html>

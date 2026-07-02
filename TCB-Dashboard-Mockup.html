@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Credit Brothers — Sales Dashboard (Mockup)</title>
+<style>
+  :root{
+    --bg:#0f1117; --panel:#171a23; --panel2:#1e222d; --line:#2a2f3c;
+    --text:#e8ebf2; --muted:#9aa3b5; --accent:#4f8cff; --accent2:#36d399;
+    --warn:#fbbf24; --bad:#f87171; --good:#36d399; --chip:#242938;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);color:var(--text);font-size:14px;line-height:1.45}
+  header{position:sticky;top:0;z-index:20;background:linear-gradient(180deg,#141824,#0f1117);
+    border-bottom:1px solid var(--line);padding:14px 22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .logo{font-weight:700;font-size:16px;letter-spacing:.2px}
+  .logo span{color:var(--accent)}
+  .demo{background:var(--warn);color:#1a1300;font-weight:700;font-size:11px;padding:4px 9px;border-radius:6px;letter-spacing:.4px}
+  .rng{margin-left:auto;background:var(--panel2);border:1px solid var(--line);color:var(--muted);
+    padding:6px 12px;border-radius:8px;font-size:12px}
+  .levers{display:flex;gap:8px;flex-wrap:wrap;padding:12px 22px;background:var(--panel);border-bottom:1px solid var(--line)}
+  .lever{display:flex;align-items:center;gap:7px;background:var(--chip);border:1px solid var(--line);
+    border-radius:20px;padding:6px 13px;font-size:12px;color:var(--muted)}
+  .lever b{color:var(--text);font-weight:600}
+  .lever .n{width:18px;height:18px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font-size:11px;font-weight:700}
+  nav{display:flex;gap:4px;padding:10px 22px 0;background:var(--bg);border-bottom:1px solid var(--line)}
+  .tab{padding:10px 16px;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;font-weight:600;font-size:13px}
+  .tab.active{color:var(--text);border-color:var(--accent)}
+  main{padding:22px;max-width:1180px;margin:0 auto}
+  .view{display:none}.view.active{display:block}
+  h2{font-size:15px;margin:4px 0 14px;display:flex;align-items:center;gap:8px}
+  h2 .sub{color:var(--muted);font-weight:400;font-size:12px}
+  .grid{display:grid;gap:14px}
+  .g4{grid-template-columns:repeat(4,1fr)}.g3{grid-template-columns:repeat(3,1fr)}.g2{grid-template-columns:repeat(2,1fr)}
+  @media(max-width:880px){.g4,.g3,.g2{grid-template-columns:repeat(2,1fr)}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+  .kpi{cursor:pointer;transition:.15s}
+  .kpi:hover{border-color:var(--accent);transform:translateY(-1px)}
+  .kpi .lbl{color:var(--muted);font-size:12px;display:flex;align-items:center;gap:6px}
+  .kpi .val{font-size:26px;font-weight:700;margin-top:6px}
+  .kpi .delta{font-size:12px;margin-top:3px}
+  .up{color:var(--good)}.down{color:var(--bad)}.flat{color:var(--muted)}
+  .i{display:inline-grid;place-items:center;width:15px;height:15px;border-radius:50%;
+    background:var(--panel2);border:1px solid var(--line);color:var(--muted);font-size:10px;cursor:help;position:relative}
+  .i:hover::after{content:attr(data-tip);position:absolute;bottom:135%;left:50%;transform:translateX(-50%);
+    background:#0a0c12;border:1px solid var(--line);color:var(--text);padding:8px 10px;border-radius:8px;
+    width:230px;font-size:11px;line-height:1.4;z-index:30;font-weight:400;text-align:left;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+  .panelttl{font-size:13px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:7px}
+  .funnel-row{display:flex;align-items:center;gap:12px;margin:9px 0}
+  .funnel-row .name{width:130px;color:var(--muted);font-size:12px}
+  .bar{height:30px;border-radius:6px;background:var(--accent);display:flex;align-items:center;padding:0 10px;
+    font-size:12px;font-weight:600;color:#fff;min-width:48px}
+  .funnel-row .conv{width:118px;color:var(--muted);font-size:11px;text-align:right}
+  .leak{background:var(--bad)!important}
+  .badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;margin-left:6px}
+  .badge.red{background:rgba(248,113,113,.16);color:var(--bad)}
+  .badge.green{background:rgba(54,211,153,.16);color:var(--good)}
+  .badge.amber{background:rgba(251,191,36,.16);color:var(--warn)}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th{text-align:left;color:var(--muted);font-weight:600;padding:9px 10px;border-bottom:1px solid var(--line);font-size:11px;text-transform:uppercase;letter-spacing:.4px}
+  td{padding:10px;border-bottom:1px solid var(--line)}
+  tr:last-child td{border-bottom:none}
+  .hbar{height:11px;border-radius:6px;background:var(--accent2)}
+  .reason{display:flex;align-items:center;gap:10px;margin:8px 0}
+  .reason .rn{width:185px;font-size:12px}.reason .rv{width:42px;text-align:right;color:var(--muted);font-size:12px}
+  .reason .rt{flex:1;background:var(--panel2);border-radius:6px;overflow:hidden;height:11px}
+  .note{background:rgba(79,140,255,.08);border:1px solid rgba(79,140,255,.3);border-radius:10px;padding:11px 14px;font-size:12.5px;color:var(--text);margin-bottom:16px}
+  .note.warn{background:rgba(251,191,36,.08);border-color:rgba(251,191,36,.35)}
+  .pill{font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px}
+  .pill.resched{background:rgba(251,191,36,.16);color:var(--warn)}
+  .pill.noshow{background:rgba(248,113,113,.16);color:var(--bad)}
+  .pill.intake{background:rgba(79,140,255,.16);color:var(--accent)}
+  .pill.hold{background:rgba(154,163,181,.16);color:var(--muted)}
+  .pill.paid{background:rgba(54,211,153,.16);color:var(--good)}
+  .timeline{position:relative;margin-left:8px;padding-left:22px;border-left:2px solid var(--line)}
+  .tl{position:relative;margin:0 0 16px}
+  .tl::before{content:'';position:absolute;left:-29px;top:3px;width:11px;height:11px;border-radius:50%;background:var(--accent);border:2px solid var(--bg)}
+  .tl .tlt{font-size:13px;font-weight:600}.tl .tld{color:var(--muted);font-size:11.5px;margin-top:2px}
+  .modal-bg{display:none;position:fixed;inset:0;background:rgba(5,7,12,.72);z-index:50;align-items:center;justify-content:center;padding:20px}
+  .modal-bg.show{display:flex}
+  .modal{background:var(--panel);border:1px solid var(--line);border-radius:14px;max-width:680px;width:100%;max-height:82vh;overflow:auto}
+  .modal h3{margin:0;padding:16px 20px;border-bottom:1px solid var(--line);font-size:14px;display:flex;align-items:center;gap:8px}
+  .modal .x{margin-left:auto;cursor:pointer;color:var(--muted);font-size:20px;line-height:1}
+  .modal .body{padding:8px 20px 20px}
+  .mn{color:var(--muted);font-size:12px;padding:10px 20px 0}
+  .foot{color:var(--muted);font-size:11px;text-align:center;padding:24px;border-top:1px solid var(--line);margin-top:10px}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">The Credit Brothers <span>· Sales Dashboard</span></div>
+  <div class="demo">MOCKUP · DEMO DATA</div>
+  <div class="rng">Last 30 days ▾</div>
+</header>
+
+<div class="levers">
+  <div class="lever"><span class="n">1</span><b>Increase calls taken</b></div>
+  <div class="lever"><span class="n">2</span><b>Understand cancellation reasons</b></div>
+  <div class="lever"><span class="n">3</span><b>Track source end-to-end (lead→client)</b></div>
+  <div class="lever"><span class="n">4</span><b>Setter / Closer follow-up smart views</b></div>
+  <div class="lever"><span class="n">5</span><b>1:1 follow-up — no SMS blasts</b></div>
+</div>
+
+<nav>
+  <div class="tab active" data-view="overview">Overview</div>
+  <div class="tab" data-view="leakage">Calls &amp; Leakage</div>
+  <div class="tab" data-view="source">Source &amp; Journey</div>
+  <div class="tab" data-view="followup">Follow-ups</div>
+</nav>
+
+<main>
+
+<!-- OVERVIEW -->
+<section class="view active" id="overview">
+  <div class="note warn">⚠️ <b>The leak is the story.</b> Of <b>296</b> paid calls booked this month, only <b>89 (30%)</b> were actually taken — that's where the money is lost, before close rate or cash even matter. <b>Lever 1.</b></div>
+
+  <div class="grid g4">
+    <div class="card kpi" data-modal="spend"><div class="lbl">Ad spend <span class="i" data-tip="Meta ad spend (paid only), pulled from the Meta API. Organic excluded.">i</span></div><div class="val">$38,400</div><div class="delta up">▲ 6% vs prev</div></div>
+    <div class="card kpi" data-modal="leads"><div class="lbl">Lead opt-ins <span class="i" data-tip="Unique by email/phone. Same person re-counts only after >30 days.">i</span></div><div class="val">1,180</div><div class="delta up">▲ 9%</div></div>
+    <div class="card kpi" data-modal="booked"><div class="lbl">$25 calls booked <span class="i" data-tip="Paid strategy calls on the funnel calendar. Unique bookers only (no duplicates). By event start date.">i</span></div><div class="val">296</div><div class="delta up">▲ 4%</div></div>
+    <div class="card kpi" data-modal="taken"><div class="lbl">Calls taken <span class="i" data-tip="Booked calls that actually happened. Booked→Taken is the #1 bottleneck.">i</span></div><div class="val">89 <span class="badge red">30% of booked</span></div><div class="delta down">▼ the leak</div></div>
+    <div class="card kpi" data-modal="closed"><div class="lbl">Closed (won) <span class="i" data-tip="Opportunity marked Closed-Won AND ≥1 payment processed. By deal-close date.">i</span></div><div class="val">19</div><div class="delta up">▲ 2</div></div>
+    <div class="card kpi" data-modal="cash"><div class="lbl">Cash collected <span class="i" data-tip="Gross / pre-processing-fee. Excludes the $25 booking fee. New + residual installments.">i</span></div><div class="val">$46,300</div><div class="delta up">▲ 11%</div></div>
+    <div class="card kpi" data-modal="cac"><div class="lbl">CAC (cost per close) <span class="i" data-tip="Ad spend ÷ closes. Watch vs avg cash collected per client.">i</span></div><div class="val">$2,021</div><div class="delta flat">— flat</div></div>
+    <div class="card kpi" data-modal="roas"><div class="lbl">ROAS (cash) <span class="i" data-tip="Cash collected ÷ ad spend. Per-campaign needs source tracking (Dub).">i</span></div><div class="val">1.21x</div><div class="delta up">▲ 0.1</div></div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <div class="panelttl">Funnel — last 30 days <span class="i" data-tip="Each stage with its conversion from the prior. The red bar is the booked→taken leak.">i</span></div>
+    <div class="funnel-row"><div class="name">Leads / opt-ins</div><div class="bar" style="width:100%">1,180</div><div class="conv">25% → booked</div></div>
+    <div class="funnel-row"><div class="name">$25 booked</div><div class="bar" style="width:42%">296</div><div class="conv">—</div></div>
+    <div class="funnel-row"><div class="name">Calls taken</div><div class="bar leak" style="width:24%">89</div><div class="conv">30% of booked ⚠️</div></div>
+    <div class="funnel-row"><div class="name">Offers made</div><div class="bar" style="width:21%">74</div><div class="conv">83% of taken</div></div>
+    <div class="funnel-row"><div class="name">Closed (won)</div><div class="bar" style="width:9%">19</div><div class="conv">21% of taken</div></div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <div class="panelttl">Lever-1 impact model <span class="i" data-tip="Illustrative. Holding close rate and traffic constant.">i</span></div>
+    <div style="font-size:13px;color:var(--muted)">If Booked→Taken moves <b style="color:var(--text)">30% → 45%</b> (no extra ad spend), calls taken rise <b style="color:var(--text)">89 → 133</b> → at today's 21% close rate that's <b style="color:var(--good)">~+9 closes / month</b> and <b style="color:var(--good)">~+$22k cash</b>. The cheapest growth in the business lives between booked and taken.</div>
+  </div>
+</section>
+
+<!-- LEAKAGE -->
+<section class="view" id="leakage">
+  <div class="note">🎯 <b>Levers 1 + 2.</b> Make the booked→taken leak visible, then break the lost calls down by <b>type</b> and <b>reason</b> so we know exactly what to fix.</div>
+
+  <div class="grid g4">
+    <div class="card kpi" data-modal="booked"><div class="lbl">Booked</div><div class="val">296</div></div>
+    <div class="card kpi" data-modal="taken"><div class="lbl">Taken <span class="i" data-tip="Booked→Taken rate = 30%. Target 45%+.">i</span></div><div class="val">89</div><div class="delta down">30% taken-rate</div></div>
+    <div class="card kpi" data-modal="resched"><div class="lbl">Rescheduled <span class="i" data-tip="Calls moved at least once. >90% of leads reschedule ≥1×.">i</span></div><div class="val">96</div><div class="delta flat">32%</div></div>
+    <div class="card kpi" data-modal="noshow"><div class="lbl">No-shows <span class="i" data-tip="On the calendar, never attended. Despite the 4-touch reminder cadence.">i</span></div><div class="val">32</div><div class="delta down">11%</div></div>
+  </div>
+
+  <div class="grid g2" style="margin-top:14px">
+    <div class="card">
+      <div class="panelttl">Where the 296 booked calls went <span class="i" data-tip="Every booked call resolves into exactly one bucket.">i</span></div>
+      <div class="funnel-row"><div class="name">Taken ✅</div><div class="bar" style="width:30%;background:var(--good)">89</div><div class="conv">30%</div></div>
+      <div class="funnel-row"><div class="name">Rescheduled</div><div class="bar" style="width:32%;background:var(--warn)">96</div><div class="conv">32%</div></div>
+      <div class="funnel-row"><div class="name">Cancelled — lead</div><div class="bar leak" style="width:21%">61</div><div class="conv">21%</div></div>
+      <div class="funnel-row"><div class="name">No-show</div><div class="bar leak" style="width:11%">32</div><div class="conv">11%</div></div>
+      <div class="funnel-row"><div class="name">Cancelled — closer</div><div class="bar" style="width:6%;background:var(--muted)">18</div><div class="conv">6%</div></div>
+    </div>
+    <div class="card">
+      <div class="panelttl">Cancellation reasons (lead-side) <span class="i" data-tip="From the standardized Missed-Call form. Reason is a separate field from type.">i</span></div>
+      <div class="reason"><div class="rn">Intake not submitted</div><div class="rt"><div class="hbar" style="width:34%"></div></div><div class="rv">34%</div></div>
+      <div class="reason"><div class="rn">At work / driving</div><div class="rt"><div class="hbar" style="width:22%"></div></div><div class="rv">22%</div></div>
+      <div class="reason"><div class="rn">Working w/ another co. (40-day)</div><div class="rt"><div class="hbar" style="width:17%"></div></div><div class="rv">17%</div></div>
+      <div class="reason"><div class="rn">Partner not available</div><div class="rt"><div class="hbar" style="width:12%"></div></div><div class="rv">12%</div></div>
+      <div class="reason"><div class="rn">Changed mind / cost</div><div class="rt"><div class="hbar" style="width:9%"></div></div><div class="rv">9%</div></div>
+      <div class="reason"><div class="rn">Other</div><div class="rt"><div class="hbar" style="width:6%"></div></div><div class="rv">6%</div></div>
+      <div style="margin-top:12px;font-size:12px;color:var(--muted)">Top 2 reasons (intake + at-work) are <b style="color:var(--text)">exactly what the readiness call is meant to pre-handle</b> → fixable with execution, not more ads.</div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <div class="panelttl">Recent booked calls <span class="i" data-tip="Click any KPI above to verify its underlying records. Demo rows.">i</span></div>
+    <table>
+      <thead><tr><th>Lead (demo)</th><th>Closer</th><th>Booked for</th><th>Outcome</th><th>Reason</th></tr></thead>
+      <tbody>
+        <tr><td>Jordan A.</td><td>Mike</td><td>Jun 22, 9:00</td><td><span class="pill noshow">No-show</span></td><td>—</td></tr>
+        <tr><td>Priya S.</td><td>Anthony</td><td>Jun 22, 10:30</td><td><span class="pill resched">Rescheduled (1)</span></td><td>At work</td></tr>
+        <tr><td>Marcus T.</td><td>Mike</td><td>Jun 23, 8:00</td><td><span class="pill paid">Taken → Closed</span></td><td>—</td></tr>
+        <tr><td>Dana R.</td><td>Isaac</td><td>Jun 23, 11:00</td><td><span class="pill intake">Cancelled — lead</span></td><td>Intake not submitted</td></tr>
+        <tr><td>Leah K.</td><td>Anthony</td><td>Jun 23, 14:00</td><td><span class="pill hold">Rescheduled</span></td><td>Working w/ another co. (40-day)</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- SOURCE & JOURNEY -->
+<section class="view" id="source">
+  <div class="note">🔗 <b>Lever 3.</b> Track source <b>first AND last touch</b> across every entry point (Meta, organic, DM, referral, email) via Dub — so a closed sale is traceable back to the ad that produced it, end-to-end.</div>
+
+  <div class="grid g2">
+    <div class="card">
+      <div class="panelttl">Opt-ins by source (first touch) <span class="i" data-tip="Currently no UTMs — this is the gap Dub closes. First + last tracked separately.">i</span></div>
+      <div class="reason"><div class="rn">Meta ads</div><div class="rt"><div class="hbar" style="width:61%"></div></div><div class="rv">61%</div></div>
+      <div class="reason"><div class="rn">Organic (TikTok/IG)</div><div class="rt"><div class="hbar" style="width:23%"></div></div><div class="rv">23%</div></div>
+      <div class="reason"><div class="rn">DM setter (Chris)</div><div class="rt"><div class="hbar" style="width:9%"></div></div><div class="rv">9%</div></div>
+      <div class="reason"><div class="rn">Referral</div><div class="rt"><div class="hbar" style="width:5%"></div></div><div class="rv">5%</div></div>
+      <div class="reason"><div class="rn">Email</div><div class="rt"><div class="hbar" style="width:2%"></div></div><div class="rv">2%</div></div>
+    </div>
+    <div class="card">
+      <div class="panelttl">Source → cash (which source actually pays) <span class="i" data-tip="The point of end-to-end tracking: judge sources on closed cash, not cheap leads.">i</span></div>
+      <table>
+        <thead><tr><th>Source</th><th>Leads</th><th>Taken</th><th>Closed</th><th>Cash</th></tr></thead>
+        <tbody>
+          <tr><td>Meta ads</td><td>720</td><td>52</td><td>11</td><td>$26,800</td></tr>
+          <tr><td>Organic</td><td>271</td><td>22</td><td>5</td><td>$12,100</td></tr>
+          <tr><td>DM setter</td><td>106</td><td>11</td><td>2</td><td>$5,300</td></tr>
+          <tr><td>Referral</td><td>59</td><td>4</td><td>1</td><td>$2,100</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <div class="panelttl">Lead → client journey (single lead) <span class="i" data-tip="The end-to-end view — every touch, time-stamped, source-attributed.">i</span></div>
+    <div class="timeline" style="margin-top:10px">
+      <div class="tl"><div class="tlt">Meta ad click <span class="badge green">first touch: Meta · Campaign "Reset-No-Debt"</span></div><div class="tld">Jun 12, 18:42</div></div>
+      <div class="tl"><div class="tlt">Opt-in form submitted</div><div class="tld">Jun 12, 18:45 · goal: house · score range 540–579</div></div>
+      <div class="tl"><div class="tlt">$25 strategy call booked <span class="badge amber">last touch: Organic retarget</span></div><div class="tld">Jun 14, 09:10</div></div>
+      <div class="tl"><div class="tlt">Intake submitted → NAFA generated</div><div class="tld">Jun 15 · 21 violation ops · Version A</div></div>
+      <div class="tl"><div class="tlt">Rescheduled ×1 → strategy call taken</div><div class="tld">Jun 18, 13:00 · offer made</div></div>
+      <div class="tl"><div class="tlt">Closed-Won — 7-pay $497 <span class="badge green">$497 collected</span></div><div class="tld">Jun 18, 13:52 · onboarded Jun 20</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- FOLLOW-UPS -->
+<section class="view" id="followup">
+  <div class="note">📋 <b>Levers 4 + 5.</b> Each setter/closer gets a live "who to chase next" smart view — so follow-up is <b>1:1 and queue-driven</b>. <b>No SMS blasts.</b></div>
+  <div class="note warn">✅ Keep the automated <b>appointment reminders</b> (booking → 24h → 2h → 10-min). Those are transactional 1:1 and fight no-shows — "no blasts" means no <b>bulk marketing SMS</b>, not killing reminders.</div>
+
+  <h2>Setter smart view <span class="sub">— recover the booked-but-not-taken</span></h2>
+  <div class="card">
+    <table>
+      <thead><tr><th>Lead (demo)</th><th>State</th><th>Last contact</th><th>Next action (1:1)</th><th>Owner</th></tr></thead>
+      <tbody>
+        <tr><td>Dana R.</td><td><span class="pill intake">Needs intake</span></td><td>2h ago</td><td>Call → guided live intake</td><td>Setter A</td></tr>
+        <tr><td>Priya S.</td><td><span class="pill resched">Resched — no new date</span></td><td>1d ago</td><td>Call → lock weekend slot</td><td>Setter A</td></tr>
+        <tr><td>Owen B.</td><td><span class="pill paid">Paid $25, no booking</span></td><td>3d ago</td><td>Text 1:1 → send calendar</td><td>Setter B</td></tr>
+        <tr><td>Leah K.</td><td><span class="pill hold">40-day hold</span></td><td>5d ago</td><td>Task: re-engage Jul 24</td><td>Setter B</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 style="margin-top:18px">Closer smart view <span class="sub">— follow-up closes (2nd / 3rd call)</span></h2>
+  <div class="card">
+    <table>
+      <thead><tr><th>Lead (demo)</th><th>State</th><th>Quote</th><th>Next action (1:1)</th><th>Owner</th></tr></thead>
+      <tbody>
+        <tr><td>Marcus T.</td><td><span class="pill resched">Follow-up call set</span></td><td>$2.5k PIF</td><td>Call → close, collect deposit</td><td>Mike</td></tr>
+        <tr><td>Sofia G.</td><td><span class="pill noshow">No-show recover</span></td><td>—</td><td>Call → re-book strategy</td><td>Anthony</td></tr>
+        <tr><td>Ben H.</td><td><span class="pill intake">Down-payment, 2nd pay due</span></td><td>$497 / 7-pay</td><td>Call → collect, then onboard</td><td>Isaac</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+</main>
+
+<div class="modal-bg" id="modalbg">
+  <div class="modal">
+    <h3 id="modalttl">Records <span class="x" onclick="closeModal()">×</span></h3>
+    <div class="mn">Demo drill-down — every KPI is clickable so any number can be verified against its underlying records.</div>
+    <div class="body" id="modalbody"></div>
+  </div>
+</div>
+
+<div class="foot">Mockup for review · demo data only · The Credit Brothers × 8 Figure Systems · built to validate the 5 focus levers before build.</div>
+
+<script>
+  document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById(t.dataset.view).classList.add('active');
+    window.scrollTo(0,0);
+  });
+  const records={
+    spend:['Campaign "Reset-No-Debt" — $14,200','Campaign "550-Score" — $11,800','Campaign "Approved-Fast" — $7,900','Campaign "Business-Credit" — $4,500'],
+    leads:['Jordan A. · Meta · Jun 22','Priya S. · Organic · Jun 22','Marcus T. · Meta · Jun 21','+ 1,177 more unique opt-ins (>30-day rule applied)'],
+    booked:['296 unique paid bookings','Duplicates excluded: 11 (refunded)','By event start date'],
+    taken:['89 calls actually taken','Booked→Taken = 30% (target 45%+)','207 booked calls never happened ← the leak'],
+    closed:['19 Closed-Won (≥1 payment)','Avg ticket $2,440','PIF 6 · payment plan 13'],
+    cash:['New cash $39,100 · Residual installments $7,200','Pre-processing, excludes $25 fee'],
+    cac:['$38,400 spend ÷ 19 closes = $2,021','vs avg cash/client $2,437'],
+    roas:['$46,300 cash ÷ $38,400 spend = 1.21x','Per-campaign ROAS unlocked by Dub source tracking'],
+    resched:['96 calls rescheduled ≥1×','64 still have no new date set','Reschedule reasons tracked separately'],
+    noshow:['32 no-shows','Despite booking + 24h + 2h + 10-min reminders','Recover via 1:1 closer smart view']
+  };
+  function openModal(k){
+    const ttl={spend:'Ad spend',leads:'Lead opt-ins',booked:'$25 calls booked',taken:'Calls taken',closed:'Closed (won)',cash:'Cash collected',cac:'CAC',roas:'ROAS',resched:'Rescheduled',noshow:'No-shows'}[k]||'Records';
+    document.getElementById('modalttl').innerHTML=ttl+' <span class="x" onclick="closeModal()">×</span>';
+    document.getElementById('modalbody').innerHTML='<table><tbody>'+(records[k]||['No demo records']).map(r=>'<tr><td>'+r+'</td></tr>').join('')+'</tbody></table>';
+    document.getElementById('modalbg').classList.add('show');
+  }
+  function closeModal(){document.getElementById('modalbg').classList.remove('show');}
+  document.querySelectorAll('.kpi').forEach(k=>k.onclick=()=>openModal(k.dataset.modal));
+  document.getElementById('modalbg').onclick=e=>{if(e.target.id==='modalbg')closeModal();};
+</script>
+</body>
+</html>

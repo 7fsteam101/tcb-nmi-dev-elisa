@@ -1,0 +1,13 @@
+# secrets — never committed
+.env
+.env.*
+.admin-credentials.txt
+
+# dependencies / build output
+node_modules/
+.next/
+.vercel/
+*.tsbuildinfo
+
+# os
+.DS_Store

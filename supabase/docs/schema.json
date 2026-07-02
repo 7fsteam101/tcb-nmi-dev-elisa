@@ -1,0 +1,5631 @@
+{
+  "name": "The Credit Brothers - Sales System (Supabase / Postgres)",
+  "tables": [
+    {
+      "name": "core.cancellation_reason",
+      "type": "BASE TABLE",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "comment": "Primary key (uuid, auto-generated)."
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "nullable": false,
+          "comment": "The option label shown in the UI and reports."
+        },
+        {
+          "name": "category",
+          "type": "text",
+          "nullable": true,
+          "comment": "Optional grouping for the option."
+        },
+        {
+          "name": "sort_order",
+          "type": "integer",
+          "nullable": true,
+          "comment": "Display order."
+        },
+        {
+          "name": "active",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "comment": "Whether the option is currently selectable."
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was created."
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was last updated (auto-maintained)."
+        }
+      ],
+      "indexes": [
+        {
+          "name": "cancellation_reason_pkey",
+          "def": "CREATE UNIQUE INDEX cancellation_reason_pkey ON core.cancellation_reason USING btree (id)",
+          "table": "core.cancellation_reason",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "cancellation_reason_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "core.cancellation_reason",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_cancellation_reason_updated",
+          "def": "CREATE TRIGGER trg_cancellation_reason_updated BEFORE UPDATE ON core.cancellation_reason FOR EACH ROW EXECUTE FUNCTION set_updated_at()"
+        }
+      ]
+    },
+    {
+      "name": "core.dq_reason",
+      "type": "BASE TABLE",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "comment": "Primary key (uuid, auto-generated)."
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "nullable": false,
+          "comment": "The option label shown in the UI and reports."
+        },
+        {
+          "name": "category",
+          "type": "text",
+          "nullable": true,
+          "comment": "Optional grouping for the option."
+        },
+        {
+          "name": "sort_order",
+          "type": "integer",
+          "nullable": true,
+          "comment": "Display order."
+        },
+        {
+          "name": "active",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "comment": "Whether the option is currently selectable."
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was created."
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was last updated (auto-maintained)."
+        }
+      ],
+      "indexes": [
+        {
+          "name": "dq_reason_pkey",
+          "def": "CREATE UNIQUE INDEX dq_reason_pkey ON core.dq_reason USING btree (id)",
+          "table": "core.dq_reason",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "dq_reason_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "core.dq_reason",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_dq_reason_updated",
+          "def": "CREATE TRIGGER trg_dq_reason_updated BEFORE UPDATE ON core.dq_reason FOR EACH ROW EXECUTE FUNCTION set_updated_at()"
+        }
+      ]
+    },
+    {
+      "name": "core.source_channel",
+      "type": "BASE TABLE",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "comment": "Primary key (uuid, auto-generated)."
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "nullable": false,
+          "comment": "The option label shown in the UI and reports."
+        },
+        {
+          "name": "category",
+          "type": "text",
+          "nullable": true,
+          "comment": "Optional grouping for the option."
+        },
+        {
+          "name": "sort_order",
+          "type": "integer",
+          "nullable": true,
+          "comment": "Display order."
+        },
+        {
+          "name": "active",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "comment": "Whether the option is currently selectable."
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was created."
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was last updated (auto-maintained)."
+        }
+      ],
+      "indexes": [
+        {
+          "name": "source_channel_pkey",
+          "def": "CREATE UNIQUE INDEX source_channel_pkey ON core.source_channel USING btree (id)",
+          "table": "core.source_channel",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "source_channel_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "core.source_channel",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_source_channel_updated",
+          "def": "CREATE TRIGGER trg_source_channel_updated BEFORE UPDATE ON core.source_channel FOR EACH ROW EXECUTE FUNCTION set_updated_at()"
+        }
+      ]
+    },
+    {
+      "name": "core.credit_account_type",
+      "type": "BASE TABLE",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "comment": "Primary key (uuid, auto-generated)."
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "nullable": false,
+          "comment": "The option label shown in the UI and reports."
+        },
+        {
+          "name": "category",
+          "type": "text",
+          "nullable": true,
+          "comment": "Optional grouping for the option."
+        },
+        {
+          "name": "sort_order",
+          "type": "integer",
+          "nullable": true,
+          "comment": "Display order."
+        },
+        {
+          "name": "active",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "comment": "Whether the option is currently selectable."
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was created."
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was last updated (auto-maintained)."
+        }
+      ],
+      "indexes": [
+        {
+          "name": "credit_account_type_pkey",
+          "def": "CREATE UNIQUE INDEX credit_account_type_pkey ON core.credit_account_type USING btree (id)",
+          "table": "core.credit_account_type",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "credit_account_type_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "core.credit_account_type",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_credit_account_type_updated",
+          "def": "CREATE TRIGGER trg_credit_account_type_updated BEFORE UPDATE ON core.credit_account_type FOR EACH ROW EXECUTE FUNCTION set_updated_at()"
+        }
+      ]
+    },
+    {
+      "name": "core.call_outcome",
+      "type": "BASE TABLE",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "comment": "Primary key (uuid, auto-generated)."
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "nullable": false,
+          "comment": "The option label shown in the UI and reports."
+        },
+        {
+          "name": "category",
+          "type": "text",
+          "nullable": true,
+          "comment": "Optional grouping for the option."
+        },
+        {
+          "name": "sort_order",
+          "type": "integer",
+          "nullable": true,
+          "comment": "Display order."
+        },
+        {
+          "name": "active",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "comment": "Whether the option is currently selectable."
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was created."
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was last updated (auto-maintained)."
+        }
+      ],
+      "indexes": [
+        {
+          "name": "call_outcome_pkey",
+          "def": "CREATE UNIQUE INDEX call_outcome_pkey ON core.call_outcome USING btree (id)",
+          "table": "core.call_outcome",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "call_outcome_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "core.call_outcome",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_call_outcome_updated",
+          "def": "CREATE TRIGGER trg_call_outcome_updated BEFORE UPDATE ON core.call_outcome FOR EACH ROW EXECUTE FUNCTION set_updated_at()"
+        }
+      ]
+    },
+    {
+      "name": "core.objection_type",
+      "type": "BASE TABLE",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "comment": "Primary key (uuid, auto-generated)."
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "nullable": false,
+          "comment": "The option label shown in the UI and reports."
+        },
+        {
+          "name": "category",
+          "type": "text",
+          "nullable": true,
+          "comment": "Optional grouping for the option."
+        },
+        {
+          "name": "sort_order",
+          "type": "integer",
+          "nullable": true,
+          "comment": "Display order."
+        },
+        {
+          "name": "active",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "comment": "Whether the option is currently selectable."
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was created."
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was last updated (auto-maintained)."
+        }
+      ],
+      "indexes": [
+        {
+          "name": "objection_type_pkey",
+          "def": "CREATE UNIQUE INDEX objection_type_pkey ON core.objection_type USING btree (id)",
+          "table": "core.objection_type",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "objection_type_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "core.objection_type",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_objection_type_updated",
+          "def": "CREATE TRIGGER trg_objection_type_updated BEFORE UPDATE ON core.objection_type FOR EACH ROW EXECUTE FUNCTION set_updated_at()"
+        }
+      ]
+    },
+    {
+      "name": "sales.rep",
+      "type": "BASE TABLE",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "comment": "Primary key (uuid, auto-generated)."
+        },
+        {
+          "name": "full_name",
+          "type": "text",
+          "nullable": false,
+          "comment": "The team member's full name."
+        },
+        {
+          "name": "email",
+          "type": "text",
+          "nullable": true,
+          "comment": "The team member's email."
+        },
+        {
+          "name": "role",
+          "type": "rep_role",
+          "nullable": false,
+          "comment": "setter / closer / hybrid / csm / admin."
+        },
+        {
+          "name": "sendblue_owner",
+          "type": "text",
+          "nullable": true,
+          "comment": "SendBlue owner handle (matches calls to this rep)."
+        },
+        {
+          "name": "sendblue_owner_email",
+          "type": "text",
+          "nullable": true,
+          "comment": "SendBlue owner email (matches calls to this rep)."
+        },
+        {
+          "name": "current_commission_tier",
+          "type": "commission_tier_name",
+          "nullable": true,
+          "comment": "Derived from the rep's rolling 2-week close rate."
+        },
+        {
+          "name": "active",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "comment": "Whether the rep is currently active."
+        },
+        {
+          "name": "gusto_employee_id",
+          "type": "text",
+          "nullable": true,
+          "comment": "Payroll (Gusto)."
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was created."
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was last updated (auto-maintained)."
+        }
+      ],
+      "indexes": [
+        {
+          "name": "rep_pkey",
+          "def": "CREATE UNIQUE INDEX rep_pkey ON sales.rep USING btree (id)",
+          "table": "sales.rep",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "rep_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "sales.rep",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_rep_updated",
+          "def": "CREATE TRIGGER trg_rep_updated BEFORE UPDATE ON sales.rep FOR EACH ROW EXECUTE FUNCTION set_updated_at()"
+        }
+      ]
+    },
+    {
+      "name": "core.contact",
+      "type": "BASE TABLE",
+      "comment": "One real person = the Close \"Lead\" (1:1). Extra emails/phones live in contact_identifier.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "comment": "Primary key (uuid, auto-generated)."
+        },
+        {
+          "name": "full_name",
+          "type": "text",
+          "nullable": false,
+          "comment": "The person's full name."
+        },
+        {
+          "name": "first_name",
+          "type": "text",
+          "nullable": true,
+          "comment": "First name (for personalization)."
+        },
+        {
+          "name": "last_name",
+          "type": "text",
+          "nullable": true,
+          "comment": "Last name (for personalization)."
+        },
+        {
+          "name": "primary_email",
+          "type": "text",
+          "nullable": true,
+          "comment": "Current primary email; the full set lives in contact_identifier."
+        },
+        {
+          "name": "primary_phone",
+          "type": "text",
+          "nullable": true,
+          "comment": "Current primary phone; the full set lives in contact_identifier."
+        },
+        {
+          "name": "company_name",
+          "type": "text",
+          "nullable": true,
+          "comment": "For business-funding leads."
+        },
+        {
+          "name": "website",
+          "type": "text",
+          "nullable": true,
+          "comment": "For business-funding leads."
+        },
+        {
+          "name": "lifecycle_status",
+          "type": "lifecycle_status",
+          "nullable": false,
+          "default": "'lead'::lifecycle_status",
+          "comment": "lead / qualified / customer / do_not_contact. Never downgrade from customer or do_not_contact."
+        },
+        {
+          "name": "owner_rep_id",
+          "type": "uuid",
+          "nullable": true,
+          "comment": "Current owning rep. Per-activity owners live on each Call."
+        },
+        {
+          "name": "merged_into_contact_id",
+          "type": "uuid",
+          "nullable": true,
+          "comment": "Set when this person is merged into another during dedup; keeps both histories."
+        },
+        {
+          "name": "close_id",
+          "type": "text",
+          "nullable": true,
+          "comment": "Cross-system sync key (Close Lead id)."
+        },
+        {
+          "name": "ghl_marketing_id",
+          "type": "text",
+          "nullable": true,
+          "comment": "Cross-system key: the contact id in GHL Marketing."
+        },
+        {
+          "name": "ghl_repair_id",
+          "type": "text",
+          "nullable": true,
+          "comment": "Cross-system key: the contact id in GHL Repair / Fulfilment."
+        },
+        {
+          "name": "monday_lead_id",
+          "type": "text",
+          "nullable": true,
+          "comment": "Cross-system key: the lead id in Monday."
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was created."
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was last updated (auto-maintained)."
+        }
+      ],
+      "indexes": [
+        {
+          "name": "contact_pkey",
+          "def": "CREATE UNIQUE INDEX contact_pkey ON core.contact USING btree (id)",
+          "table": "core.contact",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "contact_owner_rep_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (owner_rep_id) REFERENCES sales.rep(id)",
+          "table": "core.contact",
+          "referenced_table": "sales.rep",
+          "columns": [
+            "owner_rep_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "contact_merged_into_contact_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (merged_into_contact_id) REFERENCES core.contact(id)",
+          "table": "core.contact",
+          "referenced_table": "core.contact",
+          "columns": [
+            "merged_into_contact_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "contact_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "core.contact",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_contact_updated",
+          "def": "CREATE TRIGGER trg_contact_updated BEFORE UPDATE ON core.contact FOR EACH ROW EXECUTE FUNCTION set_updated_at()"
+        }
+      ]
+    },
+    {
+      "name": "core.contact_identifier",
+      "type": "BASE TABLE",
+      "comment": "A person's extra emails/phones. Append-only, never overwrite; match across all when deduping.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "comment": "Primary key (uuid, auto-generated)."
+        },
+        {
+          "name": "contact_id",
+          "type": "uuid",
+          "nullable": false,
+          "comment": "FK to the owning contact."
+        },
+        {
+          "name": "type",
+          "type": "contact_identifier_type",
+          "nullable": false,
+          "comment": "email or phone."
+        },
+        {
+          "name": "value",
+          "type": "text",
+          "nullable": false,
+          "comment": "The email or phone. Append a new one if different, never overwrite."
+        },
+        {
+          "name": "is_primary",
+          "type": "boolean",
+          "nullable": false,
+          "default": "false",
+          "comment": "One primary per type."
+        },
+        {
+          "name": "source",
+          "type": "text",
+          "nullable": true,
+          "comment": "Where this email/phone came from."
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was created."
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was last updated (auto-maintained)."
+        }
+      ],
+      "indexes": [
+        {
+          "name": "contact_identifier_pkey",
+          "def": "CREATE UNIQUE INDEX contact_identifier_pkey ON core.contact_identifier USING btree (id)",
+          "table": "core.contact_identifier",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uq_identifier_value",
+          "def": "CREATE UNIQUE INDEX uq_identifier_value ON core.contact_identifier USING btree (type, lower(value))",
+          "table": "core.contact_identifier",
+          "columns": [
+            "type",
+            "lower"
+          ]
+        },
+        {
+          "name": "uq_identifier_primary",
+          "def": "CREATE UNIQUE INDEX uq_identifier_primary ON core.contact_identifier USING btree (contact_id, type) WHERE is_primary",
+          "table": "core.contact_identifier",
+          "columns": [
+            "contact_id",
+            "type"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "contact_identifier_contact_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (contact_id) REFERENCES core.contact(id) ON DELETE CASCADE",
+          "table": "core.contact_identifier",
+          "referenced_table": "core.contact",
+          "columns": [
+            "contact_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "contact_identifier_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "core.contact_identifier",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_contact_identifier_updated",
+          "def": "CREATE TRIGGER trg_contact_identifier_updated BEFORE UPDATE ON core.contact_identifier FOR EACH ROW EXECUTE FUNCTION set_updated_at()"
+        }
+      ]
+    },
+    {
+      "name": "marketing.offer",
+      "type": "BASE TABLE",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "comment": "Primary key (uuid, auto-generated)."
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "nullable": false,
+          "comment": "Offer name (BDCR, Coaching, etc.)."
+        },
+        {
+          "name": "type",
+          "type": "offer_type",
+          "nullable": false,
+          "comment": "core / coaching / funding / community / lto / booking_fee."
+        },
+        {
+          "name": "default_price_minor",
+          "type": "integer",
+          "nullable": true,
+          "comment": "Default price (minor units)."
+        },
+        {
+          "name": "active",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "comment": "Whether the offer is currently sold."
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was created."
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was last updated (auto-maintained)."
+        }
+      ],
+      "indexes": [
+        {
+          "name": "offer_pkey",
+          "def": "CREATE UNIQUE INDEX offer_pkey ON marketing.offer USING btree (id)",
+          "table": "marketing.offer",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "offer_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "marketing.offer",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_offer_updated",
+          "def": "CREATE TRIGGER trg_offer_updated BEFORE UPDATE ON marketing.offer FOR EACH ROW EXECUTE FUNCTION set_updated_at()"
+        }
+      ]
+    },
+    {
+      "name": "marketing.pricing_plan",
+      "type": "BASE TABLE",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "comment": "Primary key (uuid, auto-generated)."
+        },
+        {
+          "name": "offer_id",
+          "type": "uuid",
+          "nullable": false,
+          "comment": "FK to the offer."
+        },
+        {
+          "name": "name",
+          "type": "plan_type",
+          "nullable": false,
+          "comment": "Plan name (pif / 3pay / ... / zero_down)."
+        },
+        {
+          "name": "version",
+          "type": "integer",
+          "nullable": false,
+          "comment": "Plan version (the zero-down model changes plans over time)."
+        },
+        {
+          "name": "installments",
+          "type": "integer",
+          "nullable": true,
+          "comment": "Number of installments."
+        },
+        {
+          "name": "installment_amount_minor",
+          "type": "integer",
+          "nullable": true,
+          "comment": "Per-installment amount (minor units)."
+        },
+        {
+          "name": "requires_first_last",
+          "type": "boolean",
+          "nullable": true,
+          "comment": "The first-and-last-payment-upfront rule."
+        },
+        {
+          "name": "effective_from",
+          "type": "date",
+          "nullable": true,
+          "comment": "When this plan version takes effect."
+        },
+        {
+          "name": "effective_to",
+          "type": "date",
+          "nullable": true,
+          "comment": "When this plan version ends."
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was created."
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was last updated (auto-maintained)."
+        }
+      ],
+      "indexes": [
+        {
+          "name": "pricing_plan_pkey",
+          "def": "CREATE UNIQUE INDEX pricing_plan_pkey ON marketing.pricing_plan USING btree (id)",
+          "table": "marketing.pricing_plan",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "pricing_plan_offer_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (offer_id) REFERENCES marketing.offer(id)",
+          "table": "marketing.pricing_plan",
+          "referenced_table": "marketing.offer",
+          "columns": [
+            "offer_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "pricing_plan_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "marketing.pricing_plan",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_pricing_plan_updated",
+          "def": "CREATE TRIGGER trg_pricing_plan_updated BEFORE UPDATE ON marketing.pricing_plan FOR EACH ROW EXECUTE FUNCTION set_updated_at()"
+        }
+      ]
+    },
+    {
+      "name": "sales.opportunity",
+      "type": "BASE TABLE",
+      "comment": "A sales-cycle instance and the main reporting unit. Contact : Opportunity = 1:N — a contact can have multiple opportunities over time (repeat purchases) and more than one may be open at once; the database mirrors Close. The automation works with one active opportunity at a time and never OVERWRITES a won opportunity (it creates a new one for new activity), but that is sync/automation logic, NOT a database rule — an opportunity created by hand in Close syncs straight through.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "comment": "Primary key (uuid, auto-generated)."
+        },
+        {
+          "name": "contact_id",
+          "type": "uuid",
+          "nullable": false,
+          "comment": "FK to the contact."
+        },
+        {
+          "name": "stage",
+          "type": "opportunity_stage",
+          "nullable": false,
+          "default": "'lead_opt_in'::opportunity_stage",
+          "comment": "The Close pipeline stage — a faithful mirror of Close (the system of record). Users may move an opportunity to any stage, in any direction, and this reflects it. The discipline that our automations never OVERWRITE a won opportunity (they create a NEW opportunity for new activity instead) is enforced in the sync/automation layer, NOT by a database constraint. Reaching won_pif or won_pp triggers client onboarding (a fulfilment record). ACTIVE: lead_opt_in, strategy_call_booked, intake_form_submitted, audit_complete, intake_form_needed, call_confirmed, no_show, call_canceled_by_lead, follow_up_call_booked, warm_list, contract_sent, contract_signed. WON: deposit, won_pif, won_pp. LOST: call_canceled_by_team, lost, dq_on_call."
+        },
+        {
+          "name": "qualified",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "comment": "Default true until disqualified."
+        },
+        {
+          "name": "dq_stage",
+          "type": "dq_stage",
+          "nullable": true,
+          "comment": "Where disqualification happened: setting or closing."
+        },
+        {
+          "name": "dq_reason_id",
+          "type": "uuid",
+          "nullable": true,
+          "comment": "FK to the disqualification reason (if disqualified)."
+        },
+        {
+          "name": "owner_rep_id",
+          "type": "uuid",
+          "nullable": true,
+          "comment": "FK to the owning rep."
+        },
+        {
+          "name": "first_touch_channel",
+          "type": "text",
+          "nullable": true,
+          "comment": "Snapshot at close: the first opt-in source (how acquired). The Deal inherits it."
+        },
+        {
+          "name": "converting_touch_channel",
+          "type": "text",
+          "nullable": true,
+          "comment": "Snapshot at close: the booking source (what closed them). The Deal inherits it."
+        },
+        {
+          "name": "cohort_month",
+          "type": "date",
+          "nullable": true,
+          "comment": "Opt-in / book month, for cohorting lead quality."
+        },
+        {
+          "name": "current_nafa_id",
+          "type": "uuid",
+          "nullable": true,
+          "comment": "The latest valid NAFA."
+        },
+        {
+          "name": "opened_at",
+          "type": "timestamp with time zone",
+          "nullable": true,
+          "comment": "When the opportunity was opened."
+        },
+        {
+          "name": "closed_at",
+          "type": "timestamp with time zone",
+          "nullable": true,
+          "comment": "When the opportunity was closed (won or lost)."
+        },
+        {
+          "name": "close_id",
+          "type": "text",
+          "nullable": true,
+          "comment": "Cross-system key: the opportunity id in Close."
+        },
+        {
+          "name": "ghl_marketing_opp_id",
+          "type": "text",
+          "nullable": true,
+          "comment": "Cross-system key: the opportunity id in GHL Marketing."
+        },
+        {
+          "name": "monday_lead_source_item",
+          "type": "text",
+          "nullable": true,
+          "comment": "Cross-system key: the Monday lead-source item."
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was created."
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was last updated (auto-maintained)."
+        }
+      ],
+      "indexes": [
+        {
+          "name": "opportunity_pkey",
+          "def": "CREATE UNIQUE INDEX opportunity_pkey ON sales.opportunity USING btree (id)",
+          "table": "sales.opportunity",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "ix_opp_contact",
+          "def": "CREATE INDEX ix_opp_contact ON sales.opportunity USING btree (contact_id)",
+          "table": "sales.opportunity",
+          "columns": [
+            "contact_id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "opportunity_dq_reason_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (dq_reason_id) REFERENCES core.dq_reason(id)",
+          "table": "sales.opportunity",
+          "referenced_table": "core.dq_reason",
+          "columns": [
+            "dq_reason_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "opportunity_owner_rep_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (owner_rep_id) REFERENCES sales.rep(id)",
+          "table": "sales.opportunity",
+          "referenced_table": "sales.rep",
+          "columns": [
+            "owner_rep_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "opportunity_contact_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (contact_id) REFERENCES core.contact(id)",
+          "table": "sales.opportunity",
+          "referenced_table": "core.contact",
+          "columns": [
+            "contact_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "opportunity_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "sales.opportunity",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "opportunity_current_nafa_fk",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (current_nafa_id) REFERENCES credit.nafa(id)",
+          "table": "sales.opportunity",
+          "referenced_table": "credit.nafa",
+          "columns": [
+            "current_nafa_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_opportunity_updated",
+          "def": "CREATE TRIGGER trg_opportunity_updated BEFORE UPDATE ON sales.opportunity FOR EACH ROW EXECUTE FUNCTION set_updated_at()"
+        }
+      ]
+    },
+    {
+      "name": "sales.opt_in",
+      "type": "BASE TABLE",
+      "comment": "A marketing lead-form submission. Carries the source that feeds first-touch.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "comment": "Primary key (uuid, auto-generated)."
+        },
+        {
+          "name": "contact_id",
+          "type": "uuid",
+          "nullable": false,
+          "comment": "FK to the contact who submitted."
+        },
+        {
+          "name": "opportunity_id",
+          "type": "uuid",
+          "nullable": true,
+          "comment": "FK to the opportunity this opt-in belongs to."
+        },
+        {
+          "name": "submitted_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "comment": "When the form was submitted."
+        },
+        {
+          "name": "goal",
+          "type": "optin_goal",
+          "nullable": true,
+          "comment": "What the lead wants: house / car / credit_cards / business_credit / other."
+        },
+        {
+          "name": "credit_score_range",
+          "type": "text",
+          "nullable": true,
+          "comment": "Self-reported range."
+        },
+        {
+          "name": "blocker",
+          "type": "text",
+          "nullable": true,
+          "comment": "What has held them back."
+        },
+        {
+          "name": "source_channel",
+          "type": "text",
+          "nullable": true,
+          "comment": "Source of this opt-in (via Dub); feeds first-touch."
+        },
+        {
+          "name": "source_campaign",
+          "type": "text",
+          "nullable": true,
+          "comment": "The campaign that drove this opt-in (via Dub)."
+        },
+        {
+          "name": "utm",
+          "type": "text",
+          "nullable": true,
+          "comment": "UTM parameters captured at opt-in."
+        },
+        {
+          "name": "dub_link_id",
+          "type": "text",
+          "nullable": true,
+          "comment": "Dub link identifier for this opt-in."
+        },
+        {
+          "name": "form_id",
+          "type": "text",
+          "nullable": true,
+          "comment": "Which GHL form was submitted."
+        },
+        {
+          "name": "counts_as_unique",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "comment": "Derived; applies the \u003e30-day re-count rule."
+        },
+        {
+          "name": "ghl_marketing_id",
+          "type": "text",
+          "nullable": true,
+          "comment": "Cross-system key: the submission id in GHL Marketing."
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was created."
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was last updated (auto-maintained)."
+        }
+      ],
+      "indexes": [
+        {
+          "name": "opt_in_pkey",
+          "def": "CREATE UNIQUE INDEX opt_in_pkey ON sales.opt_in USING btree (id)",
+          "table": "sales.opt_in",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "ix_optin_contact",
+          "def": "CREATE INDEX ix_optin_contact ON sales.opt_in USING btree (contact_id)",
+          "table": "sales.opt_in",
+          "columns": [
+            "contact_id"
+          ]
+        },
+        {
+          "name": "ix_optin_opp",
+          "def": "CREATE INDEX ix_optin_opp ON sales.opt_in USING btree (opportunity_id)",
+          "table": "sales.opt_in",
+          "columns": [
+            "opportunity_id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "opt_in_contact_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (contact_id) REFERENCES core.contact(id)",
+          "table": "sales.opt_in",
+          "referenced_table": "core.contact",
+          "columns": [
+            "contact_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "opt_in_opportunity_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (opportunity_id) REFERENCES sales.opportunity(id)",
+          "table": "sales.opt_in",
+          "referenced_table": "sales.opportunity",
+          "columns": [
+            "opportunity_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "opt_in_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "sales.opt_in",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_opt_in_updated",
+          "def": "CREATE TRIGGER trg_opt_in_updated BEFORE UPDATE ON sales.opt_in FOR EACH ROW EXECUTE FUNCTION set_updated_at()"
+        }
+      ]
+    },
+    {
+      "name": "credit.intake_submission",
+      "type": "BASE TABLE",
+      "comment": "⚠️ PII (idiq/msiq logins + SSN-last-4). Ciphertext only, RLS-locked to service role, purge after use.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "comment": "Primary key (uuid, auto-generated)."
+        },
+        {
+          "name": "opportunity_id",
+          "type": "uuid",
+          "nullable": false,
+          "comment": "FK to the opportunity."
+        },
+        {
+          "name": "contact_id",
+          "type": "uuid",
+          "nullable": false,
+          "comment": "FK to the contact."
+        },
+        {
+          "name": "submitted_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "comment": "When the intake form was submitted."
+        },
+        {
+          "name": "provider",
+          "type": "intake_provider",
+          "nullable": false,
+          "comment": "identityiq or myscoreiq."
+        },
+        {
+          "name": "idiq_username",
+          "type": "text",
+          "nullable": true,
+          "comment": "ENCRYPTED PII — ciphertext only. Purge after use."
+        },
+        {
+          "name": "idiq_password",
+          "type": "text",
+          "nullable": true,
+          "comment": "ENCRYPTED PII — ciphertext only. Purge after use."
+        },
+        {
+          "name": "msiq_username",
+          "type": "text",
+          "nullable": true,
+          "comment": "ENCRYPTED PII — ciphertext only. Purge after use."
+        },
+        {
+          "name": "msiq_password",
+          "type": "text",
+          "nullable": true,
+          "comment": "ENCRYPTED PII — ciphertext only. Purge after use."
+        },
+        {
+          "name": "last_4_ssn",
+          "type": "text",
+          "nullable": true,
+          "comment": "ENCRYPTED PII (last 4 of SSN) — ciphertext only. Purge after use."
+        },
+        {
+          "name": "status",
+          "type": "intake_status",
+          "nullable": false,
+          "default": "'submitted'::intake_status",
+          "comment": "submitted / verified / failed (login tested by the worker)."
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was created."
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was last updated (auto-maintained)."
+        }
+      ],
+      "indexes": [
+        {
+          "name": "intake_submission_pkey",
+          "def": "CREATE UNIQUE INDEX intake_submission_pkey ON credit.intake_submission USING btree (id)",
+          "table": "credit.intake_submission",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "ix_intake_opp",
+          "def": "CREATE INDEX ix_intake_opp ON credit.intake_submission USING btree (opportunity_id)",
+          "table": "credit.intake_submission",
+          "columns": [
+            "opportunity_id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "intake_submission_contact_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (contact_id) REFERENCES core.contact(id)",
+          "table": "credit.intake_submission",
+          "referenced_table": "core.contact",
+          "columns": [
+            "contact_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "intake_submission_opportunity_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (opportunity_id) REFERENCES sales.opportunity(id)",
+          "table": "credit.intake_submission",
+          "referenced_table": "sales.opportunity",
+          "columns": [
+            "opportunity_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "intake_submission_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "credit.intake_submission",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_intake_submission_updated",
+          "def": "CREATE TRIGGER trg_intake_submission_updated BEFORE UPDATE ON credit.intake_submission FOR EACH ROW EXECUTE FUNCTION set_updated_at()"
+        }
+      ]
+    },
+    {
+      "name": "credit.nafa",
+      "type": "BASE TABLE",
+      "comment": "One credit-report pull rendered as a NAFA. 1:N per opportunity (history kept); is_canonical = the latest valid.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "comment": "Primary key (uuid, auto-generated)."
+        },
+        {
+          "name": "opportunity_id",
+          "type": "uuid",
+          "nullable": false,
+          "comment": "FK to the opportunity."
+        },
+        {
+          "name": "contact_id",
+          "type": "uuid",
+          "nullable": false,
+          "comment": "FK to the contact."
+        },
+        {
+          "name": "intake_id",
+          "type": "uuid",
+          "nullable": true,
+          "comment": "FK to the intake submission whose credentials were used."
+        },
+        {
+          "name": "pulled_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "comment": "The snapshot date of this credit pull."
+        },
+        {
+          "name": "provider",
+          "type": "intake_provider",
+          "nullable": true,
+          "comment": "The credit-monitoring provider used (identityiq or myscoreiq)."
+        },
+        {
+          "name": "violation_opportunities",
+          "type": "integer",
+          "nullable": true,
+          "comment": "Headline count of violation opportunities."
+        },
+        {
+          "name": "accounts_with_violations",
+          "type": "integer",
+          "nullable": true,
+          "comment": "Accounts with violations — pricing is based on these."
+        },
+        {
+          "name": "version",
+          "type": "nafa_version",
+          "nullable": true,
+          "comment": "A / B / C / D — lead-profile / script class."
+        },
+        {
+          "name": "other_negative_accounts",
+          "type": "integer",
+          "nullable": true,
+          "comment": "Count of other negative accounts (included at no extra cost)."
+        },
+        {
+          "name": "ineligible_accounts",
+          "type": "integer",
+          "nullable": true,
+          "comment": "Count of ineligible accounts (student loan, bankruptcy, government, child support)."
+        },
+        {
+          "name": "hard_inquiries",
+          "type": "integer",
+          "nullable": true,
+          "comment": "Count of eligible hard inquiries."
+        },
+        {
+          "name": "credit_score",
+          "type": "integer",
+          "nullable": true,
+          "comment": "The credit score on this pull."
+        },
+        {
+          "name": "utilization_pct",
+          "type": "numeric",
+          "nullable": true,
+          "comment": "Credit utilization percentage."
+        },
+        {
+          "name": "report_pdf_url",
+          "type": "text",
+          "nullable": true,
+          "comment": "The NAFA PDF (stored on Close Files)."
+        },
+        {
+          "name": "report_url",
+          "type": "text",
+          "nullable": true,
+          "comment": "The NAFA report URL closers send."
+        },
+        {
+          "name": "qualifies",
+          "type": "boolean",
+          "nullable": true,
+          "comment": "Derived: \u003e=5 violation ops AND \u003e=2 accounts with violations."
+        },
+        {
+          "name": "is_canonical",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "comment": "Latest valid NAFA = the one used for auto-DQ, scoring, and the pitch."
+        },
+        {
+          "name": "monday_audit_id",
+          "type": "text",
+          "nullable": true,
+          "comment": "Cross-system key: the Monday audit id."
+        },
+        {
+          "name": "monday_credit_audit_item",
+          "type": "text",
+          "nullable": true,
+          "comment": "Cross-system key: the Monday credit-audit item."
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was created."
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was last updated (auto-maintained)."
+        }
+      ],
+      "indexes": [
+        {
+          "name": "nafa_pkey",
+          "def": "CREATE UNIQUE INDEX nafa_pkey ON credit.nafa USING btree (id)",
+          "table": "credit.nafa",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uq_canonical_nafa",
+          "def": "CREATE UNIQUE INDEX uq_canonical_nafa ON credit.nafa USING btree (opportunity_id) WHERE is_canonical",
+          "table": "credit.nafa",
+          "columns": [
+            "opportunity_id"
+          ]
+        },
+        {
+          "name": "ix_nafa_opp",
+          "def": "CREATE INDEX ix_nafa_opp ON credit.nafa USING btree (opportunity_id)",
+          "table": "credit.nafa",
+          "columns": [
+            "opportunity_id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "nafa_contact_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (contact_id) REFERENCES core.contact(id)",
+          "table": "credit.nafa",
+          "referenced_table": "core.contact",
+          "columns": [
+            "contact_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "nafa_opportunity_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (opportunity_id) REFERENCES sales.opportunity(id)",
+          "table": "credit.nafa",
+          "referenced_table": "sales.opportunity",
+          "columns": [
+            "opportunity_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "nafa_intake_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (intake_id) REFERENCES credit.intake_submission(id)",
+          "table": "credit.nafa",
+          "referenced_table": "credit.intake_submission",
+          "columns": [
+            "intake_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "nafa_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "credit.nafa",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_nafa_updated",
+          "def": "CREATE TRIGGER trg_nafa_updated BEFORE UPDATE ON credit.nafa FOR EACH ROW EXECUTE FUNCTION set_updated_at()"
+        }
+      ]
+    },
+    {
+      "name": "sales.call",
+      "type": "BASE TABLE",
+      "comment": "All calls in one table (type = readiness/strategy/follow_up). The strategy call is the booking; funnel KPIs filter type=strategy.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "comment": "Primary key (uuid, auto-generated)."
+        },
+        {
+          "name": "opportunity_id",
+          "type": "uuid",
+          "nullable": false,
+          "comment": "FK to the opportunity."
+        },
+        {
+          "name": "type",
+          "type": "call_type",
+          "nullable": false,
+          "comment": "readiness / strategy / follow_up. The strategy call is the booking; funnel KPIs filter type=strategy."
+        },
+        {
+          "name": "rep_id",
+          "type": "uuid",
+          "nullable": true,
+          "comment": "Owner: setter (readiness) or closer (strategy / follow_up)."
+        },
+        {
+          "name": "scheduled_at",
+          "type": "timestamp with time zone",
+          "nullable": true,
+          "comment": "Original event start."
+        },
+        {
+          "name": "current_scheduled_at",
+          "type": "timestamp with time zone",
+          "nullable": true,
+          "comment": "After reschedules (the same call moves); the live slot is on appointment."
+        },
+        {
+          "name": "occurred_at",
+          "type": "timestamp with time zone",
+          "nullable": true,
+          "comment": "When the call was taken."
+        },
+        {
+          "name": "recording_url",
+          "type": "text",
+          "nullable": true,
+          "comment": "SendBlue recording."
+        },
+        {
+          "name": "transcript_text",
+          "type": "text",
+          "nullable": true,
+          "comment": "For AI call analysis."
+        },
+        {
+          "name": "dq_reason_id",
+          "type": "uuid",
+          "nullable": true,
+          "comment": "FK to the disqualification reason (if the outcome was a DQ)."
+        },
+        {
+          "name": "booking_payment_id",
+          "type": "uuid",
+          "nullable": true,
+          "comment": "The $25 booking fee (strategy calls)."
+        },
+        {
+          "name": "booking_source_channel",
+          "type": "text",
+          "nullable": true,
+          "comment": "Source of the booking (can differ from the opt-in, e.g. a DM-setter link); = the converting touch."
+        },
+        {
+          "name": "booking_source_campaign",
+          "type": "text",
+          "nullable": true,
+          "comment": "Campaign that drove the booking (the converting touch)."
+        },
+        {
+          "name": "booking_utm",
+          "type": "text",
+          "nullable": true,
+          "comment": "UTM captured at booking."
+        },
+        {
+          "name": "booking_dub_link_id",
+          "type": "text",
+          "nullable": true,
+          "comment": "Dub link id captured at booking."
+        },
+        {
+          "name": "nafa_id",
+          "type": "uuid",
+          "nullable": true,
+          "comment": "The NAFA used at call time."
+        },
+        {
+          "name": "cancellation_reason_id",
+          "type": "uuid",
+          "nullable": true,
+          "comment": "FK to the cancellation reason (if cancelled)."
+        },
+        {
+          "name": "offer_made",
+          "type": "boolean",
+          "nullable": true,
+          "comment": "Was the offer pitched (strategy)."
+        },
+        {
+          "name": "disposition",
+          "type": "call_disposition",
+          "nullable": true,
+          "comment": "Result of a taken strategy call: closed / follow_up / dq_on_call / no_decision."
+        },
+        {
+          "name": "is_primary",
+          "type": "boolean",
+          "nullable": true,
+          "comment": "The canonical strategy call for the opportunity (exactly one)."
+        },
+        {
+          "name": "is_duplicate",
+          "type": "boolean",
+          "nullable": true,
+          "default": "false",
+          "comment": "Excluded from all KPIs (the extra $25 is refunded)."
+        },
+        {
+          "name": "chk_intake",
+          "type": "boolean",
+          "nullable": true,
+          "comment": "Readiness checklist: intake form submitted."
+        },
+        {
+          "name": "chk_video",
+          "type": "boolean",
+          "nullable": true,
+          "comment": "Readiness checklist: pre-call video watched."
+        },
+        {
+          "name": "chk_partner",
+          "type": "boolean",
+          "nullable": true,
+          "comment": "Readiness checklist: partner / spouse handled."
+        },
+        {
+          "name": "chk_price",
+          "type": "boolean",
+          "nullable": true,
+          "comment": "Readiness checklist: price pre-qualified."
+        },
+        {
+          "name": "chk_40day",
+          "type": "boolean",
+          "nullable": true,
+          "comment": "Readiness checklist: clear of the 40-day dispute window."
+        },
+        {
+          "name": "chk_not_at_work",
+          "type": "boolean",
+          "nullable": true,
+          "comment": "Readiness checklist: not at work / not driving at call time."
+        },
+        {
+          "name": "expected_payment_minor",
+          "type": "integer",
+          "nullable": true,
+          "comment": "Affordability signal from the price pre-qual (readiness)."
+        },
+        {
+          "name": "readiness_outcome",
+          "type": "readiness_outcome",
+          "nullable": true,
+          "comment": "confirmed_ready / reschedule / dq / no_contact (readiness)."
+        },
+        {
+          "name": "sub_type",
+          "type": "follow_up_sub_type",
+          "nullable": true,
+          "comment": "follow_up / enrollment (enrollment = partial-pay-with-a-call-to-follow)."
+        },
+        {
+          "name": "sequence_no",
+          "type": "integer",
+          "nullable": true,
+          "comment": "Which follow-up (2nd, 3rd, ...)."
+        },
+        {
+          "name": "partial_payment_minor",
+          "type": "integer",
+          "nullable": true,
+          "comment": "For enrollment calls."
+        },
+        {
+          "name": "followup_outcome",
+          "type": "follow_up_outcome",
+          "nullable": true,
+          "comment": "closed / follow_up / dq / no_show / reschedule (follow_up)."
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was created."
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was last updated (auto-maintained)."
+        }
+      ],
+      "indexes": [
+        {
+          "name": "call_pkey",
+          "def": "CREATE UNIQUE INDEX call_pkey ON sales.call USING btree (id)",
+          "table": "sales.call",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uq_primary_strategy",
+          "def": "CREATE UNIQUE INDEX uq_primary_strategy ON sales.call USING btree (opportunity_id) WHERE ((type = 'strategy'::call_type) AND is_primary)",
+          "table": "sales.call",
+          "columns": [
+            "opportunity_id"
+          ]
+        },
+        {
+          "name": "ix_call_opp",
+          "def": "CREATE INDEX ix_call_opp ON sales.call USING btree (opportunity_id)",
+          "table": "sales.call",
+          "columns": [
+            "opportunity_id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "call_cancellation_reason_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (cancellation_reason_id) REFERENCES core.cancellation_reason(id)",
+          "table": "sales.call",
+          "referenced_table": "core.cancellation_reason",
+          "columns": [
+            "cancellation_reason_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "call_dq_reason_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (dq_reason_id) REFERENCES core.dq_reason(id)",
+          "table": "sales.call",
+          "referenced_table": "core.dq_reason",
+          "columns": [
+            "dq_reason_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "call_rep_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (rep_id) REFERENCES sales.rep(id)",
+          "table": "sales.call",
+          "referenced_table": "sales.rep",
+          "columns": [
+            "rep_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "call_opportunity_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (opportunity_id) REFERENCES sales.opportunity(id)",
+          "table": "sales.call",
+          "referenced_table": "sales.opportunity",
+          "columns": [
+            "opportunity_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "call_nafa_fk",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (nafa_id) REFERENCES credit.nafa(id)",
+          "table": "sales.call",
+          "referenced_table": "credit.nafa",
+          "columns": [
+            "nafa_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "call_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "sales.call",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "call_booking_payment_fk",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (booking_payment_id) REFERENCES finance.successful_payment(id)",
+          "table": "sales.call",
+          "referenced_table": "finance.successful_payment",
+          "columns": [
+            "booking_payment_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_call_updated",
+          "def": "CREATE TRIGGER trg_call_updated BEFORE UPDATE ON sales.call FOR EACH ROW EXECUTE FUNCTION set_updated_at()"
+        }
+      ]
+    },
+    {
+      "name": "sales.appointment",
+      "type": "BASE TABLE",
+      "comment": "One scheduled slot of a strategy booking. Each reschedule = a new row; terminal slots are immutable. Reschedule = status=rescheduled.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "comment": "Primary key (uuid, auto-generated)."
+        },
+        {
+          "name": "call_id",
+          "type": "uuid",
+          "nullable": false,
+          "comment": "FK to the strategy-call booking this slot belongs to."
+        },
+        {
+          "name": "seq",
+          "type": "integer",
+          "nullable": false,
+          "comment": "1st / 2nd / 3rd scheduled time for the booking."
+        },
+        {
+          "name": "scheduled_for",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "comment": "The appointment date/time (the calendar slot)."
+        },
+        {
+          "name": "status",
+          "type": "appointment_status",
+          "nullable": false,
+          "default": "'scheduled'::appointment_status",
+          "comment": "This slot's outcome: scheduled (booked) → confirmed / taken / no_show / cancelled_by_* / rescheduled. Terminal slots never change."
+        },
+        {
+          "name": "is_current",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "comment": "The live (latest) slot; exactly one per booking."
+        },
+        {
+          "name": "reason_id",
+          "type": "uuid",
+          "nullable": true,
+          "comment": "If rescheduled or cancelled, the reason."
+        },
+        {
+          "name": "moved_by",
+          "type": "appointment_actor",
+          "nullable": true,
+          "comment": "lead_link (self-serve link) or closer."
+        },
+        {
+          "name": "rescheduled_at",
+          "type": "timestamp with time zone",
+          "nullable": true,
+          "comment": "When this slot was moved."
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was created."
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was last updated (auto-maintained)."
+        }
+      ],
+      "indexes": [
+        {
+          "name": "appointment_pkey",
+          "def": "CREATE UNIQUE INDEX appointment_pkey ON sales.appointment USING btree (id)",
+          "table": "sales.appointment",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uq_current_appt",
+          "def": "CREATE UNIQUE INDEX uq_current_appt ON sales.appointment USING btree (call_id) WHERE is_current",
+          "table": "sales.appointment",
+          "columns": [
+            "call_id"
+          ]
+        },
+        {
+          "name": "uq_appt_seq",
+          "def": "CREATE UNIQUE INDEX uq_appt_seq ON sales.appointment USING btree (call_id, seq)",
+          "table": "sales.appointment",
+          "columns": [
+            "call_id",
+            "seq"
+          ]
+        },
+        {
+          "name": "ix_appt_call",
+          "def": "CREATE INDEX ix_appt_call ON sales.appointment USING btree (call_id)",
+          "table": "sales.appointment",
+          "columns": [
+            "call_id"
+          ]
+        },
+        {
+          "name": "ix_appt_scheduled_for",
+          "def": "CREATE INDEX ix_appt_scheduled_for ON sales.appointment USING btree (scheduled_for)",
+          "table": "sales.appointment",
+          "columns": [
+            "scheduled_for"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "appointment_reason_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (reason_id) REFERENCES core.cancellation_reason(id)",
+          "table": "sales.appointment",
+          "referenced_table": "core.cancellation_reason",
+          "columns": [
+            "reason_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "appointment_call_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (call_id) REFERENCES sales.call(id) ON DELETE CASCADE",
+          "table": "sales.appointment",
+          "referenced_table": "sales.call",
+          "columns": [
+            "call_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "appointment_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "sales.appointment",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_appointment_updated",
+          "def": "CREATE TRIGGER trg_appointment_updated BEFORE UPDATE ON sales.appointment FOR EACH ROW EXECUTE FUNCTION set_updated_at()"
+        }
+      ]
+    },
+    {
+      "name": "sales.deal",
+      "type": "BASE TABLE",
+      "comment": "A won opportunity + terms. Always one offer per deal. status never deleted.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "comment": "Primary key (uuid, auto-generated)."
+        },
+        {
+          "name": "opportunity_id",
+          "type": "uuid",
+          "nullable": false,
+          "comment": "FK to the won opportunity."
+        },
+        {
+          "name": "contact_id",
+          "type": "uuid",
+          "nullable": false,
+          "comment": "FK to the contact (the buyer)."
+        },
+        {
+          "name": "closer_rep_id",
+          "type": "uuid",
+          "nullable": true,
+          "comment": "FK to the closer who won it."
+        },
+        {
+          "name": "offer_id",
+          "type": "uuid",
+          "nullable": false,
+          "comment": "The single offer sold — always one offer per deal."
+        },
+        {
+          "name": "total_contract_value_minor",
+          "type": "integer",
+          "nullable": false,
+          "comment": "Booked revenue (contract value), in minor units."
+        },
+        {
+          "name": "plan_type_snapshot",
+          "type": "plan_type",
+          "nullable": true,
+          "comment": "The plan as sold — a frozen snapshot, not a pointer to a mutable plan."
+        },
+        {
+          "name": "discount_pct",
+          "type": "numeric",
+          "nullable": true,
+          "comment": "Discount applied (e.g. for couples)."
+        },
+        {
+          "name": "is_couple",
+          "type": "boolean",
+          "nullable": true,
+          "default": "false",
+          "comment": "True if a couple enrolled together."
+        },
+        {
+          "name": "partner_contact_id",
+          "type": "uuid",
+          "nullable": true,
+          "comment": "The other person, for couples."
+        },
+        {
+          "name": "deal_close_date",
+          "type": "date",
+          "nullable": false,
+          "comment": "The moment the opportunity was marked Won (the deal-close date)."
+        },
+        {
+          "name": "status",
+          "type": "deal_status",
+          "nullable": false,
+          "default": "'active'::deal_status",
+          "comment": "active / refunded / churned. Never deleted."
+        },
+        {
+          "name": "close_id",
+          "type": "text",
+          "nullable": true,
+          "comment": "Cross-system key: the opportunity/deal id in Close."
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was created."
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was last updated (auto-maintained)."
+        }
+      ],
+      "indexes": [
+        {
+          "name": "deal_pkey",
+          "def": "CREATE UNIQUE INDEX deal_pkey ON sales.deal USING btree (id)",
+          "table": "sales.deal",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uq_deal_per_opp",
+          "def": "CREATE UNIQUE INDEX uq_deal_per_opp ON sales.deal USING btree (opportunity_id)",
+          "table": "sales.deal",
+          "columns": [
+            "opportunity_id"
+          ]
+        },
+        {
+          "name": "ix_deal_opp",
+          "def": "CREATE INDEX ix_deal_opp ON sales.deal USING btree (opportunity_id)",
+          "table": "sales.deal",
+          "columns": [
+            "opportunity_id"
+          ]
+        },
+        {
+          "name": "ix_deal_contact",
+          "def": "CREATE INDEX ix_deal_contact ON sales.deal USING btree (contact_id)",
+          "table": "sales.deal",
+          "columns": [
+            "contact_id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "deal_closer_rep_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (closer_rep_id) REFERENCES sales.rep(id)",
+          "table": "sales.deal",
+          "referenced_table": "sales.rep",
+          "columns": [
+            "closer_rep_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "deal_contact_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (contact_id) REFERENCES core.contact(id)",
+          "table": "sales.deal",
+          "referenced_table": "core.contact",
+          "columns": [
+            "contact_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "deal_partner_contact_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (partner_contact_id) REFERENCES core.contact(id)",
+          "table": "sales.deal",
+          "referenced_table": "core.contact",
+          "columns": [
+            "partner_contact_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "deal_offer_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (offer_id) REFERENCES marketing.offer(id)",
+          "table": "sales.deal",
+          "referenced_table": "marketing.offer",
+          "columns": [
+            "offer_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "deal_opportunity_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (opportunity_id) REFERENCES sales.opportunity(id)",
+          "table": "sales.deal",
+          "referenced_table": "sales.opportunity",
+          "columns": [
+            "opportunity_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "deal_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "sales.deal",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_deal_updated",
+          "def": "CREATE TRIGGER trg_deal_updated BEFORE UPDATE ON sales.deal FOR EACH ROW EXECUTE FUNCTION set_updated_at()"
+        }
+      ]
+    },
+    {
+      "name": "sales.contract",
+      "type": "BASE TABLE",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "comment": "Primary key (uuid, auto-generated)."
+        },
+        {
+          "name": "deal_id",
+          "type": "uuid",
+          "nullable": false,
+          "comment": "FK to the deal."
+        },
+        {
+          "name": "issued_at",
+          "type": "timestamp with time zone",
+          "nullable": true,
+          "comment": "When the agreement was issued."
+        },
+        {
+          "name": "status",
+          "type": "contract_status",
+          "nullable": false,
+          "default": "'sent'::contract_status",
+          "comment": "sent / viewed / completed / void."
+        },
+        {
+          "name": "viewed_at",
+          "type": "timestamp with time zone",
+          "nullable": true,
+          "comment": "When viewed — the honesty signal."
+        },
+        {
+          "name": "signed_at",
+          "type": "timestamp with time zone",
+          "nullable": true,
+          "comment": "When the agreement was signed."
+        },
+        {
+          "name": "contract_value_minor",
+          "type": "integer",
+          "nullable": true,
+          "comment": "The contract value in this version (minor units)."
+        },
+        {
+          "name": "is_canonical",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "comment": "The latest signed contract = canonical."
+        },
+        {
+          "name": "document_url",
+          "type": "text",
+          "nullable": true,
+          "comment": "Link to the agreement document."
+        },
+        {
+          "name": "ghl_marketing_id",
+          "type": "text",
+          "nullable": true,
+          "comment": "Cross-system key: the contract id in GHL Marketing."
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was created."
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was last updated (auto-maintained)."
+        }
+      ],
+      "indexes": [
+        {
+          "name": "contract_pkey",
+          "def": "CREATE UNIQUE INDEX contract_pkey ON sales.contract USING btree (id)",
+          "table": "sales.contract",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uq_canonical_contract",
+          "def": "CREATE UNIQUE INDEX uq_canonical_contract ON sales.contract USING btree (deal_id) WHERE is_canonical",
+          "table": "sales.contract",
+          "columns": [
+            "deal_id"
+          ]
+        },
+        {
+          "name": "ix_contract_deal",
+          "def": "CREATE INDEX ix_contract_deal ON sales.contract USING btree (deal_id)",
+          "table": "sales.contract",
+          "columns": [
+            "deal_id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "contract_deal_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (deal_id) REFERENCES sales.deal(id)",
+          "table": "sales.contract",
+          "referenced_table": "sales.deal",
+          "columns": [
+            "deal_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "contract_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "sales.contract",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_contract_updated",
+          "def": "CREATE TRIGGER trg_contract_updated BEFORE UPDATE ON sales.contract FOR EACH ROW EXECUTE FUNCTION set_updated_at()"
+        }
+      ]
+    },
+    {
+      "name": "finance.payment_plan",
+      "type": "BASE TABLE",
+      "comment": "Versioned schedule. A re-split creates a new version + new receivables (the #1 bug fix); old version not-current.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "comment": "Primary key (uuid, auto-generated)."
+        },
+        {
+          "name": "deal_id",
+          "type": "uuid",
+          "nullable": false,
+          "comment": "FK to the deal."
+        },
+        {
+          "name": "version",
+          "type": "integer",
+          "nullable": false,
+          "comment": "Bumped on every re-split."
+        },
+        {
+          "name": "plan_type",
+          "type": "plan_type",
+          "nullable": true,
+          "comment": "The plan structure (pif / 3pay / ... / zero_down)."
+        },
+        {
+          "name": "total_minor",
+          "type": "integer",
+          "nullable": true,
+          "comment": "Total plan amount (minor units)."
+        },
+        {
+          "name": "is_current",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "comment": "Only one current version per deal."
+        },
+        {
+          "name": "superseded_at",
+          "type": "timestamp with time zone",
+          "nullable": true,
+          "comment": "When this version was replaced."
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was created."
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was last updated (auto-maintained)."
+        }
+      ],
+      "indexes": [
+        {
+          "name": "payment_plan_pkey",
+          "def": "CREATE UNIQUE INDEX payment_plan_pkey ON finance.payment_plan USING btree (id)",
+          "table": "finance.payment_plan",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uq_current_plan",
+          "def": "CREATE UNIQUE INDEX uq_current_plan ON finance.payment_plan USING btree (deal_id) WHERE is_current",
+          "table": "finance.payment_plan",
+          "columns": [
+            "deal_id"
+          ]
+        },
+        {
+          "name": "uq_plan_version",
+          "def": "CREATE UNIQUE INDEX uq_plan_version ON finance.payment_plan USING btree (deal_id, version)",
+          "table": "finance.payment_plan",
+          "columns": [
+            "deal_id",
+            "version"
+          ]
+        },
+        {
+          "name": "ix_plan_deal",
+          "def": "CREATE INDEX ix_plan_deal ON finance.payment_plan USING btree (deal_id)",
+          "table": "finance.payment_plan",
+          "columns": [
+            "deal_id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "payment_plan_deal_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (deal_id) REFERENCES sales.deal(id)",
+          "table": "finance.payment_plan",
+          "referenced_table": "sales.deal",
+          "columns": [
+            "deal_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "payment_plan_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "finance.payment_plan",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_payment_plan_updated",
+          "def": "CREATE TRIGGER trg_payment_plan_updated BEFORE UPDATE ON finance.payment_plan FOR EACH ROW EXECUTE FUNCTION set_updated_at()"
+        }
+      ]
+    },
+    {
+      "name": "finance.receivable",
+      "type": "BASE TABLE",
+      "comment": "One scheduled installment of a payment-plan version. Drives pipeline value, projected cash, delinquency, collection rate.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "comment": "Primary key (uuid, auto-generated)."
+        },
+        {
+          "name": "payment_plan_id",
+          "type": "uuid",
+          "nullable": false,
+          "comment": "FK to the payment-plan version."
+        },
+        {
+          "name": "deal_id",
+          "type": "uuid",
+          "nullable": false,
+          "comment": "FK to the deal (denormalized for convenience)."
+        },
+        {
+          "name": "installment_no",
+          "type": "integer",
+          "nullable": false,
+          "comment": "Installment number within the plan version."
+        },
+        {
+          "name": "due_date",
+          "type": "date",
+          "nullable": false,
+          "comment": "When this installment is due."
+        },
+        {
+          "name": "amount_minor",
+          "type": "integer",
+          "nullable": false,
+          "comment": "Scheduled amount, in minor units."
+        },
+        {
+          "name": "status",
+          "type": "receivable_status",
+          "nullable": false,
+          "default": "'scheduled'::receivable_status",
+          "comment": "scheduled / paid / late / delinquent / waived. Delinquent = 14+ days late."
+        },
+        {
+          "name": "paid_at",
+          "type": "date",
+          "nullable": true,
+          "comment": "When this installment was paid."
+        },
+        {
+          "name": "payment_id",
+          "type": "uuid",
+          "nullable": true,
+          "comment": "The successful_payment that fulfilled this installment."
+        },
+        {
+          "name": "monday_payment_schedule_id",
+          "type": "text",
+          "nullable": true,
+          "comment": "Cross-system key: the Monday payment-schedule id."
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was created."
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was last updated (auto-maintained)."
+        }
+      ],
+      "indexes": [
+        {
+          "name": "receivable_pkey",
+          "def": "CREATE UNIQUE INDEX receivable_pkey ON finance.receivable USING btree (id)",
+          "table": "finance.receivable",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uq_receivable_installment",
+          "def": "CREATE UNIQUE INDEX uq_receivable_installment ON finance.receivable USING btree (payment_plan_id, installment_no)",
+          "table": "finance.receivable",
+          "columns": [
+            "payment_plan_id",
+            "installment_no"
+          ]
+        },
+        {
+          "name": "ix_receivable_plan",
+          "def": "CREATE INDEX ix_receivable_plan ON finance.receivable USING btree (payment_plan_id)",
+          "table": "finance.receivable",
+          "columns": [
+            "payment_plan_id"
+          ]
+        },
+        {
+          "name": "ix_receivable_deal",
+          "def": "CREATE INDEX ix_receivable_deal ON finance.receivable USING btree (deal_id)",
+          "table": "finance.receivable",
+          "columns": [
+            "deal_id"
+          ]
+        },
+        {
+          "name": "ix_receivable_due",
+          "def": "CREATE INDEX ix_receivable_due ON finance.receivable USING btree (due_date)",
+          "table": "finance.receivable",
+          "columns": [
+            "due_date"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "receivable_deal_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (deal_id) REFERENCES sales.deal(id)",
+          "table": "finance.receivable",
+          "referenced_table": "sales.deal",
+          "columns": [
+            "deal_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "receivable_payment_plan_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (payment_plan_id) REFERENCES finance.payment_plan(id)",
+          "table": "finance.receivable",
+          "referenced_table": "finance.payment_plan",
+          "columns": [
+            "payment_plan_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "receivable_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "finance.receivable",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "receivable_payment_fk",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (payment_id) REFERENCES finance.successful_payment(id)",
+          "table": "finance.receivable",
+          "referenced_table": "finance.successful_payment",
+          "columns": [
+            "payment_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_receivable_updated",
+          "def": "CREATE TRIGGER trg_receivable_updated BEFORE UPDATE ON finance.receivable FOR EACH ROW EXECUTE FUNCTION set_updated_at()"
+        }
+      ]
+    },
+    {
+      "name": "finance.successful_payment",
+      "type": "BASE TABLE",
+      "comment": "A cleared transaction. Cash collected = NMI gross, excludes booking_25, net of reversals.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "comment": "Primary key (uuid, auto-generated)."
+        },
+        {
+          "name": "deal_id",
+          "type": "uuid",
+          "nullable": true,
+          "comment": "Null for the $25 booking fee."
+        },
+        {
+          "name": "strategy_call_id",
+          "type": "uuid",
+          "nullable": true,
+          "comment": "Set for the $25 booking fee."
+        },
+        {
+          "name": "receivable_id",
+          "type": "uuid",
+          "nullable": true,
+          "comment": "The installment this payment fulfils."
+        },
+        {
+          "name": "rep_id",
+          "type": "uuid",
+          "nullable": true,
+          "comment": "For commission attribution."
+        },
+        {
+          "name": "processor",
+          "type": "payment_processor",
+          "nullable": false,
+          "comment": "stripe (the $25) or nmi (all program payments)."
+        },
+        {
+          "name": "type",
+          "type": "payment_type",
+          "nullable": false,
+          "comment": "booking_25 / deposit / installment / pif."
+        },
+        {
+          "name": "amount_minor",
+          "type": "integer",
+          "nullable": false,
+          "comment": "Gross amount, in minor units."
+        },
+        {
+          "name": "processing_fee_minor",
+          "type": "integer",
+          "nullable": true,
+          "comment": "Processor fee (commission is on gross)."
+        },
+        {
+          "name": "occurred_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "comment": "When the payment cleared."
+        },
+        {
+          "name": "nmi_transaction_id",
+          "type": "text",
+          "nullable": true,
+          "comment": "Cross-system key: the NMI transaction id."
+        },
+        {
+          "name": "stripe_charge_id",
+          "type": "text",
+          "nullable": true,
+          "comment": "Cross-system key: the Stripe charge id."
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was created."
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was last updated (auto-maintained)."
+        }
+      ],
+      "indexes": [
+        {
+          "name": "successful_payment_pkey",
+          "def": "CREATE UNIQUE INDEX successful_payment_pkey ON finance.successful_payment USING btree (id)",
+          "table": "finance.successful_payment",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "ix_payment_deal",
+          "def": "CREATE INDEX ix_payment_deal ON finance.successful_payment USING btree (deal_id)",
+          "table": "finance.successful_payment",
+          "columns": [
+            "deal_id"
+          ]
+        },
+        {
+          "name": "ix_payment_receivable",
+          "def": "CREATE INDEX ix_payment_receivable ON finance.successful_payment USING btree (receivable_id)",
+          "table": "finance.successful_payment",
+          "columns": [
+            "receivable_id"
+          ]
+        },
+        {
+          "name": "ix_payment_occurred",
+          "def": "CREATE INDEX ix_payment_occurred ON finance.successful_payment USING btree (occurred_at)",
+          "table": "finance.successful_payment",
+          "columns": [
+            "occurred_at"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "successful_payment_rep_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (rep_id) REFERENCES sales.rep(id)",
+          "table": "finance.successful_payment",
+          "referenced_table": "sales.rep",
+          "columns": [
+            "rep_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "successful_payment_strategy_call_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (strategy_call_id) REFERENCES sales.call(id)",
+          "table": "finance.successful_payment",
+          "referenced_table": "sales.call",
+          "columns": [
+            "strategy_call_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "successful_payment_deal_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (deal_id) REFERENCES sales.deal(id)",
+          "table": "finance.successful_payment",
+          "referenced_table": "sales.deal",
+          "columns": [
+            "deal_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "successful_payment_receivable_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (receivable_id) REFERENCES finance.receivable(id)",
+          "table": "finance.successful_payment",
+          "referenced_table": "finance.receivable",
+          "columns": [
+            "receivable_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "successful_payment_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "finance.successful_payment",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_successful_payment_updated",
+          "def": "CREATE TRIGGER trg_successful_payment_updated BEFORE UPDATE ON finance.successful_payment FOR EACH ROW EXECUTE FUNCTION set_updated_at()"
+        }
+      ]
+    },
+    {
+      "name": "finance.reversal",
+      "type": "BASE TABLE",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "comment": "Primary key (uuid, auto-generated)."
+        },
+        {
+          "name": "deal_id",
+          "type": "uuid",
+          "nullable": false,
+          "comment": "FK to the deal."
+        },
+        {
+          "name": "payment_id",
+          "type": "uuid",
+          "nullable": true,
+          "comment": "The reversed payment."
+        },
+        {
+          "name": "type",
+          "type": "reversal_type",
+          "nullable": false,
+          "comment": "refund or chargeback."
+        },
+        {
+          "name": "amount_minor",
+          "type": "integer",
+          "nullable": false,
+          "comment": "Reversed amount (minor units)."
+        },
+        {
+          "name": "reason",
+          "type": "text",
+          "nullable": true,
+          "comment": "Reason for the refund / chargeback."
+        },
+        {
+          "name": "occurred_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "comment": "When the reversal occurred."
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was created."
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was last updated (auto-maintained)."
+        }
+      ],
+      "indexes": [
+        {
+          "name": "reversal_pkey",
+          "def": "CREATE UNIQUE INDEX reversal_pkey ON finance.reversal USING btree (id)",
+          "table": "finance.reversal",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "reversal_deal_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (deal_id) REFERENCES sales.deal(id)",
+          "table": "finance.reversal",
+          "referenced_table": "sales.deal",
+          "columns": [
+            "deal_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "reversal_payment_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (payment_id) REFERENCES finance.successful_payment(id)",
+          "table": "finance.reversal",
+          "referenced_table": "finance.successful_payment",
+          "columns": [
+            "payment_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "reversal_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "finance.reversal",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_reversal_updated",
+          "def": "CREATE TRIGGER trg_reversal_updated BEFORE UPDATE ON finance.reversal FOR EACH ROW EXECUTE FUNCTION set_updated_at()"
+        }
+      ]
+    },
+    {
+      "name": "finance.commission_plan",
+      "type": "BASE TABLE",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "comment": "Primary key (uuid, auto-generated)."
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "nullable": false,
+          "comment": "Plan name (e.g. \"Closer comp v2\")."
+        },
+        {
+          "name": "role",
+          "type": "rep_role",
+          "nullable": false,
+          "comment": "Who it applies to: setter or closer."
+        },
+        {
+          "name": "basis",
+          "type": "commission_basis",
+          "nullable": false,
+          "default": "'cash_collected'::commission_basis",
+          "comment": "cash_collected — calculated on gross cash, excluding the $25."
+        },
+        {
+          "name": "eval_metric",
+          "type": "commission_eval_metric",
+          "nullable": true,
+          "comment": "The metric that sets the tier (close_rate)."
+        },
+        {
+          "name": "eval_window_days",
+          "type": "integer",
+          "nullable": true,
+          "comment": "The lookback window in days (e.g. 14 = prior 2 weeks)."
+        },
+        {
+          "name": "residual_rate",
+          "type": "numeric",
+          "nullable": true,
+          "comment": "Rate on plan-installment residuals."
+        },
+        {
+          "name": "refund_handling",
+          "type": "refund_handling",
+          "nullable": true,
+          "comment": "clawback or none."
+        },
+        {
+          "name": "effective_from",
+          "type": "date",
+          "nullable": false,
+          "comment": "When this plan version takes effect."
+        },
+        {
+          "name": "effective_to",
+          "type": "date",
+          "nullable": true,
+          "comment": "When this plan version ends (null = current)."
+        },
+        {
+          "name": "is_current",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "comment": "One current plan per role (versioned config)."
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was created."
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was last updated (auto-maintained)."
+        }
+      ],
+      "indexes": [
+        {
+          "name": "commission_plan_pkey",
+          "def": "CREATE UNIQUE INDEX commission_plan_pkey ON finance.commission_plan USING btree (id)",
+          "table": "finance.commission_plan",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uq_current_comm_plan",
+          "def": "CREATE UNIQUE INDEX uq_current_comm_plan ON finance.commission_plan USING btree (role) WHERE is_current",
+          "table": "finance.commission_plan",
+          "columns": [
+            "role"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "commission_plan_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "finance.commission_plan",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_commission_plan_updated",
+          "def": "CREATE TRIGGER trg_commission_plan_updated BEFORE UPDATE ON finance.commission_plan FOR EACH ROW EXECUTE FUNCTION set_updated_at()"
+        }
+      ]
+    },
+    {
+      "name": "finance.commission_tier",
+      "type": "BASE TABLE",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "comment": "Primary key (uuid, auto-generated)."
+        },
+        {
+          "name": "commission_plan_id",
+          "type": "uuid",
+          "nullable": false,
+          "comment": "FK to the commission plan."
+        },
+        {
+          "name": "label",
+          "type": "text",
+          "nullable": true,
+          "comment": "Tier label (e.g. \"Base\" / \"Elevated\")."
+        },
+        {
+          "name": "min_metric_value",
+          "type": "numeric",
+          "nullable": false,
+          "comment": "Threshold to reach this tier (e.g. 0.0 or 0.333 close rate)."
+        },
+        {
+          "name": "rate",
+          "type": "numeric",
+          "nullable": false,
+          "comment": "Commission rate at this tier (e.g. 0.10 or 0.15)."
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was created."
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was last updated (auto-maintained)."
+        }
+      ],
+      "indexes": [
+        {
+          "name": "commission_tier_pkey",
+          "def": "CREATE UNIQUE INDEX commission_tier_pkey ON finance.commission_tier USING btree (id)",
+          "table": "finance.commission_tier",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "commission_tier_commission_plan_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (commission_plan_id) REFERENCES finance.commission_plan(id) ON DELETE CASCADE",
+          "table": "finance.commission_tier",
+          "referenced_table": "finance.commission_plan",
+          "columns": [
+            "commission_plan_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "commission_tier_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "finance.commission_tier",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_commission_tier_updated",
+          "def": "CREATE TRIGGER trg_commission_tier_updated BEFORE UPDATE ON finance.commission_tier FOR EACH ROW EXECUTE FUNCTION set_updated_at()"
+        }
+      ]
+    },
+    {
+      "name": "finance.commission_payout",
+      "type": "BASE TABLE",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "comment": "Primary key (uuid, auto-generated)."
+        },
+        {
+          "name": "rep_id",
+          "type": "uuid",
+          "nullable": false,
+          "comment": "FK to the rep being paid."
+        },
+        {
+          "name": "period_start",
+          "type": "date",
+          "nullable": false,
+          "comment": "Pay-period start."
+        },
+        {
+          "name": "period_end",
+          "type": "date",
+          "nullable": false,
+          "comment": "Pay-period end."
+        },
+        {
+          "name": "total_commission_minor",
+          "type": "integer",
+          "nullable": false,
+          "default": "0",
+          "comment": "Sum of the payout's commission lines."
+        },
+        {
+          "name": "status",
+          "type": "commission_payout_status",
+          "nullable": false,
+          "default": "'calculated'::commission_payout_status",
+          "comment": "calculated / approved / paid."
+        },
+        {
+          "name": "approved_by_rep_id",
+          "type": "uuid",
+          "nullable": true,
+          "comment": "FK to the admin/VA who approved."
+        },
+        {
+          "name": "approved_at",
+          "type": "timestamp with time zone",
+          "nullable": true,
+          "comment": "When it was approved."
+        },
+        {
+          "name": "paid_at",
+          "type": "timestamp with time zone",
+          "nullable": true,
+          "comment": "When it was paid out."
+        },
+        {
+          "name": "gusto_payout_id",
+          "type": "text",
+          "nullable": true,
+          "comment": "The Gusto payout reference."
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was created."
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was last updated (auto-maintained)."
+        }
+      ],
+      "indexes": [
+        {
+          "name": "commission_payout_pkey",
+          "def": "CREATE UNIQUE INDEX commission_payout_pkey ON finance.commission_payout USING btree (id)",
+          "table": "finance.commission_payout",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uq_payout_period",
+          "def": "CREATE UNIQUE INDEX uq_payout_period ON finance.commission_payout USING btree (rep_id, period_start, period_end)",
+          "table": "finance.commission_payout",
+          "columns": [
+            "rep_id",
+            "period_start",
+            "period_end"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "commission_payout_approved_by_rep_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (approved_by_rep_id) REFERENCES sales.rep(id)",
+          "table": "finance.commission_payout",
+          "referenced_table": "sales.rep",
+          "columns": [
+            "approved_by_rep_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "commission_payout_rep_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (rep_id) REFERENCES sales.rep(id)",
+          "table": "finance.commission_payout",
+          "referenced_table": "sales.rep",
+          "columns": [
+            "rep_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "commission_payout_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "finance.commission_payout",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_commission_payout_updated",
+          "def": "CREATE TRIGGER trg_commission_payout_updated BEFORE UPDATE ON finance.commission_payout FOR EACH ROW EXECUTE FUNCTION set_updated_at()"
+        }
+      ]
+    },
+    {
+      "name": "finance.commission_line",
+      "type": "BASE TABLE",
+      "comment": "Per commissionable payment, auto-calculated, rate frozen. Its own table so one payment can split across reps and clawbacks can exist with no payment.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "comment": "Primary key (uuid, auto-generated)."
+        },
+        {
+          "name": "rep_id",
+          "type": "uuid",
+          "nullable": false,
+          "comment": "FK to the rep earning the commission."
+        },
+        {
+          "name": "payment_id",
+          "type": "uuid",
+          "nullable": true,
+          "comment": "The cash this commission is on (null for clawback / adjustment lines)."
+        },
+        {
+          "name": "deal_id",
+          "type": "uuid",
+          "nullable": true,
+          "comment": "FK to the deal (if applicable)."
+        },
+        {
+          "name": "payout_id",
+          "type": "uuid",
+          "nullable": true,
+          "comment": "FK to the period payout this line rolls into."
+        },
+        {
+          "name": "commission_plan_id",
+          "type": "uuid",
+          "nullable": true,
+          "comment": "FK to the commission plan applied."
+        },
+        {
+          "name": "type",
+          "type": "commission_line_type",
+          "nullable": false,
+          "comment": "base / residual / adjustment / clawback."
+        },
+        {
+          "name": "rate_applied",
+          "type": "numeric",
+          "nullable": false,
+          "comment": "The rate, frozen at calculation time."
+        },
+        {
+          "name": "commission_amount_minor",
+          "type": "integer",
+          "nullable": false,
+          "comment": "payment x rate, in minor units (negative for a clawback)."
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was created."
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was last updated (auto-maintained)."
+        }
+      ],
+      "indexes": [
+        {
+          "name": "commission_line_pkey",
+          "def": "CREATE UNIQUE INDEX commission_line_pkey ON finance.commission_line USING btree (id)",
+          "table": "finance.commission_line",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "ix_commline_rep",
+          "def": "CREATE INDEX ix_commline_rep ON finance.commission_line USING btree (rep_id)",
+          "table": "finance.commission_line",
+          "columns": [
+            "rep_id"
+          ]
+        },
+        {
+          "name": "ix_commline_payout",
+          "def": "CREATE INDEX ix_commline_payout ON finance.commission_line USING btree (payout_id)",
+          "table": "finance.commission_line",
+          "columns": [
+            "payout_id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "commission_line_rep_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (rep_id) REFERENCES sales.rep(id)",
+          "table": "finance.commission_line",
+          "referenced_table": "sales.rep",
+          "columns": [
+            "rep_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "commission_line_deal_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (deal_id) REFERENCES sales.deal(id)",
+          "table": "finance.commission_line",
+          "referenced_table": "sales.deal",
+          "columns": [
+            "deal_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "commission_line_payment_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (payment_id) REFERENCES finance.successful_payment(id)",
+          "table": "finance.commission_line",
+          "referenced_table": "finance.successful_payment",
+          "columns": [
+            "payment_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "commission_line_commission_plan_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (commission_plan_id) REFERENCES finance.commission_plan(id)",
+          "table": "finance.commission_line",
+          "referenced_table": "finance.commission_plan",
+          "columns": [
+            "commission_plan_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "commission_line_payout_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (payout_id) REFERENCES finance.commission_payout(id)",
+          "table": "finance.commission_line",
+          "referenced_table": "finance.commission_payout",
+          "columns": [
+            "payout_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "commission_line_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "finance.commission_line",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_commission_line_updated",
+          "def": "CREATE TRIGGER trg_commission_line_updated BEFORE UPDATE ON finance.commission_line FOR EACH ROW EXECUTE FUNCTION set_updated_at()"
+        }
+      ]
+    },
+    {
+      "name": "marketing.ad_spend",
+      "type": "BASE TABLE",
+      "comment": "Meta insights, grain = (date x ad_id). Trailing-window upsert by pulled_at for restatements. Lock the ad-account timezone first.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "comment": "Primary key (uuid, auto-generated)."
+        },
+        {
+          "name": "date",
+          "type": "date",
+          "nullable": false,
+          "comment": "In the ad-account timezone (lock EST vs PST before loading)."
+        },
+        {
+          "name": "campaign_id",
+          "type": "text",
+          "nullable": true,
+          "comment": "Meta campaign id."
+        },
+        {
+          "name": "campaign_name",
+          "type": "text",
+          "nullable": true,
+          "comment": "Meta campaign name."
+        },
+        {
+          "name": "adset_id",
+          "type": "text",
+          "nullable": true,
+          "comment": "Meta adset id."
+        },
+        {
+          "name": "adset_name",
+          "type": "text",
+          "nullable": true,
+          "comment": "Meta adset name."
+        },
+        {
+          "name": "ad_id",
+          "type": "text",
+          "nullable": false,
+          "comment": "Grain = (date x ad_id) — the unique key."
+        },
+        {
+          "name": "ad_name",
+          "type": "text",
+          "nullable": true,
+          "comment": "Meta ad name."
+        },
+        {
+          "name": "spend_minor",
+          "type": "integer",
+          "nullable": false,
+          "comment": "Spend for the day (minor units)."
+        },
+        {
+          "name": "impressions",
+          "type": "integer",
+          "nullable": true,
+          "comment": "Impressions."
+        },
+        {
+          "name": "reach",
+          "type": "integer",
+          "nullable": true,
+          "comment": "Reach."
+        },
+        {
+          "name": "clicks",
+          "type": "integer",
+          "nullable": true,
+          "comment": "Clicks."
+        },
+        {
+          "name": "ctr",
+          "type": "numeric",
+          "nullable": true,
+          "comment": "Click-through rate."
+        },
+        {
+          "name": "cpm_minor",
+          "type": "integer",
+          "nullable": true,
+          "comment": "Cost per 1,000 impressions (minor units)."
+        },
+        {
+          "name": "cpc_minor",
+          "type": "integer",
+          "nullable": true,
+          "comment": "Cost per click (minor units)."
+        },
+        {
+          "name": "leads",
+          "type": "integer",
+          "nullable": true,
+          "comment": "Meta-reported leads."
+        },
+        {
+          "name": "pulled_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "comment": "For restatement — re-pull a trailing window and upsert."
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was created."
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was last updated (auto-maintained)."
+        }
+      ],
+      "indexes": [
+        {
+          "name": "ad_spend_pkey",
+          "def": "CREATE UNIQUE INDEX ad_spend_pkey ON marketing.ad_spend USING btree (id)",
+          "table": "marketing.ad_spend",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "uq_adspend_grain",
+          "def": "CREATE UNIQUE INDEX uq_adspend_grain ON marketing.ad_spend USING btree (date, ad_id)",
+          "table": "marketing.ad_spend",
+          "columns": [
+            "date",
+            "ad_id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "ad_spend_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "marketing.ad_spend",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_ad_spend_updated",
+          "def": "CREATE TRIGGER trg_ad_spend_updated BEFORE UPDATE ON marketing.ad_spend FOR EACH ROW EXECUTE FUNCTION set_updated_at()"
+        }
+      ]
+    },
+    {
+      "name": "delivery.fulfilment",
+      "type": "BASE TABLE",
+      "comment": "Delivery of ONE purchased service (1:1 deal). The client is the contact; contact:deal = 1:N. Created when the opportunity reaches stage won_pif or won_pp (the onboarding trigger).",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "comment": "Primary key (uuid, auto-generated)."
+        },
+        {
+          "name": "deal_id",
+          "type": "uuid",
+          "nullable": false,
+          "comment": "FK to the deal being delivered."
+        },
+        {
+          "name": "contact_id",
+          "type": "uuid",
+          "nullable": false,
+          "comment": "FK to the client (the contact)."
+        },
+        {
+          "name": "csm_rep_id",
+          "type": "uuid",
+          "nullable": true,
+          "comment": "The client-success manager."
+        },
+        {
+          "name": "onboarded_at",
+          "type": "date",
+          "nullable": true,
+          "comment": "When the client was onboarded."
+        },
+        {
+          "name": "program_start",
+          "type": "date",
+          "nullable": true,
+          "comment": "6-month program start."
+        },
+        {
+          "name": "program_end",
+          "type": "date",
+          "nullable": true,
+          "comment": "12-month team-access end."
+        },
+        {
+          "name": "onboarding_complete",
+          "type": "boolean",
+          "nullable": true,
+          "comment": "Drives the onboarding-completion KPI."
+        },
+        {
+          "name": "status",
+          "type": "fulfilment_status",
+          "nullable": false,
+          "default": "'active'::fulfilment_status",
+          "comment": "active / completed / churned / refunded."
+        },
+        {
+          "name": "ghl_repair_id",
+          "type": "text",
+          "nullable": true,
+          "comment": "Cross-system key: the client id in GHL Repair."
+        },
+        {
+          "name": "monday_client_source_id",
+          "type": "text",
+          "nullable": true,
+          "comment": "Cross-system key: the Monday client-source id."
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was created."
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was last updated (auto-maintained)."
+        }
+      ],
+      "indexes": [
+        {
+          "name": "fulfilment_pkey",
+          "def": "CREATE UNIQUE INDEX fulfilment_pkey ON delivery.fulfilment USING btree (id)",
+          "table": "delivery.fulfilment",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "ix_fulfilment_deal",
+          "def": "CREATE INDEX ix_fulfilment_deal ON delivery.fulfilment USING btree (deal_id)",
+          "table": "delivery.fulfilment",
+          "columns": [
+            "deal_id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "fulfilment_csm_rep_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (csm_rep_id) REFERENCES sales.rep(id)",
+          "table": "delivery.fulfilment",
+          "referenced_table": "sales.rep",
+          "columns": [
+            "csm_rep_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "fulfilment_contact_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (contact_id) REFERENCES core.contact(id)",
+          "table": "delivery.fulfilment",
+          "referenced_table": "core.contact",
+          "columns": [
+            "contact_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "fulfilment_deal_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (deal_id) REFERENCES sales.deal(id)",
+          "table": "delivery.fulfilment",
+          "referenced_table": "sales.deal",
+          "columns": [
+            "deal_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "fulfilment_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "delivery.fulfilment",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_fulfilment_updated",
+          "def": "CREATE TRIGGER trg_fulfilment_updated BEFORE UPDATE ON delivery.fulfilment FOR EACH ROW EXECUTE FUNCTION set_updated_at()"
+        }
+      ]
+    },
+    {
+      "name": "sales.report_submission",
+      "type": "BASE TABLE",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "comment": "Primary key (uuid, auto-generated)."
+        },
+        {
+          "name": "type",
+          "type": "report_type",
+          "nullable": false,
+          "comment": "sales_call / missed_call / post_call_notes."
+        },
+        {
+          "name": "rep_id",
+          "type": "uuid",
+          "nullable": false,
+          "comment": "FK to the rep who submitted."
+        },
+        {
+          "name": "strategy_call_id",
+          "type": "uuid",
+          "nullable": true,
+          "comment": "FK to the strategy call (if a strategy-call report)."
+        },
+        {
+          "name": "follow_up_call_id",
+          "type": "uuid",
+          "nullable": true,
+          "comment": "FK to the follow-up call (if a follow-up report)."
+        },
+        {
+          "name": "submitted_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "comment": "When the report was submitted."
+        },
+        {
+          "name": "status",
+          "type": "report_status",
+          "nullable": false,
+          "default": "'submitted'::report_status",
+          "comment": "submitted / validated / superseded / rejected."
+        },
+        {
+          "name": "supersedes_id",
+          "type": "uuid",
+          "nullable": true,
+          "comment": "The prior submission this one corrects."
+        },
+        {
+          "name": "is_duplicate",
+          "type": "boolean",
+          "nullable": true,
+          "default": "false",
+          "comment": "Flagged if this is a duplicate submission."
+        },
+        {
+          "name": "on_time",
+          "type": "boolean",
+          "nullable": true,
+          "comment": "For the report-submission-compliance KPI."
+        },
+        {
+          "name": "payload",
+          "type": "jsonb",
+          "nullable": true,
+          "comment": "The raw submission (jsonb)."
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was created."
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was last updated (auto-maintained)."
+        }
+      ],
+      "indexes": [
+        {
+          "name": "report_submission_pkey",
+          "def": "CREATE UNIQUE INDEX report_submission_pkey ON sales.report_submission USING btree (id)",
+          "table": "sales.report_submission",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "ix_report_strategy_call",
+          "def": "CREATE INDEX ix_report_strategy_call ON sales.report_submission USING btree (strategy_call_id)",
+          "table": "sales.report_submission",
+          "columns": [
+            "strategy_call_id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "report_submission_rep_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (rep_id) REFERENCES sales.rep(id)",
+          "table": "sales.report_submission",
+          "referenced_table": "sales.rep",
+          "columns": [
+            "rep_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "report_submission_follow_up_call_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (follow_up_call_id) REFERENCES sales.call(id)",
+          "table": "sales.report_submission",
+          "referenced_table": "sales.call",
+          "columns": [
+            "follow_up_call_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "report_submission_strategy_call_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (strategy_call_id) REFERENCES sales.call(id)",
+          "table": "sales.report_submission",
+          "referenced_table": "sales.call",
+          "columns": [
+            "strategy_call_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "report_submission_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "sales.report_submission",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "report_submission_supersedes_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (supersedes_id) REFERENCES sales.report_submission(id)",
+          "table": "sales.report_submission",
+          "referenced_table": "sales.report_submission",
+          "columns": [
+            "supersedes_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_report_submission_updated",
+          "def": "CREATE TRIGGER trg_report_submission_updated BEFORE UPDATE ON sales.report_submission FOR EACH ROW EXECUTE FUNCTION set_updated_at()"
+        }
+      ]
+    },
+    {
+      "name": "sales.objection",
+      "type": "BASE TABLE",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "comment": "Primary key (uuid, auto-generated)."
+        },
+        {
+          "name": "strategy_call_id",
+          "type": "uuid",
+          "nullable": false,
+          "comment": "FK to the strategy call where the objection arose."
+        },
+        {
+          "name": "objection_type_id",
+          "type": "uuid",
+          "nullable": true,
+          "comment": "FK to the objection_type taxonomy."
+        },
+        {
+          "name": "led_to_loss",
+          "type": "boolean",
+          "nullable": true,
+          "comment": "Did this objection cause the loss."
+        },
+        {
+          "name": "source",
+          "type": "text",
+          "nullable": true,
+          "comment": "rep_logged or ai_extracted."
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was created."
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was last updated (auto-maintained)."
+        }
+      ],
+      "indexes": [
+        {
+          "name": "objection_pkey",
+          "def": "CREATE UNIQUE INDEX objection_pkey ON sales.objection USING btree (id)",
+          "table": "sales.objection",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "objection_objection_type_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (objection_type_id) REFERENCES core.objection_type(id)",
+          "table": "sales.objection",
+          "referenced_table": "core.objection_type",
+          "columns": [
+            "objection_type_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "objection_strategy_call_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (strategy_call_id) REFERENCES sales.call(id) ON DELETE CASCADE",
+          "table": "sales.objection",
+          "referenced_table": "sales.call",
+          "columns": [
+            "strategy_call_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "objection_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "sales.objection",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_objection_updated",
+          "def": "CREATE TRIGGER trg_objection_updated BEFORE UPDATE ON sales.objection FOR EACH ROW EXECUTE FUNCTION set_updated_at()"
+        }
+      ]
+    }
+  ],
+  "relations": [
+    {
+      "table": "core.contact",
+      "columns": [
+        "owner_rep_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "sales.rep",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "FOREIGN KEY (owner_rep_id) REFERENCES sales.rep(id)"
+    },
+    {
+      "table": "core.contact",
+      "columns": [
+        "merged_into_contact_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "core.contact",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "FOREIGN KEY (merged_into_contact_id) REFERENCES core.contact(id)"
+    },
+    {
+      "table": "core.contact_identifier",
+      "columns": [
+        "contact_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "core.contact",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (contact_id) REFERENCES core.contact(id) ON DELETE CASCADE"
+    },
+    {
+      "table": "marketing.pricing_plan",
+      "columns": [
+        "offer_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "marketing.offer",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (offer_id) REFERENCES marketing.offer(id)"
+    },
+    {
+      "table": "sales.opportunity",
+      "columns": [
+        "dq_reason_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "core.dq_reason",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "FOREIGN KEY (dq_reason_id) REFERENCES core.dq_reason(id)"
+    },
+    {
+      "table": "sales.opportunity",
+      "columns": [
+        "owner_rep_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "sales.rep",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "FOREIGN KEY (owner_rep_id) REFERENCES sales.rep(id)"
+    },
+    {
+      "table": "sales.opportunity",
+      "columns": [
+        "contact_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "core.contact",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (contact_id) REFERENCES core.contact(id)"
+    },
+    {
+      "table": "sales.opportunity",
+      "columns": [
+        "current_nafa_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "credit.nafa",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "FOREIGN KEY (current_nafa_id) REFERENCES credit.nafa(id)"
+    },
+    {
+      "table": "sales.opt_in",
+      "columns": [
+        "contact_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "core.contact",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (contact_id) REFERENCES core.contact(id)"
+    },
+    {
+      "table": "sales.opt_in",
+      "columns": [
+        "opportunity_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "sales.opportunity",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "FOREIGN KEY (opportunity_id) REFERENCES sales.opportunity(id)"
+    },
+    {
+      "table": "credit.intake_submission",
+      "columns": [
+        "contact_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "core.contact",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (contact_id) REFERENCES core.contact(id)"
+    },
+    {
+      "table": "credit.intake_submission",
+      "columns": [
+        "opportunity_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "sales.opportunity",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (opportunity_id) REFERENCES sales.opportunity(id)"
+    },
+    {
+      "table": "credit.nafa",
+      "columns": [
+        "contact_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "core.contact",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (contact_id) REFERENCES core.contact(id)"
+    },
+    {
+      "table": "credit.nafa",
+      "columns": [
+        "opportunity_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "sales.opportunity",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (opportunity_id) REFERENCES sales.opportunity(id)"
+    },
+    {
+      "table": "credit.nafa",
+      "columns": [
+        "intake_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "credit.intake_submission",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "FOREIGN KEY (intake_id) REFERENCES credit.intake_submission(id)"
+    },
+    {
+      "table": "sales.call",
+      "columns": [
+        "cancellation_reason_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "core.cancellation_reason",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "FOREIGN KEY (cancellation_reason_id) REFERENCES core.cancellation_reason(id)"
+    },
+    {
+      "table": "sales.call",
+      "columns": [
+        "dq_reason_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "core.dq_reason",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "FOREIGN KEY (dq_reason_id) REFERENCES core.dq_reason(id)"
+    },
+    {
+      "table": "sales.call",
+      "columns": [
+        "rep_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "sales.rep",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "FOREIGN KEY (rep_id) REFERENCES sales.rep(id)"
+    },
+    {
+      "table": "sales.call",
+      "columns": [
+        "opportunity_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "sales.opportunity",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (opportunity_id) REFERENCES sales.opportunity(id)"
+    },
+    {
+      "table": "sales.call",
+      "columns": [
+        "nafa_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "credit.nafa",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "FOREIGN KEY (nafa_id) REFERENCES credit.nafa(id)"
+    },
+    {
+      "table": "sales.call",
+      "columns": [
+        "booking_payment_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "finance.successful_payment",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "FOREIGN KEY (booking_payment_id) REFERENCES finance.successful_payment(id)"
+    },
+    {
+      "table": "sales.appointment",
+      "columns": [
+        "reason_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "core.cancellation_reason",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "FOREIGN KEY (reason_id) REFERENCES core.cancellation_reason(id)"
+    },
+    {
+      "table": "sales.appointment",
+      "columns": [
+        "call_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "sales.call",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (call_id) REFERENCES sales.call(id) ON DELETE CASCADE"
+    },
+    {
+      "table": "sales.deal",
+      "columns": [
+        "closer_rep_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "sales.rep",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "FOREIGN KEY (closer_rep_id) REFERENCES sales.rep(id)"
+    },
+    {
+      "table": "sales.deal",
+      "columns": [
+        "contact_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "core.contact",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (contact_id) REFERENCES core.contact(id)"
+    },
+    {
+      "table": "sales.deal",
+      "columns": [
+        "partner_contact_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "core.contact",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "FOREIGN KEY (partner_contact_id) REFERENCES core.contact(id)"
+    },
+    {
+      "table": "sales.deal",
+      "columns": [
+        "offer_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "marketing.offer",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (offer_id) REFERENCES marketing.offer(id)"
+    },
+    {
+      "table": "sales.deal",
+      "columns": [
+        "opportunity_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "sales.opportunity",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (opportunity_id) REFERENCES sales.opportunity(id)"
+    },
+    {
+      "table": "sales.contract",
+      "columns": [
+        "deal_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "sales.deal",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (deal_id) REFERENCES sales.deal(id)"
+    },
+    {
+      "table": "finance.payment_plan",
+      "columns": [
+        "deal_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "sales.deal",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (deal_id) REFERENCES sales.deal(id)"
+    },
+    {
+      "table": "finance.receivable",
+      "columns": [
+        "deal_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "sales.deal",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (deal_id) REFERENCES sales.deal(id)"
+    },
+    {
+      "table": "finance.receivable",
+      "columns": [
+        "payment_plan_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "finance.payment_plan",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (payment_plan_id) REFERENCES finance.payment_plan(id)"
+    },
+    {
+      "table": "finance.receivable",
+      "columns": [
+        "payment_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "finance.successful_payment",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "FOREIGN KEY (payment_id) REFERENCES finance.successful_payment(id)"
+    },
+    {
+      "table": "finance.successful_payment",
+      "columns": [
+        "rep_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "sales.rep",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "FOREIGN KEY (rep_id) REFERENCES sales.rep(id)"
+    },
+    {
+      "table": "finance.successful_payment",
+      "columns": [
+        "strategy_call_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "sales.call",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "FOREIGN KEY (strategy_call_id) REFERENCES sales.call(id)"
+    },
+    {
+      "table": "finance.successful_payment",
+      "columns": [
+        "deal_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "sales.deal",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "FOREIGN KEY (deal_id) REFERENCES sales.deal(id)"
+    },
+    {
+      "table": "finance.successful_payment",
+      "columns": [
+        "receivable_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "finance.receivable",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "FOREIGN KEY (receivable_id) REFERENCES finance.receivable(id)"
+    },
+    {
+      "table": "finance.reversal",
+      "columns": [
+        "deal_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "sales.deal",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (deal_id) REFERENCES sales.deal(id)"
+    },
+    {
+      "table": "finance.reversal",
+      "columns": [
+        "payment_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "finance.successful_payment",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "FOREIGN KEY (payment_id) REFERENCES finance.successful_payment(id)"
+    },
+    {
+      "table": "finance.commission_tier",
+      "columns": [
+        "commission_plan_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "finance.commission_plan",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (commission_plan_id) REFERENCES finance.commission_plan(id) ON DELETE CASCADE"
+    },
+    {
+      "table": "finance.commission_payout",
+      "columns": [
+        "approved_by_rep_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "sales.rep",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "FOREIGN KEY (approved_by_rep_id) REFERENCES sales.rep(id)"
+    },
+    {
+      "table": "finance.commission_payout",
+      "columns": [
+        "rep_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "sales.rep",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (rep_id) REFERENCES sales.rep(id)"
+    },
+    {
+      "table": "finance.commission_line",
+      "columns": [
+        "rep_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "sales.rep",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (rep_id) REFERENCES sales.rep(id)"
+    },
+    {
+      "table": "finance.commission_line",
+      "columns": [
+        "deal_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "sales.deal",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "FOREIGN KEY (deal_id) REFERENCES sales.deal(id)"
+    },
+    {
+      "table": "finance.commission_line",
+      "columns": [
+        "payment_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "finance.successful_payment",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "FOREIGN KEY (payment_id) REFERENCES finance.successful_payment(id)"
+    },
+    {
+      "table": "finance.commission_line",
+      "columns": [
+        "commission_plan_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "finance.commission_plan",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "FOREIGN KEY (commission_plan_id) REFERENCES finance.commission_plan(id)"
+    },
+    {
+      "table": "finance.commission_line",
+      "columns": [
+        "payout_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "finance.commission_payout",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "FOREIGN KEY (payout_id) REFERENCES finance.commission_payout(id)"
+    },
+    {
+      "table": "delivery.fulfilment",
+      "columns": [
+        "csm_rep_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "sales.rep",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "FOREIGN KEY (csm_rep_id) REFERENCES sales.rep(id)"
+    },
+    {
+      "table": "delivery.fulfilment",
+      "columns": [
+        "contact_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "core.contact",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (contact_id) REFERENCES core.contact(id)"
+    },
+    {
+      "table": "delivery.fulfilment",
+      "columns": [
+        "deal_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "sales.deal",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (deal_id) REFERENCES sales.deal(id)"
+    },
+    {
+      "table": "sales.report_submission",
+      "columns": [
+        "rep_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "sales.rep",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (rep_id) REFERENCES sales.rep(id)"
+    },
+    {
+      "table": "sales.report_submission",
+      "columns": [
+        "follow_up_call_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "sales.call",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "FOREIGN KEY (follow_up_call_id) REFERENCES sales.call(id)"
+    },
+    {
+      "table": "sales.report_submission",
+      "columns": [
+        "strategy_call_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "sales.call",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "FOREIGN KEY (strategy_call_id) REFERENCES sales.call(id)"
+    },
+    {
+      "table": "sales.report_submission",
+      "columns": [
+        "supersedes_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "sales.report_submission",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "FOREIGN KEY (supersedes_id) REFERENCES sales.report_submission(id)"
+    },
+    {
+      "table": "sales.objection",
+      "columns": [
+        "objection_type_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "core.objection_type",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "FOREIGN KEY (objection_type_id) REFERENCES core.objection_type(id)"
+    },
+    {
+      "table": "sales.objection",
+      "columns": [
+        "strategy_call_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "sales.call",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "exactly_one",
+      "def": "FOREIGN KEY (strategy_call_id) REFERENCES sales.call(id) ON DELETE CASCADE"
+    }
+  ],
+  "enums": [
+    {
+      "name": "auth.aal_level",
+      "values": [
+        "aal1",
+        "aal2",
+        "aal3"
+      ]
+    },
+    {
+      "name": "auth.code_challenge_method",
+      "values": [
+        "plain",
+        "s256"
+      ]
+    },
+    {
+      "name": "auth.factor_status",
+      "values": [
+        "unverified",
+        "verified"
+      ]
+    },
+    {
+      "name": "auth.factor_type",
+      "values": [
+        "phone",
+        "totp",
+        "webauthn"
+      ]
+    },
+    {
+      "name": "auth.oauth_authorization_status",
+      "values": [
+        "approved",
+        "denied",
+        "expired",
+        "pending"
+      ]
+    },
+    {
+      "name": "auth.oauth_client_type",
+      "values": [
+        "confidential",
+        "public"
+      ]
+    },
+    {
+      "name": "auth.oauth_registration_type",
+      "values": [
+        "dynamic",
+        "manual"
+      ]
+    },
+    {
+      "name": "auth.oauth_response_type",
+      "values": [
+        "code"
+      ]
+    },
+    {
+      "name": "auth.one_time_token_type",
+      "values": [
+        "confirmation_token",
+        "email_change_token_current",
+        "email_change_token_new",
+        "phone_change_token",
+        "reauthentication_token",
+        "recovery_token"
+      ]
+    },
+    {
+      "name": "public.appointment_actor",
+      "values": [
+        "closer",
+        "lead_link"
+      ]
+    },
+    {
+      "name": "public.appointment_status",
+      "values": [
+        "cancelled_by_lead",
+        "cancelled_by_team",
+        "confirmed",
+        "no_show",
+        "rescheduled",
+        "scheduled",
+        "taken"
+      ]
+    },
+    {
+      "name": "public.call_disposition",
+      "values": [
+        "closed",
+        "dq_on_call",
+        "follow_up",
+        "no_decision"
+      ]
+    },
+    {
+      "name": "public.call_type",
+      "values": [
+        "follow_up",
+        "readiness",
+        "strategy"
+      ]
+    },
+    {
+      "name": "public.commission_basis",
+      "values": [
+        "cash_collected"
+      ]
+    },
+    {
+      "name": "public.commission_eval_metric",
+      "values": [
+        "close_rate"
+      ]
+    },
+    {
+      "name": "public.commission_line_type",
+      "values": [
+        "adjustment",
+        "base",
+        "clawback",
+        "residual"
+      ]
+    },
+    {
+      "name": "public.commission_payout_status",
+      "values": [
+        "approved",
+        "calculated",
+        "paid"
+      ]
+    },
+    {
+      "name": "public.commission_tier_name",
+      "values": [
+        "base_10",
+        "elevated_15"
+      ]
+    },
+    {
+      "name": "public.contact_identifier_type",
+      "values": [
+        "email",
+        "phone"
+      ]
+    },
+    {
+      "name": "public.contract_status",
+      "values": [
+        "completed",
+        "sent",
+        "viewed",
+        "void"
+      ]
+    },
+    {
+      "name": "public.deal_status",
+      "values": [
+        "active",
+        "churned",
+        "refunded"
+      ]
+    },
+    {
+      "name": "public.dq_stage",
+      "values": [
+        "closing",
+        "setting"
+      ]
+    },
+    {
+      "name": "public.follow_up_outcome",
+      "values": [
+        "closed",
+        "dq",
+        "follow_up",
+        "no_show",
+        "reschedule"
+      ]
+    },
+    {
+      "name": "public.follow_up_sub_type",
+      "values": [
+        "enrollment",
+        "follow_up"
+      ]
+    },
+    {
+      "name": "public.fulfilment_status",
+      "values": [
+        "active",
+        "churned",
+        "completed",
+        "refunded"
+      ]
+    },
+    {
+      "name": "public.intake_provider",
+      "values": [
+        "identityiq",
+        "myscoreiq"
+      ]
+    },
+    {
+      "name": "public.intake_status",
+      "values": [
+        "failed",
+        "submitted",
+        "verified"
+      ]
+    },
+    {
+      "name": "public.lifecycle_status",
+      "values": [
+        "customer",
+        "do_not_contact",
+        "lead",
+        "qualified"
+      ]
+    },
+    {
+      "name": "public.nafa_version",
+      "values": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ]
+    },
+    {
+      "name": "public.offer_type",
+      "values": [
+        "booking_fee",
+        "coaching",
+        "community",
+        "core",
+        "funding",
+        "lto"
+      ]
+    },
+    {
+      "name": "public.opportunity_stage",
+      "values": [
+        "audit_complete",
+        "call_canceled_by_lead",
+        "call_canceled_by_team",
+        "call_confirmed",
+        "contract_sent",
+        "contract_signed",
+        "deposit",
+        "dq_on_call",
+        "follow_up_call_booked",
+        "intake_form_needed",
+        "intake_form_submitted",
+        "lead_opt_in",
+        "lost",
+        "no_show",
+        "strategy_call_booked",
+        "warm_list",
+        "won_pif",
+        "won_pp"
+      ]
+    },
+    {
+      "name": "public.optin_goal",
+      "values": [
+        "business_credit",
+        "car",
+        "credit_cards",
+        "house",
+        "other"
+      ]
+    },
+    {
+      "name": "public.payment_processor",
+      "values": [
+        "nmi",
+        "stripe"
+      ]
+    },
+    {
+      "name": "public.payment_type",
+      "values": [
+        "booking_25",
+        "deposit",
+        "installment",
+        "pif"
+      ]
+    },
+    {
+      "name": "public.plan_type",
+      "values": [
+        "12pay",
+        "13pay",
+        "3pay",
+        "6pay",
+        "7pay",
+        "pif",
+        "zero_down"
+      ]
+    },
+    {
+      "name": "public.readiness_outcome",
+      "values": [
+        "confirmed_ready",
+        "dq",
+        "no_contact",
+        "reschedule"
+      ]
+    },
+    {
+      "name": "public.receivable_status",
+      "values": [
+        "delinquent",
+        "late",
+        "paid",
+        "scheduled",
+        "waived"
+      ]
+    },
+    {
+      "name": "public.refund_handling",
+      "values": [
+        "clawback",
+        "none"
+      ]
+    },
+    {
+      "name": "public.rep_role",
+      "values": [
+        "admin",
+        "closer",
+        "csm",
+        "hybrid",
+        "setter"
+      ]
+    },
+    {
+      "name": "public.report_status",
+      "values": [
+        "rejected",
+        "submitted",
+        "superseded",
+        "validated"
+      ]
+    },
+    {
+      "name": "public.report_type",
+      "values": [
+        "missed_call",
+        "post_call_notes",
+        "sales_call"
+      ]
+    },
+    {
+      "name": "public.reversal_type",
+      "values": [
+        "chargeback",
+        "refund"
+      ]
+    },
+    {
+      "name": "realtime.action",
+      "values": [
+        "DELETE",
+        "ERROR",
+        "INSERT",
+        "TRUNCATE",
+        "UPDATE"
+      ]
+    },
+    {
+      "name": "realtime.equality_op",
+      "values": [
+        "eq",
+        "gt",
+        "gte",
+        "ilike",
+        "imatch",
+        "in",
+        "is",
+        "isdistinct",
+        "like",
+        "lt",
+        "lte",
+        "match",
+        "neq"
+      ]
+    },
+    {
+      "name": "storage.buckettype",
+      "values": [
+        "ANALYTICS",
+        "STANDARD",
+        "VECTOR"
+      ]
+    }
+  ],
+  "driver": {
+    "name": "postgres",
+    "database_version": "PostgreSQL 17.6 on aarch64-unknown-linux-gnu, compiled by gcc (GCC) 15.2.0, 64-bit",
+    "meta": {
+      "current_schema": "public",
+      "search_paths": [
+        "\"\\$user\"",
+        "public",
+        "extensions"
+      ],
+      "dict": {
+        "Functions": "Stored procedures and functions"
+      }
+    }
+  }
+}
