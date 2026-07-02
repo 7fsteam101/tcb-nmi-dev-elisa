@@ -83,7 +83,7 @@ const main = async () => {
           if (ownerEmail) repByKey.set(ownerEmail.toLowerCase(), repId!);
           stats.newReps++;
         }
-        await sql`update core.contact set owner_rep_id = coalesce(owner_rep_id, ${repId}) where id = ${contactId}`;
+        await sql`update core.contact set owner_rep_id = coalesce(owner_rep_id, ${repId ?? null}) where id = ${contactId}`;
         stats.owners++;
       }
     }

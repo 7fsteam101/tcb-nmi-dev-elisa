@@ -3,20 +3,23 @@ import { pipelineByStage, leakage, cancellationReasons, dailySeries, objectionBr
 import { isDemoMode, reportTimezone } from "@/lib/settings";
 import { num, pct } from "@/lib/format";
 import { Card, Stat, SectionTitle, MiniBars, Badge, label } from "@/components/ui";
+import { RangePicker } from "@/components/range-picker";
 import { requireAccess } from "@/lib/access";
 
 export const dynamic = "force-dynamic";
 
-export default async function Funnel() {
+export default async function Funnel({ searchParams }: { searchParams: Promise<{ days?: string }> }) {
   await requireAccess("funnel");
   const demo = await isDemoMode();
   const tz = await reportTimezone();
+  const { days: daysRaw } = await searchParams;
+  const days = Math.min(Math.max(parseInt(daysRaw ?? "30", 10) || 30, 7), 365);
   const [stages, leak, reasons, series, objections] = await Promise.all([
     pipelineByStage(demo),
-    leakage({ demo, days: 30 }),
-    cancellationReasons({ demo, days: 30 }),
-    dailySeries({ demo, days: 30, tz }),
-    objectionBreakdown({ demo, days: 30 }),
+    leakage({ demo, days }),
+    cancellationReasons({ demo, days }),
+    dailySeries({ demo, days, tz }),
+    objectionBreakdown({ demo, days }),
   ]);
   const bookings = Number(leak.bookings);
   const maxStage = Math.max(...stages.map((s: any) => Number(s.n)), 1);
@@ -24,26 +27,29 @@ export default async function Funnel() {
   return (
     <div>
       <h1 className="text-xl font-semibold">Funnel & Leakage</h1>
-      <p className="mb-6 text-sm" style={{ color: "var(--muted)" }}>
-        Last 30 days. The booked-to-taken gap is where the money leaks.
-      </p>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm" style={{ color: "var(--muted)" }}>
+          Last {days} days. The booked-to-taken gap is where the money leaks.
+        </p>
+        <RangePicker />
+      </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="Bookings" value={num(leak.bookings)} href="/explore/booked" help="Unique paid strategy-call bookings in range." />
+        <Stat label="Bookings" value={num(leak.bookings)} href={`/explore/booked?days=${days}`} help="Unique paid strategy-call bookings in range." />
         <Stat label="Reached a taken call" value={`${num(leak.taken)} (${pct(bookings ? Number(leak.taken) / bookings : 0)})`}
-          tone={bookings && Number(leak.taken) / bookings >= 0.5 ? "good" : "bad"} href="/explore/taken"
+          tone={bookings && Number(leak.taken) / bookings >= 0.5 ? "good" : "bad"} href={`/explore/taken?days=${days}`}
           help="Bookings whose call has actually happened, however many reschedules it took." />
         <Stat label="Rescheduled at least once" value={`${num(leak.with_reschedule)} (${pct(bookings ? Number(leak.with_reschedule) / bookings : 0)})`}
-          tone="warn" href="/explore/reschedules" help="Bookings that moved their slot one or more times." />
-        <Stat label="Avg reschedules per booking" value={Number(leak.avg_reschedules).toFixed(2)} href="/explore/reschedules"
+          tone="warn" href={`/explore/reschedules?days=${days}`} help="Bookings that moved their slot one or more times." />
+        <Stat label="Avg reschedules per booking" value={Number(leak.avg_reschedules).toFixed(2)} href={`/explore/reschedules?days=${days}`}
           help="Across all bookings in range, including the ones that never moved." />
       </div>
       <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="Rescheduled 2+ times" value={num(leak.with_multi_reschedule)} tone="warn" href="/explore/reschedules" />
-        <Stat label="Hit a no-show" value={num(leak.with_no_show)} tone="bad" href="/explore/no_shows" help="Bookings with at least one no-show slot." />
-        <Stat label="No-show recovered" value={num(leak.no_show_recovered)} tone="good" href="/explore/no_shows"
+        <Stat label="Rescheduled 2+ times" value={num(leak.with_multi_reschedule)} tone="warn" href={`/explore/reschedules?days=${days}`} />
+        <Stat label="Hit a no-show" value={num(leak.with_no_show)} tone="bad" href={`/explore/no_shows?days=${days}`} help="Bookings with at least one no-show slot." />
+        <Stat label="No-show recovered" value={num(leak.no_show_recovered)} tone="good" href={`/explore/no_shows?days=${days}`}
           help="No-showed bookings that later rebooked and took the call. The saved ones." />
-        <Stat label="Cancelled" value={num(leak.cancelled)} tone="bad" href="/explore/cancellations" help="Bookings with a cancelled slot (by lead or team)." />
+        <Stat label="Cancelled" value={num(leak.cancelled)} tone="bad" href={`/explore/cancellations?days=${days}`} help="Bookings with a cancelled slot (by lead or team)." />
       </div>
 
       <SectionTitle>Reschedules per day</SectionTitle>
@@ -57,7 +63,7 @@ export default async function Funnel() {
           <SectionTitle>Pipeline by stage (all open + closed)</SectionTitle>
           <Card>
             {stages.map((s: any) => (
-              <Link key={s.stage} href={`/explore/stage?arg=${s.stage}`} className="mb-2 flex items-center gap-2 rounded px-1 hover:bg-white/5">
+              <Link key={s.stage} href={`/explore/stage?arg=${s.stage}&days=${days}`} className="mb-2 flex items-center gap-2 rounded px-1 hover:bg-white/5">
                 <div className="w-44 shrink-0 text-xs capitalize" style={{ color: "var(--muted)" }}>{label(s.stage)}</div>
                 <div className="h-3 rounded" style={{ width: `${(Number(s.n) / maxStage) * 100}%`, minWidth: 4, background: "var(--accent)" }} />
                 <div className="text-xs">{num(s.n)}</div>

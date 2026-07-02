@@ -36,6 +36,22 @@ export async function overviewKpis({ demo, days, tz }: Params) {
   return row;
 }
 
+// Leadership close rate: deals won / ALL bookings on the calendar, including
+// no-shows and cancellations. Denominator = the same unique primary strategy-call
+// bookings as the "booked" KPI; numerator = deals won in range.
+export async function leadershipCloseRate({ demo, days }: Omit<Params, "tz">) {
+  const [row] = await sql`
+    with range as (select now() - make_interval(days => ${days}) as since)
+    select
+      (select count(*) from sales.deal d, range r
+        where d.is_demo = ${demo} and d.deal_close_date >= r.since::date) as deals_won,
+      (select count(*) from sales.call c, range r
+        where c.is_demo = ${demo} and c.type = 'strategy' and c.is_primary
+          and not coalesce(c.is_duplicate, false) and c.scheduled_at >= r.since) as booked
+  `;
+  return row;
+}
+
 export async function dailySeries({ demo, days, tz }: Params) {
   return sql`
     with d as (
@@ -163,6 +179,28 @@ export async function receivablesList(demo: boolean) {
     join core.contact ct on ct.id = d.contact_id
     where r.is_demo = ${demo} and r.status <> 'paid'
     order by r.due_date asc limit 100`;
+}
+
+// Projected cash: scheduled receivables on current plan versions, bucketed by
+// due month for the next 6 calendar months (current month first). Months with
+// nothing due still return a zero row.
+export async function projectedCashByMonth(demo: boolean) {
+  return sql`
+    with months as (
+      select generate_series(
+        date_trunc('month', current_date),
+        date_trunc('month', current_date) + interval '5 months',
+        interval '1 month')::date as month
+    )
+    select m.month,
+      (select coalesce(sum(r.amount_minor), 0)
+        from finance.receivable r
+        where r.is_demo = ${demo} and r.status = 'scheduled'
+          and date_trunc('month', r.due_date)::date = m.month
+          and exists (select 1 from finance.payment_plan pp
+                      where pp.id = r.payment_plan_id and pp.is_current)) as amount_minor
+    from months m
+    order by m.month`;
 }
 
 export async function repPerformance({ demo, days }: Omit<Params, "tz">) {

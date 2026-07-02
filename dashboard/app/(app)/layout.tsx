@@ -14,6 +14,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const showAdminChrome = real.role === "admin" && !isPreview;
   const nav = [
     ...pages.map((p) => ({ href: `/${p}`, label: PAGE_LABELS[p] })),
+    ...(pages.includes("calls") ? [{ href: "/contacts", label: "Contacts" }] : []),
     ...(showAdminChrome ? [{ href: "/connections", label: "Connections" }] : []),
     { href: "/settings", label: "Settings" },
     ...(showAdminChrome ? [{ href: "/admin", label: "Admin" }] : []),

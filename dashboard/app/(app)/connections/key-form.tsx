@@ -12,6 +12,7 @@ export function KeyForm() {
           <label className="mb-1 block text-xs" style={{ color: "var(--muted)" }}>Provider</label>
           <select name="provider" defaultValue="close">
             <option value="close">Close (API key)</option>
+            <option value="stripe">Stripe (restricted key)</option>
             <option value="nmi">NMI (security key)</option>
             <option value="meta">Meta (access token)</option>
           </select>
