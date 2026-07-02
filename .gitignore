@@ -11,5 +11,4 @@ node_modules/
 
 # os
 .DS_Store
-scripts/.run-backfill.bundle.mjs
-scripts/.reconcile.bundle.mjs
+**/scripts/.*.mjs
