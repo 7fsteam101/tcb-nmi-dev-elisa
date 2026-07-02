@@ -42,9 +42,18 @@ async function logSubmission(type: "sales_call" | "missed_call" | "post_call_not
   const [dupe] = await sql`
     select count(*)::int as n from sales.report_submission
     where type = ${type} and strategy_call_id = ${callId} and status <> 'superseded'`;
+  // Compliance rule from the pipeline doc: the outcome form is due "immediately
+  // or same day" — on_time = submitted the same ET day as the call happened.
   const [row] = await sql`
     insert into sales.report_submission (type, rep_id, strategy_call_id, submitted_at, status, is_duplicate, on_time, payload)
-    values (${type}, ${repId}, ${callId}, now(), 'validated', ${Number(dupe?.n ?? 0) > 0}, true, ${sql.json(payload as never)})
+    values (${type}, ${repId}, ${callId}, now(), 'validated', ${Number(dupe?.n ?? 0) > 0},
+      coalesce((
+        select (now() at time zone 'America/New_York')::date
+             = (coalesce(c.occurred_at,
+                 (select a.scheduled_for from sales.appointment a where a.call_id = c.id and a.is_current))
+                at time zone 'America/New_York')::date
+        from sales.call c where c.id = ${callId}), true),
+      ${sql.json(payload as never)})
     returning id`;
   if (Number(dupe?.n ?? 0) > 0) {
     await sql`

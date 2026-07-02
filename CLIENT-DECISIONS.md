@@ -52,6 +52,8 @@ Our default: none to offer here, this one just needs your three numbers.
 Your database runs on the free plan, which has no restorable backups. Pro is about $25 per month, on your card and under your account, and we want it in place before more data flows in.
 Our default: upgrade to Pro now.
 
+**11. What is the Warm List, exactly?** The pipeline doc's Warm List definition is unfinished (placeholder text, "30 days"). Two parts to settle: the written definition, and whether opportunities should move to Warm List automatically after 30 days without activity, or only by hand. Our default: automatic after 30 idle days, reversible by any rep action.
+
 ## What Each Answer Unlocks
 
 1. Clean consumer close rate and revenue, partners tracked on their own.
