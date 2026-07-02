@@ -87,13 +87,29 @@ async function addSlot(callId: string, startTime: string | null, seq: number) {
     values (${callId}, ${seq}, ${startTime ?? new Date().toISOString()}, 'scheduled', true)`;
 }
 
-async function findOrCreateStrategyCall(oppId: string, startTime: string | null, source?: string): Promise<string> {
+// Calendar categorization: every GHL appointment resolves its call type through
+// sync.calendar_map (admin-managed). Unknown calendars auto-register as strategy
+// and surface in the admin panel for review.
+async function resolveCallType(locationId: string, calendarId: string | null, calendarName: string | null) {
+  if (!calendarId) return { type: "strategy" as const, isBooking: true };
   const rows = await sql`
-    select id from sales.call where opportunity_id = ${oppId} and type = 'strategy' and is_primary limit 1`;
+    insert into sync.calendar_map (location_id, calendar_id, calendar_name)
+    values (${locationId}, ${calendarId}, ${calendarName ?? null})
+    on conflict (location_id, calendar_id)
+    do update set calendar_name = coalesce(sync.calendar_map.calendar_name, excluded.calendar_name)
+    returning call_type, is_booking, active`;
+  const m = rows[0];
+  return { type: (m?.active ? m.call_type : "strategy") as "readiness" | "strategy" | "follow_up", isBooking: m?.is_booking ?? true };
+}
+
+async function findOrCreateCall(oppId: string, type: string, startTime: string | null, source?: string): Promise<string> {
+  const rows = type === "strategy"
+    ? await sql`select id from sales.call where opportunity_id = ${oppId} and type = 'strategy' and is_primary limit 1`
+    : await sql`select id from sales.call where opportunity_id = ${oppId} and type = ${type} order by created_at desc limit 1`;
   if (rows.length) return rows[0].id;
   const created = await sql`
     insert into sales.call (opportunity_id, type, scheduled_at, booking_source_channel, is_primary)
-    values (${oppId}, 'strategy', ${startTime ?? new Date().toISOString()}, ${source ?? null}, true)
+    values (${oppId}, ${type}, ${startTime ?? new Date().toISOString()}, ${source ?? null}, ${type === "strategy"})
     returning id`;
   return created[0].id;
 }
@@ -132,8 +148,13 @@ async function normalizeGhl(eventType: string, payload: any): Promise<string> {
   }
 
   const startTime = p.appointment?.start_time ?? p.appointment?.startTime ?? null;
+  const calendar = await resolveCallType(
+    p.location_id ?? "default",
+    p.appointment?.calendar_id ?? p.appointment?.calendarId ?? null,
+    p.appointment?.calendar_name ?? p.appointment?.calendarName ?? null,
+  );
   const oppId = await findOrCreateActiveOpportunity(contactId, p.source);
-  const callId = await findOrCreateStrategyCall(oppId, startTime, p.source);
+  const callId = await findOrCreateCall(oppId, calendar.type, startTime, p.source);
   const slot = await currentSlot(callId);
 
   switch (event) {
@@ -141,8 +162,9 @@ async function normalizeGhl(eventType: string, payload: any): Promise<string> {
       if (!slot) await addSlot(callId, startTime, 1);
       else if (["taken", "no_show", "cancelled_by_lead", "cancelled_by_team", "rescheduled"].includes(slot.status))
         await addSlot(callId, startTime, slot.seq + 1); // terminal slots are immutable — new slot
-      await sql`update sales.opportunity set stage = 'strategy_call_booked' where id = ${oppId} and stage = 'lead_opt_in'`;
-      return "booking slot recorded";
+      if (calendar.type === "strategy" && calendar.isBooking)
+        await sql`update sales.opportunity set stage = 'strategy_call_booked' where id = ${oppId} and stage = 'lead_opt_in'`;
+      return `booking slot recorded (${calendar.type} calendar)`;
     }
     case "appointment_rescheduled": {
       if (slot && ["scheduled", "confirmed"].includes(slot.status)) {

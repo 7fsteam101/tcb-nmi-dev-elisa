@@ -18,6 +18,7 @@ const NAV = [
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireSession();
   const demo = await isDemoMode();
+  const nav = user.role === "admin" ? [...NAV, { href: "/admin", label: "Admin" }] : NAV;
   return (
     <div className="flex min-h-screen">
       <aside className="sticky top-0 flex h-screen w-52 shrink-0 flex-col border-r p-4" style={{ borderColor: "var(--line)" }}>
@@ -26,7 +27,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <div className="text-[11px]" style={{ color: "var(--muted)" }}>Sales System</div>
         </Link>
         <nav className="flex flex-col gap-0.5">
-          {NAV.map((n) => <NavLink key={n.href} href={n.href} label={n.label} />)}
+          {nav.map((n) => <NavLink key={n.href} href={n.href} label={n.label} />)}
         </nav>
         <div className="mt-auto pt-4 text-xs" style={{ color: "var(--muted)" }}>
           <div className="mb-2 truncate">{user.name}</div>
