@@ -9,6 +9,7 @@ import type { Provider } from "./providers";
 const slug = (s: string) => s.toLowerCase().replace(/['’]/g, "").replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
 
 const STAGE_ALIASES: Record<string, string> = {
+  // the redesigned 18-stage pipeline (spec)
   lead_opt_in: "lead_opt_in", strategy_call_booked: "strategy_call_booked",
   intake_form_submitted: "intake_form_submitted", audit_complete: "audit_complete",
   intake_form_needed: "intake_form_needed", call_confirmed: "call_confirmed",
@@ -18,10 +19,20 @@ const STAGE_ALIASES: Record<string, string> = {
   warm_list: "warm_list", contract_sent: "contract_sent", contract_signed: "contract_signed",
   deposit: "deposit", won_pif: "won_pif", won_pp: "won_pp", lost: "lost",
   dq_on_call: "dq_on_call", dqd_on_call: "dq_on_call",
+  // the LIVE pipeline in their Close org today (incl. the partner track)
+  eligibility_call_booked: "eligibility_call_booked",
+  intake_submitted: "intake_form_submitted",
+  call_completed: "call_completed",
+  closing: "closing",
+  closed_won: "closed_won",
+  interested_partner: "interested_partner",
+  active_partner: "active_partner",
+  not_a_fit: "not_a_fit",
 };
 export const mapCloseStage = (label: string): string | null => STAGE_ALIASES[slug(label)] ?? null;
 
-const TERMINAL = ["deposit", "won_pif", "won_pp", "lost", "dq_on_call", "call_canceled_by_team"];
+const WON = ["deposit", "won_pif", "won_pp", "closed_won", "active_partner"];
+const TERMINAL = [...WON, "lost", "dq_on_call", "call_canceled_by_team", "not_a_fit"];
 
 async function normalizeClose(eventType: string, payload: any): Promise<string> {
   const data = payload?.event?.data ?? payload?.data ?? payload;
@@ -53,7 +64,7 @@ async function normalizeClose(eventType: string, payload: any): Promise<string> 
           closed_at = case when ${stage ?? null}::text = any(${TERMINAL}) then coalesce(closed_at, now())
                            when ${stage ?? null}::text is not null then null else closed_at end
         where id = ${existing[0].id}`;
-      if (stage && (stage === "won_pif" || stage === "won_pp")) {
+      if (stage && WON.includes(stage)) {
         const hasDeal = await sql`select 1 from sales.deal where opportunity_id = ${existing[0].id}`;
         if (hasDeal.length === 0) return "won in Close, no deal recorded yet — submit the Sales Call form to log terms";
       }

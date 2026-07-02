@@ -71,8 +71,8 @@ export async function upsertContact(c: IncomingContact): Promise<{ id: string; c
   return { id: rows[0].id, created: true };
 }
 
-const WON_STAGES = ["deposit", "won_pif", "won_pp"];
-const CLOSED_STAGES = [...WON_STAGES, "lost", "dq_on_call", "call_canceled_by_team"];
+const WON_STAGES = ["deposit", "won_pif", "won_pp", "closed_won", "active_partner"];
+const CLOSED_STAGES = [...WON_STAGES, "lost", "dq_on_call", "call_canceled_by_team", "not_a_fit"];
 
 // The automation rule: our workflows never attach new activity to a won/closed
 // opportunity — they create a NEW one. (Users in Close can do anything; this

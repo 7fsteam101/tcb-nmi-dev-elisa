@@ -48,8 +48,16 @@ async function closeStageId(key: string, stageLabel: string): Promise<string> {
     // slug-matched so "won_pif" finds "Won PIF" however Close spells it
     for (const s of body.data ?? []) stageIdCache[slug(s.label)] = s.id;
   }
-  const id = stageIdCache[slug(stageLabel)];
-  if (!id) throw new Error(`Close has no opportunity status matching "${stageLabel}"`);
+  // fallbacks: the forms speak the redesigned pipeline; until Close migrates,
+  // map outbound stages onto the org's LIVE equivalents
+  const OUTBOUND_FALLBACKS: Record<string, string[]> = {
+    won_pif: ["closed_won"], won_pp: ["closed_won"], deposit: ["closed_won"],
+    dq_on_call: ["not_a_fit"], intake_form_submitted: ["intake_submitted"],
+    follow_up_call_booked: ["call_completed"], warm_list: ["call_completed"],
+  };
+  const want = slug(stageLabel);
+  const id = stageIdCache[want] ?? (OUTBOUND_FALLBACKS[want] ?? []).map((f) => stageIdCache![f]).find(Boolean);
+  if (!id) throw new Error(`Close has no opportunity status matching "${stageLabel}" (or a known fallback)`);
   return id;
 }
 

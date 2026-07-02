@@ -87,7 +87,8 @@ export async function runCloseBackfill(budgetMs = 45_000) {
           values (${contactId}, ${stage ?? "lead_opt_in"}, coalesce(${opp.date_created ?? null}, now()), ${opp.id},
                   date_trunc('month', coalesce(${opp.date_created ?? null}::timestamptz, now()))::date,
                   ${terminal ? opp.date_won ?? opp.date_created ?? new Date().toISOString() : null})
-          on conflict (close_id) do update set stage = excluded.stage, closed_at = excluded.closed_at`;
+          on conflict (close_id) where close_id is not null
+          do update set stage = excluded.stage, closed_at = excluded.closed_at`;
         opps++;
       }
       oppSkip += (page.data ?? []).length;
