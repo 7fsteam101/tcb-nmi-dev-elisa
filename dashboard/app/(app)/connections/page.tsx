@@ -4,6 +4,7 @@ import { listConnections } from "@/lib/sync/providers";
 import { Card, SectionTitle, Badge, STATUS_TONE, label } from "@/components/ui";
 import { dateTime } from "@/lib/format";
 import { KeyForm } from "./key-form";
+import { BackfillButton } from "./backfill-button";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +48,14 @@ export default async function Connections() {
         <div>
           <SectionTitle>Connect with a key</SectionTitle>
           <Card><KeyForm /></Card>
+          <SectionTitle>Close history</SectionTitle>
+          <Card>
+            <p className="mb-3 text-sm" style={{ color: "var(--muted)" }}>
+              Imports every historical lead and opportunity from Close (needs the Close key above).
+              Safe to run again any time — records update in place, nothing duplicates.
+            </p>
+            <BackfillButton />
+          </Card>
         </div>
         <div>
           <SectionTitle>Sync health</SectionTitle>

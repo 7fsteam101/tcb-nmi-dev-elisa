@@ -27,6 +27,16 @@ export async function saveKeyAction(_prev: unknown, formData: FormData) {
   }
 }
 
+export async function runBackfillAction() {
+  const user = await requireSession();
+  if (user.role !== "admin") return { ok: false, message: "Only admins can run the backfill" };
+  const { runCloseBackfill } = await import("@/lib/sync/backfill");
+  const result = await runCloseBackfill();
+  revalidatePath("/connections");
+  revalidatePath("/overview");
+  return result;
+}
+
 /** Saving a Close key auto-subscribes Close's webhooks to this app — zero manual setup. */
 async function subscribeCloseWebhooks(key: string): Promise<string> {
   try {
