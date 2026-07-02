@@ -19,7 +19,7 @@ export type IncomingContact = {
 
 export async function findContact(c: IncomingContact): Promise<string | null> {
   const rows = await sql`
-    select ct.id from core.contact ct
+    select ct.id, ct.merged_into_contact_id from core.contact ct
     where (${c.closeId ?? null}::text is not null and ct.close_id = ${c.closeId ?? null})
        or (${c.ghlMarketingId ?? null}::text is not null and ct.ghl_marketing_id = ${c.ghlMarketingId ?? null})
        or (${c.email ?? null}::text is not null and lower(ct.primary_email) = lower(${c.email ?? ""}))
@@ -29,7 +29,16 @@ export async function findContact(c: IncomingContact): Promise<string | null> {
            (ci.type = 'email' and ${c.email ?? null}::text is not null and lower(ci.value) = lower(${c.email ?? ""})) or
            (ci.type = 'phone' and ${c.phone ?? null}::text is not null and ci.value = ${c.phone ?? ""})))
     limit 1`;
-  return rows[0]?.id ?? null;
+  if (!rows.length) return null;
+  // follow merge pointers to the canonical person (a merged lead's close_id
+  // lives on a pointer row so cross-system events still resolve)
+  let id = rows[0].id, merged = rows[0].merged_into_contact_id, hops = 0;
+  while (merged && hops < 3) {
+    const next = await sql`select id, merged_into_contact_id from core.contact where id = ${merged}`;
+    if (!next.length) break;
+    id = next[0].id; merged = next[0].merged_into_contact_id; hops++;
+  }
+  return id;
 }
 
 export async function upsertContact(c: IncomingContact): Promise<{ id: string; created: boolean }> {
