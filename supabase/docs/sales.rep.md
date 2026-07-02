@@ -4,7 +4,7 @@
 
 | Name | Type | Default | Nullable | Children | Parents | Comment |
 | ---- | ---- | ------- | -------- | -------- | ------- | ------- |
-| id | uuid | gen_random_uuid() | false | [core.contact](core.contact.md) [sales.opportunity](sales.opportunity.md) [sales.call](sales.call.md) [sales.deal](sales.deal.md) [finance.successful_payment](finance.successful_payment.md) [finance.commission_payout](finance.commission_payout.md) [finance.commission_line](finance.commission_line.md) [delivery.fulfilment](delivery.fulfilment.md) [sales.report_submission](sales.report_submission.md) |  | Primary key (uuid, auto-generated). |
+| id | uuid | gen_random_uuid() | false | [core.contact](core.contact.md) [sales.opportunity](sales.opportunity.md) [sales.call](sales.call.md) [sales.deal](sales.deal.md) [finance.successful_payment](finance.successful_payment.md) [finance.commission_payout](finance.commission_payout.md) [finance.commission_line](finance.commission_line.md) [delivery.fulfilment](delivery.fulfilment.md) [sales.report_submission](sales.report_submission.md) [core.app_user](core.app_user.md) |  | Primary key (uuid, auto-generated). |
 | full_name | text |  | false |  |  | The team member's full name. |
 | email | text |  | true |  |  | The team member's email. |
 | role | rep_role |  | false |  |  | setter / closer / hybrid / csm / admin. |

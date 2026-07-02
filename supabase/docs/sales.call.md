@@ -43,6 +43,7 @@ All calls in one table (type = readiness/strategy/follow_up). The strategy call 
 | followup_outcome | follow_up_outcome |  | true |  |  | closed / follow_up / dq / no_show / reschedule (follow_up). |
 | created_at | timestamp with time zone | now() | false |  |  | When this row was created. |
 | updated_at | timestamp with time zone | now() | false |  |  | When this row was last updated (auto-maintained). |
+| is_demo | boolean | false | false |  |  | Demo-mode row (obviously fake data for verifying features). Purge = delete where is_demo. |
 
 ## Constraints
 
@@ -63,6 +64,7 @@ All calls in one table (type = readiness/strategy/follow_up). The strategy call 
 | call_pkey | CREATE UNIQUE INDEX call_pkey ON sales.call USING btree (id) |
 | uq_primary_strategy | CREATE UNIQUE INDEX uq_primary_strategy ON sales.call USING btree (opportunity_id) WHERE ((type = 'strategy'::call_type) AND is_primary) |
 | ix_call_opp | CREATE INDEX ix_call_opp ON sales.call USING btree (opportunity_id) |
+| idx_call_type | CREATE INDEX idx_call_type ON sales.call USING btree (type) |
 
 ## Triggers
 

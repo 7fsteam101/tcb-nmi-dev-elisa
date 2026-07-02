@@ -27,6 +27,7 @@ Meta insights, grain = (date x ad_id). Trailing-window upsert by pulled_at for r
 | pulled_at | timestamp with time zone |  | false |  |  | For restatement — re-pull a trailing window and upsert. |
 | created_at | timestamp with time zone | now() | false |  |  | When this row was created. |
 | updated_at | timestamp with time zone | now() | false |  |  | When this row was last updated (auto-maintained). |
+| is_demo | boolean | false | false |  |  | Demo-mode row (obviously fake data for verifying features). Purge = delete where is_demo. |
 
 ## Constraints
 
@@ -40,6 +41,7 @@ Meta insights, grain = (date x ad_id). Trailing-window upsert by pulled_at for r
 | ---- | ---------- |
 | ad_spend_pkey | CREATE UNIQUE INDEX ad_spend_pkey ON marketing.ad_spend USING btree (id) |
 | uq_adspend_grain | CREATE UNIQUE INDEX uq_adspend_grain ON marketing.ad_spend USING btree (date, ad_id) |
+| idx_adspend_date | CREATE INDEX idx_adspend_date ON marketing.ad_spend USING btree (date) |
 
 ## Triggers
 

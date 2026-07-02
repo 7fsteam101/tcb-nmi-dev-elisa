@@ -26,6 +26,8 @@ A sales-cycle instance and the main reporting unit. Contact : Opportunity = 1:N 
 | monday_lead_source_item | text |  | true |  |  | Cross-system key: the Monday lead-source item. |
 | created_at | timestamp with time zone | now() | false |  |  | When this row was created. |
 | updated_at | timestamp with time zone | now() | false |  |  | When this row was last updated (auto-maintained). |
+| lost_reason_id | uuid |  | true |  | [core.lost_reason](core.lost_reason.md) | FK to the lost reason (why a qualified lead did not convert). dq_reason_id covers screened-out leads. |
+| is_demo | boolean | false | false |  |  | Demo-mode row (obviously fake data for verifying features). Purge = delete where is_demo. |
 
 ## Constraints
 
@@ -36,6 +38,7 @@ A sales-cycle instance and the main reporting unit. Contact : Opportunity = 1:N 
 | opportunity_contact_id_fkey | FOREIGN KEY | FOREIGN KEY (contact_id) REFERENCES core.contact(id) |
 | opportunity_pkey | PRIMARY KEY | PRIMARY KEY (id) |
 | opportunity_current_nafa_fk | FOREIGN KEY | FOREIGN KEY (current_nafa_id) REFERENCES credit.nafa(id) |
+| opportunity_lost_reason_id_fkey | FOREIGN KEY | FOREIGN KEY (lost_reason_id) REFERENCES core.lost_reason(id) |
 
 ## Indexes
 
@@ -43,6 +46,8 @@ A sales-cycle instance and the main reporting unit. Contact : Opportunity = 1:N 
 | ---- | ---------- |
 | opportunity_pkey | CREATE UNIQUE INDEX opportunity_pkey ON sales.opportunity USING btree (id) |
 | ix_opp_contact | CREATE INDEX ix_opp_contact ON sales.opportunity USING btree (contact_id) |
+| idx_opportunity_stage | CREATE INDEX idx_opportunity_stage ON sales.opportunity USING btree (stage) |
+| idx_opportunity_opened | CREATE INDEX idx_opportunity_opened ON sales.opportunity USING btree (opened_at) |
 
 ## Triggers
 

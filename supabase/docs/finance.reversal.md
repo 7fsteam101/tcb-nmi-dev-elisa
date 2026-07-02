@@ -13,6 +13,7 @@
 | occurred_at | timestamp with time zone |  | false |  |  | When the reversal occurred. |
 | created_at | timestamp with time zone | now() | false |  |  | When this row was created. |
 | updated_at | timestamp with time zone | now() | false |  |  | When this row was last updated (auto-maintained). |
+| is_demo | boolean | false | false |  |  | Demo-mode row (obviously fake data for verifying features). Purge = delete where is_demo. |
 
 ## Constraints
 

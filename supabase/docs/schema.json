@@ -695,6 +695,13 @@
           "nullable": false,
           "default": "now()",
           "comment": "When this row was last updated (auto-maintained)."
+        },
+        {
+          "name": "is_demo",
+          "type": "boolean",
+          "nullable": false,
+          "default": "false",
+          "comment": "Demo-mode row (obviously fake data for verifying features). Purge = delete where is_demo."
         }
       ],
       "indexes": [
@@ -1183,6 +1190,19 @@
           "nullable": false,
           "default": "now()",
           "comment": "When this row was last updated (auto-maintained)."
+        },
+        {
+          "name": "lost_reason_id",
+          "type": "uuid",
+          "nullable": true,
+          "comment": "FK to the lost reason (why a qualified lead did not convert). dq_reason_id covers screened-out leads."
+        },
+        {
+          "name": "is_demo",
+          "type": "boolean",
+          "nullable": false,
+          "default": "false",
+          "comment": "Demo-mode row (obviously fake data for verifying features). Purge = delete where is_demo."
         }
       ],
       "indexes": [
@@ -1200,6 +1220,22 @@
           "table": "sales.opportunity",
           "columns": [
             "contact_id"
+          ]
+        },
+        {
+          "name": "idx_opportunity_stage",
+          "def": "CREATE INDEX idx_opportunity_stage ON sales.opportunity USING btree (stage)",
+          "table": "sales.opportunity",
+          "columns": [
+            "stage"
+          ]
+        },
+        {
+          "name": "idx_opportunity_opened",
+          "def": "CREATE INDEX idx_opportunity_opened ON sales.opportunity USING btree (opened_at)",
+          "table": "sales.opportunity",
+          "columns": [
+            "opened_at"
           ]
         }
       ],
@@ -1261,6 +1297,19 @@
           "referenced_table": "credit.nafa",
           "columns": [
             "current_nafa_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "opportunity_lost_reason_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (lost_reason_id) REFERENCES core.lost_reason(id)",
+          "table": "sales.opportunity",
+          "referenced_table": "core.lost_reason",
+          "columns": [
+            "lost_reason_id"
           ],
           "referenced_columns": [
             "id"
@@ -1378,6 +1427,13 @@
           "nullable": false,
           "default": "now()",
           "comment": "When this row was last updated (auto-maintained)."
+        },
+        {
+          "name": "is_demo",
+          "type": "boolean",
+          "nullable": false,
+          "default": "false",
+          "comment": "Demo-mode row (obviously fake data for verifying features). Purge = delete where is_demo."
         }
       ],
       "indexes": [
@@ -1403,6 +1459,14 @@
           "table": "sales.opt_in",
           "columns": [
             "opportunity_id"
+          ]
+        },
+        {
+          "name": "idx_optin_submitted",
+          "def": "CREATE INDEX idx_optin_submitted ON sales.opt_in USING btree (submitted_at)",
+          "table": "sales.opt_in",
+          "columns": [
+            "submitted_at"
           ]
         }
       ],
@@ -2046,6 +2110,13 @@
           "nullable": false,
           "default": "now()",
           "comment": "When this row was last updated (auto-maintained)."
+        },
+        {
+          "name": "is_demo",
+          "type": "boolean",
+          "nullable": false,
+          "default": "false",
+          "comment": "Demo-mode row (obviously fake data for verifying features). Purge = delete where is_demo."
         }
       ],
       "indexes": [
@@ -2071,6 +2142,14 @@
           "table": "sales.call",
           "columns": [
             "opportunity_id"
+          ]
+        },
+        {
+          "name": "idx_call_type",
+          "def": "CREATE INDEX idx_call_type ON sales.call USING btree (type)",
+          "table": "sales.call",
+          "columns": [
+            "type"
           ]
         }
       ],
@@ -2246,6 +2325,13 @@
           "nullable": false,
           "default": "now()",
           "comment": "When this row was last updated (auto-maintained)."
+        },
+        {
+          "name": "is_demo",
+          "type": "boolean",
+          "nullable": false,
+          "default": "false",
+          "comment": "Demo-mode row (obviously fake data for verifying features). Purge = delete where is_demo."
         }
       ],
       "indexes": [
@@ -2288,6 +2374,22 @@
           "table": "sales.appointment",
           "columns": [
             "scheduled_for"
+          ]
+        },
+        {
+          "name": "idx_appt_scheduled_for",
+          "def": "CREATE INDEX idx_appt_scheduled_for ON sales.appointment USING btree (scheduled_for)",
+          "table": "sales.appointment",
+          "columns": [
+            "scheduled_for"
+          ]
+        },
+        {
+          "name": "idx_appt_status",
+          "def": "CREATE INDEX idx_appt_status ON sales.appointment USING btree (status)",
+          "table": "sales.appointment",
+          "columns": [
+            "status"
           ]
         }
       ],
@@ -2435,6 +2537,13 @@
           "nullable": false,
           "default": "now()",
           "comment": "When this row was last updated (auto-maintained)."
+        },
+        {
+          "name": "is_demo",
+          "type": "boolean",
+          "nullable": false,
+          "default": "false",
+          "comment": "Demo-mode row (obviously fake data for verifying features). Purge = delete where is_demo."
         }
       ],
       "indexes": [
@@ -2757,6 +2866,13 @@
           "nullable": false,
           "default": "now()",
           "comment": "When this row was last updated (auto-maintained)."
+        },
+        {
+          "name": "is_demo",
+          "type": "boolean",
+          "nullable": false,
+          "default": "false",
+          "comment": "Demo-mode row (obviously fake data for verifying features). Purge = delete where is_demo."
         }
       ],
       "indexes": [
@@ -2906,6 +3022,13 @@
           "nullable": false,
           "default": "now()",
           "comment": "When this row was last updated (auto-maintained)."
+        },
+        {
+          "name": "is_demo",
+          "type": "boolean",
+          "nullable": false,
+          "default": "false",
+          "comment": "Demo-mode row (obviously fake data for verifying features). Purge = delete where is_demo."
         }
       ],
       "indexes": [
@@ -2948,6 +3071,22 @@
           "table": "finance.receivable",
           "columns": [
             "due_date"
+          ]
+        },
+        {
+          "name": "idx_receivable_due",
+          "def": "CREATE INDEX idx_receivable_due ON finance.receivable USING btree (due_date)",
+          "table": "finance.receivable",
+          "columns": [
+            "due_date"
+          ]
+        },
+        {
+          "name": "idx_receivable_status",
+          "def": "CREATE INDEX idx_receivable_status ON finance.receivable USING btree (status)",
+          "table": "finance.receivable",
+          "columns": [
+            "status"
           ]
         }
       ],
@@ -3100,6 +3239,13 @@
           "nullable": false,
           "default": "now()",
           "comment": "When this row was last updated (auto-maintained)."
+        },
+        {
+          "name": "is_demo",
+          "type": "boolean",
+          "nullable": false,
+          "default": "false",
+          "comment": "Demo-mode row (obviously fake data for verifying features). Purge = delete where is_demo."
         }
       ],
       "indexes": [
@@ -3130,6 +3276,14 @@
         {
           "name": "ix_payment_occurred",
           "def": "CREATE INDEX ix_payment_occurred ON finance.successful_payment USING btree (occurred_at)",
+          "table": "finance.successful_payment",
+          "columns": [
+            "occurred_at"
+          ]
+        },
+        {
+          "name": "idx_payment_occurred",
+          "def": "CREATE INDEX idx_payment_occurred ON finance.successful_payment USING btree (occurred_at)",
           "table": "finance.successful_payment",
           "columns": [
             "occurred_at"
@@ -3267,6 +3421,13 @@
           "nullable": false,
           "default": "now()",
           "comment": "When this row was last updated (auto-maintained)."
+        },
+        {
+          "name": "is_demo",
+          "type": "boolean",
+          "nullable": false,
+          "default": "false",
+          "comment": "Demo-mode row (obviously fake data for verifying features). Purge = delete where is_demo."
         }
       ],
       "indexes": [
@@ -3994,6 +4155,13 @@
           "nullable": false,
           "default": "now()",
           "comment": "When this row was last updated (auto-maintained)."
+        },
+        {
+          "name": "is_demo",
+          "type": "boolean",
+          "nullable": false,
+          "default": "false",
+          "comment": "Demo-mode row (obviously fake data for verifying features). Purge = delete where is_demo."
         }
       ],
       "indexes": [
@@ -4012,6 +4180,14 @@
           "columns": [
             "date",
             "ad_id"
+          ]
+        },
+        {
+          "name": "idx_adspend_date",
+          "def": "CREATE INDEX idx_adspend_date ON marketing.ad_spend USING btree (date)",
+          "table": "marketing.ad_spend",
+          "columns": [
+            "date"
           ]
         }
       ],
@@ -4120,6 +4296,13 @@
           "nullable": false,
           "default": "now()",
           "comment": "When this row was last updated (auto-maintained)."
+        },
+        {
+          "name": "is_demo",
+          "type": "boolean",
+          "nullable": false,
+          "default": "false",
+          "comment": "Demo-mode row (obviously fake data for verifying features). Purge = delete where is_demo."
         }
       ],
       "indexes": [
@@ -4479,6 +4662,279 @@
           "def": "CREATE TRIGGER trg_objection_updated BEFORE UPDATE ON sales.objection FOR EACH ROW EXECUTE FUNCTION set_updated_at()"
         }
       ]
+    },
+    {
+      "name": "core.lost_reason",
+      "type": "BASE TABLE",
+      "comment": "Why a QUALIFIED lead did not convert (distinct from dq_reason, which is why a lead was screened out). Referenced by sales.opportunity.lost_reason_id.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "comment": "Primary key (uuid, auto-generated)."
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "nullable": false,
+          "comment": "The option label shown in the UI and reports."
+        },
+        {
+          "name": "category",
+          "type": "text",
+          "nullable": true,
+          "comment": "Optional grouping for the option."
+        },
+        {
+          "name": "sort_order",
+          "type": "integer",
+          "nullable": true,
+          "comment": "Display order."
+        },
+        {
+          "name": "active",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "comment": "Whether the option is currently selectable."
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was created."
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was last updated (auto-maintained)."
+        }
+      ],
+      "indexes": [
+        {
+          "name": "lost_reason_pkey",
+          "def": "CREATE UNIQUE INDEX lost_reason_pkey ON core.lost_reason USING btree (id)",
+          "table": "core.lost_reason",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "lost_reason_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "core.lost_reason",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_lost_reason_updated",
+          "def": "CREATE TRIGGER trg_lost_reason_updated BEFORE UPDATE ON core.lost_reason FOR EACH ROW EXECUTE FUNCTION set_updated_at()"
+        }
+      ]
+    },
+    {
+      "name": "core.app_user",
+      "type": "BASE TABLE",
+      "comment": "Dashboard login accounts (scrypt password hashes). Verified server-side only; no client access. rep_id links a login to their sales.rep record so forms pre-fill.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "comment": "Primary key (uuid, auto-generated)."
+        },
+        {
+          "name": "email",
+          "type": "text",
+          "nullable": false,
+          "comment": "Login email (unique)."
+        },
+        {
+          "name": "full_name",
+          "type": "text",
+          "nullable": false,
+          "comment": "Display name."
+        },
+        {
+          "name": "password_hash",
+          "type": "text",
+          "nullable": false,
+          "comment": "scrypt hash (scrypt$N$r$p$salt$hash). Never a plaintext password."
+        },
+        {
+          "name": "role",
+          "type": "app_role",
+          "nullable": false,
+          "default": "'closer'::app_role",
+          "comment": "Dashboard role: admin / leadership / closer / setter / csm — drives what pages and actions are visible."
+        },
+        {
+          "name": "rep_id",
+          "type": "uuid",
+          "nullable": true,
+          "comment": "FK to sales.rep, when this login belongs to a rep."
+        },
+        {
+          "name": "active",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "comment": "Whether the login is enabled."
+        },
+        {
+          "name": "last_login_at",
+          "type": "timestamp with time zone",
+          "nullable": true,
+          "comment": "Last successful login."
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was created."
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was last updated (auto-maintained)."
+        }
+      ],
+      "indexes": [
+        {
+          "name": "app_user_pkey",
+          "def": "CREATE UNIQUE INDEX app_user_pkey ON core.app_user USING btree (id)",
+          "table": "core.app_user",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "app_user_email_key",
+          "def": "CREATE UNIQUE INDEX app_user_email_key ON core.app_user USING btree (email)",
+          "table": "core.app_user",
+          "columns": [
+            "email"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "app_user_rep_id_fkey",
+          "type": "FOREIGN KEY",
+          "def": "FOREIGN KEY (rep_id) REFERENCES sales.rep(id)",
+          "table": "core.app_user",
+          "referenced_table": "sales.rep",
+          "columns": [
+            "rep_id"
+          ],
+          "referenced_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "app_user_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (id)",
+          "table": "core.app_user",
+          "referenced_table": "",
+          "columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "app_user_email_key",
+          "type": "UNIQUE",
+          "def": "UNIQUE (email)",
+          "table": "core.app_user",
+          "referenced_table": "",
+          "columns": [
+            "email"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_app_user_updated",
+          "def": "CREATE TRIGGER trg_app_user_updated BEFORE UPDATE ON core.app_user FOR EACH ROW EXECUTE FUNCTION set_updated_at()"
+        }
+      ]
+    },
+    {
+      "name": "core.app_setting",
+      "type": "BASE TABLE",
+      "comment": "App-level configuration (key/value). e.g. demo_mode, report timezone.",
+      "columns": [
+        {
+          "name": "key",
+          "type": "text",
+          "nullable": false,
+          "comment": "Setting name."
+        },
+        {
+          "name": "value",
+          "type": "jsonb",
+          "nullable": false,
+          "comment": "Setting value (jsonb)."
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was created."
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default": "now()",
+          "comment": "When this row was last updated (auto-maintained)."
+        }
+      ],
+      "indexes": [
+        {
+          "name": "app_setting_pkey",
+          "def": "CREATE UNIQUE INDEX app_setting_pkey ON core.app_setting USING btree (key)",
+          "table": "core.app_setting",
+          "columns": [
+            "key"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "name": "app_setting_pkey",
+          "type": "PRIMARY KEY",
+          "def": "PRIMARY KEY (key)",
+          "table": "core.app_setting",
+          "referenced_table": "",
+          "columns": [
+            "key"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_app_setting_updated",
+          "def": "CREATE TRIGGER trg_app_setting_updated BEFORE UPDATE ON core.app_setting FOR EACH ROW EXECUTE FUNCTION set_updated_at()"
+        }
+      ]
     }
   ],
   "relations": [
@@ -4585,6 +5041,19 @@
       ],
       "parent_cardinality": "zero_or_one",
       "def": "FOREIGN KEY (current_nafa_id) REFERENCES credit.nafa(id)"
+    },
+    {
+      "table": "sales.opportunity",
+      "columns": [
+        "lost_reason_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "core.lost_reason",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "FOREIGN KEY (lost_reason_id) REFERENCES core.lost_reason(id)"
     },
     {
       "table": "sales.opt_in",
@@ -5209,6 +5678,19 @@
       ],
       "parent_cardinality": "exactly_one",
       "def": "FOREIGN KEY (strategy_call_id) REFERENCES sales.call(id) ON DELETE CASCADE"
+    },
+    {
+      "table": "core.app_user",
+      "columns": [
+        "rep_id"
+      ],
+      "cardinality": "zero_or_more",
+      "parent_table": "sales.rep",
+      "parent_columns": [
+        "id"
+      ],
+      "parent_cardinality": "zero_or_one",
+      "def": "FOREIGN KEY (rep_id) REFERENCES sales.rep(id)"
     }
   ],
   "enums": [
@@ -5280,6 +5762,16 @@
         "phone_change_token",
         "reauthentication_token",
         "recovery_token"
+      ]
+    },
+    {
+      "name": "public.app_role",
+      "values": [
+        "admin",
+        "closer",
+        "csm",
+        "leadership",
+        "setter"
       ]
     },
     {
@@ -5610,6 +6102,60 @@
         "ANALYTICS",
         "STANDARD",
         "VECTOR"
+      ]
+    },
+    {
+      "name": "sync.connection_status",
+      "values": [
+        "connected",
+        "disconnected",
+        "error",
+        "expired"
+      ]
+    },
+    {
+      "name": "sync.provider",
+      "values": [
+        "close",
+        "ghl",
+        "meta",
+        "nmi",
+        "stripe"
+      ]
+    },
+    {
+      "name": "sync.raw_status",
+      "values": [
+        "failed",
+        "pending",
+        "processed"
+      ]
+    },
+    {
+      "name": "sync.run_status",
+      "values": [
+        "error",
+        "partial",
+        "running",
+        "success"
+      ]
+    },
+    {
+      "name": "sync.run_type",
+      "values": [
+        "backfill",
+        "reconcile",
+        "webhook",
+        "writeback"
+      ]
+    },
+    {
+      "name": "sync.writeback_status",
+      "values": [
+        "failed",
+        "pending",
+        "sent",
+        "skipped"
       ]
     }
   ],

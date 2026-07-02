@@ -17,6 +17,7 @@ Versioned schedule. A re-split creates a new version + new receivables (the #1 b
 | superseded_at | timestamp with time zone |  | true |  |  | When this version was replaced. |
 | created_at | timestamp with time zone | now() | false |  |  | When this row was created. |
 | updated_at | timestamp with time zone | now() | false |  |  | When this row was last updated (auto-maintained). |
+| is_demo | boolean | false | false |  |  | Demo-mode row (obviously fake data for verifying features). Purge = delete where is_demo. |
 
 ## Constraints
 

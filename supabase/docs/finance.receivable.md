@@ -20,6 +20,7 @@ One scheduled installment of a payment-plan version. Drives pipeline value, proj
 | monday_payment_schedule_id | text |  | true |  |  | Cross-system key: the Monday payment-schedule id. |
 | created_at | timestamp with time zone | now() | false |  |  | When this row was created. |
 | updated_at | timestamp with time zone | now() | false |  |  | When this row was last updated (auto-maintained). |
+| is_demo | boolean | false | false |  |  | Demo-mode row (obviously fake data for verifying features). Purge = delete where is_demo. |
 
 ## Constraints
 
@@ -39,6 +40,8 @@ One scheduled installment of a payment-plan version. Drives pipeline value, proj
 | ix_receivable_plan | CREATE INDEX ix_receivable_plan ON finance.receivable USING btree (payment_plan_id) |
 | ix_receivable_deal | CREATE INDEX ix_receivable_deal ON finance.receivable USING btree (deal_id) |
 | ix_receivable_due | CREATE INDEX ix_receivable_due ON finance.receivable USING btree (due_date) |
+| idx_receivable_due | CREATE INDEX idx_receivable_due ON finance.receivable USING btree (due_date) |
+| idx_receivable_status | CREATE INDEX idx_receivable_status ON finance.receivable USING btree (status) |
 
 ## Triggers
 

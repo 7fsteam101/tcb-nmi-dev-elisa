@@ -19,6 +19,7 @@ One scheduled slot of a strategy booking. Each reschedule = a new row; terminal 
 | rescheduled_at | timestamp with time zone |  | true |  |  | When this slot was moved. |
 | created_at | timestamp with time zone | now() | false |  |  | When this row was created. |
 | updated_at | timestamp with time zone | now() | false |  |  | When this row was last updated (auto-maintained). |
+| is_demo | boolean | false | false |  |  | Demo-mode row (obviously fake data for verifying features). Purge = delete where is_demo. |
 
 ## Constraints
 
@@ -37,6 +38,8 @@ One scheduled slot of a strategy booking. Each reschedule = a new row; terminal 
 | uq_appt_seq | CREATE UNIQUE INDEX uq_appt_seq ON sales.appointment USING btree (call_id, seq) |
 | ix_appt_call | CREATE INDEX ix_appt_call ON sales.appointment USING btree (call_id) |
 | ix_appt_scheduled_for | CREATE INDEX ix_appt_scheduled_for ON sales.appointment USING btree (scheduled_for) |
+| idx_appt_scheduled_for | CREATE INDEX idx_appt_scheduled_for ON sales.appointment USING btree (scheduled_for) |
+| idx_appt_status | CREATE INDEX idx_appt_status ON sales.appointment USING btree (status) |
 
 ## Triggers
 

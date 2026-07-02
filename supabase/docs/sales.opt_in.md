@@ -24,6 +24,7 @@ A marketing lead-form submission. Carries the source that feeds first-touch.
 | ghl_marketing_id | text |  | true |  |  | Cross-system key: the submission id in GHL Marketing. |
 | created_at | timestamp with time zone | now() | false |  |  | When this row was created. |
 | updated_at | timestamp with time zone | now() | false |  |  | When this row was last updated (auto-maintained). |
+| is_demo | boolean | false | false |  |  | Demo-mode row (obviously fake data for verifying features). Purge = delete where is_demo. |
 
 ## Constraints
 
@@ -40,6 +41,7 @@ A marketing lead-form submission. Carries the source that feeds first-touch.
 | opt_in_pkey | CREATE UNIQUE INDEX opt_in_pkey ON sales.opt_in USING btree (id) |
 | ix_optin_contact | CREATE INDEX ix_optin_contact ON sales.opt_in USING btree (contact_id) |
 | ix_optin_opp | CREATE INDEX ix_optin_opp ON sales.opt_in USING btree (opportunity_id) |
+| idx_optin_submitted | CREATE INDEX idx_optin_submitted ON sales.opt_in USING btree (submitted_at) |
 
 ## Triggers
 

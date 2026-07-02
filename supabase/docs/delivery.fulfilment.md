@@ -21,6 +21,7 @@ Delivery of ONE purchased service (1:1 deal). The client is the contact; contact
 | monday_client_source_id | text |  | true |  |  | Cross-system key: the Monday client-source id. |
 | created_at | timestamp with time zone | now() | false |  |  | When this row was created. |
 | updated_at | timestamp with time zone | now() | false |  |  | When this row was last updated (auto-maintained). |
+| is_demo | boolean | false | false |  |  | Demo-mode row (obviously fake data for verifying features). Purge = delete where is_demo. |
 
 ## Constraints
 

@@ -22,6 +22,7 @@ A cleared transaction. Cash collected = NMI gross, excludes booking_25, net of r
 | stripe_charge_id | text |  | true |  |  | Cross-system key: the Stripe charge id. |
 | created_at | timestamp with time zone | now() | false |  |  | When this row was created. |
 | updated_at | timestamp with time zone | now() | false |  |  | When this row was last updated (auto-maintained). |
+| is_demo | boolean | false | false |  |  | Demo-mode row (obviously fake data for verifying features). Purge = delete where is_demo. |
 
 ## Constraints
 
@@ -41,6 +42,7 @@ A cleared transaction. Cash collected = NMI gross, excludes booking_25, net of r
 | ix_payment_deal | CREATE INDEX ix_payment_deal ON finance.successful_payment USING btree (deal_id) |
 | ix_payment_receivable | CREATE INDEX ix_payment_receivable ON finance.successful_payment USING btree (receivable_id) |
 | ix_payment_occurred | CREATE INDEX ix_payment_occurred ON finance.successful_payment USING btree (occurred_at) |
+| idx_payment_occurred | CREATE INDEX idx_payment_occurred ON finance.successful_payment USING btree (occurred_at) |
 
 ## Triggers
 
