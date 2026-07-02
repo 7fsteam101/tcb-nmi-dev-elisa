@@ -1,0 +1,7 @@
+{
+  "crons": [
+    { "path": "/api/cron/meta", "schedule": "0 10 * * *" },
+    { "path": "/api/cron/receivables", "schedule": "30 10 * * *" },
+    { "path": "/api/cron/writeback", "schedule": "0 11 * * *" }
+  ]
+}
