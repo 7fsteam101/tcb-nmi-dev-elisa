@@ -13,7 +13,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const pages = await pagesForUser(user);
   const showAdminChrome = real.role === "admin" && !isPreview;
   const nav = [
-    ...pages.map((p) => ({ href: `/${p}`, label: PAGE_LABELS[p] })),
+    ...pages.flatMap((p) => [
+      { href: `/${p}`, label: PAGE_LABELS[p] },
+      ...(p === "overview" ? [{ href: "/weekly", label: "Weekly Snapshot" }] : []),
+      ...(p === "receivables" ? [{ href: "/revenue", label: "Revenue" }] : []),
+    ]),
     ...(pages.includes("calls") ? [{ href: "/contacts", label: "Contacts" }] : []),
     ...(showAdminChrome ? [{ href: "/connections", label: "Connections" }] : []),
     { href: "/settings", label: "Settings" },

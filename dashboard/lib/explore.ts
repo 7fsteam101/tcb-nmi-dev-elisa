@@ -307,6 +307,26 @@ export const EXPLORE: Record<string, ExploreDef> = {
         and a.scheduled_for >= now() - make_interval(days => ${days})
       order by a.scheduled_for desc limit 500`,
   },
+  missing_reports: {
+    title: "Won in Close, report missing",
+    description: "Opportunities marked won in Close with NO Sales Call Report filed — the deal record does not exist until the closer submits the form (due same day).",
+    page: "reps",
+    columns: [
+      { key: "closed_at", label: "Won in Close", kind: "datetime" },
+      ...contactCols,
+      { key: "stage", label: "Stage", kind: "label" },
+      { key: "owner", label: "Owner" },
+    ],
+    query: (demo) => sql`
+      select o.closed_at, ct.full_name as contact_name, ct.close_id, o.stage, rep.full_name as owner
+      from sales.opportunity o
+      join core.contact ct on ct.id = o.contact_id
+      left join sales.rep rep on rep.id = o.owner_rep_id
+      where o.is_demo = ${demo}
+        and o.stage in ('closed_won','deposit','won_pif','won_pp')
+        and not exists (select 1 from sales.deal d where d.opportunity_id = o.id)
+      order by o.closed_at desc nulls last limit 500`,
+  },
   reversals: {
     title: "Refunds and chargebacks",
     description: "Every reversal netted out of cash collected.",

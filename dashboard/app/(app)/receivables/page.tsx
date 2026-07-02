@@ -2,7 +2,7 @@ import { receivablesSummary, receivablesList, projectedCashByMonth } from "@/lib
 import { isDemoMode } from "@/lib/settings";
 import { money, shortDate } from "@/lib/format";
 import { Card, Stat, SectionTitle, Badge, STATUS_TONE, label } from "@/components/ui";
-import { RangePicker } from "@/components/range-picker";
+import { PresetBar } from "@/components/preset-bar";
 import { requireAccess } from "@/lib/access";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +11,7 @@ export default async function Receivables({ searchParams }: { searchParams: Prom
   await requireAccess("receivables");
   const demo = await isDemoMode();
   const { days: daysRaw } = await searchParams;
-  const days = Math.min(Math.max(parseInt(daysRaw ?? "30", 10) || 30, 7), 365);
+  const days = Math.min(Math.max(parseInt(daysRaw ?? "30", 10) || 30, 1), 365);
   const [summary, list, byMonth] = await Promise.all([
     receivablesSummary(demo),
     receivablesList(demo),
@@ -25,7 +25,7 @@ export default async function Receivables({ searchParams }: { searchParams: Prom
         <p className="text-sm" style={{ color: "var(--muted)" }}>
           Current payment-plan versions only. Delinquent = 14+ days past due.
         </p>
-        <RangePicker />
+        <PresetBar />
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">

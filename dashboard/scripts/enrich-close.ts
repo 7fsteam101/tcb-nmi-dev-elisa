@@ -92,6 +92,13 @@ const main = async () => {
   }
 
   // --- pass 2: won opportunities -> deal + fulfilment --------------------
+  // RULE (Katie 2026-07-02): deals are born from the Sales Call Report, never
+  // from Close. This pass was the one-time historical bootstrap; it now runs
+  // only with CREATE_DEALS=1 set explicitly.
+  if (process.env.CREATE_DEALS !== "1") {
+    console.log(JSON.stringify({ ...stats, note: "deal creation skipped — deals come from the Sales Call Report (set CREATE_DEALS=1 only for a deliberate historical bootstrap)" }));
+    process.exit(0);
+  }
   let oskip = 0;
   const [offer] = await sql`select id from marketing.offer where type = 'core'`;
   while (true) {

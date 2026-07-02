@@ -102,25 +102,32 @@ async function addSlot(callId: string, startTime: string | null, seq: number) {
 // sync.calendar_map (admin-managed). Unknown calendars auto-register as strategy
 // and surface in the admin panel for review.
 async function resolveCallType(locationId: string, calendarId: string | null, calendarName: string | null) {
-  if (!calendarId) return { type: "strategy" as const, isBooking: true };
+  if (!calendarId) return { type: "strategy" as const, isBooking: true, mapId: null as string | null };
   const rows = await sql`
     insert into sync.calendar_map (location_id, calendar_id, calendar_name)
     values (${locationId}, ${calendarId}, ${calendarName ?? null})
     on conflict (location_id, calendar_id)
     do update set calendar_name = coalesce(sync.calendar_map.calendar_name, excluded.calendar_name)
-    returning call_type, is_booking, active`;
+    returning id, call_type, is_booking, active`;
   const m = rows[0];
-  return { type: (m?.active ? m.call_type : "strategy") as "readiness" | "strategy" | "follow_up", isBooking: m?.is_booking ?? true };
+  return {
+    type: (m?.active ? m.call_type : "strategy") as "readiness" | "strategy" | "follow_up",
+    isBooking: m?.is_booking ?? true,
+    mapId: (m?.id as string) ?? null,
+  };
 }
 
-async function findOrCreateCall(oppId: string, type: string, startTime: string | null, source?: string, isBooking = true): Promise<string> {
+async function findOrCreateCall(oppId: string, type: string, startTime: string | null, source?: string, isBooking = true, calendarMapId: string | null = null): Promise<string> {
   const rows = type === "strategy"
     ? await sql`select id from sales.call where opportunity_id = ${oppId} and type = 'strategy' and is_primary limit 1`
     : await sql`select id from sales.call where opportunity_id = ${oppId} and type = ${type} order by created_at desc limit 1`;
-  if (rows.length) return rows[0].id;
+  if (rows.length) {
+    if (calendarMapId) await sql`update sales.call set calendar_map_id = coalesce(calendar_map_id, ${calendarMapId}) where id = ${rows[0].id}`;
+    return rows[0].id;
+  }
   const created = await sql`
-    insert into sales.call (opportunity_id, type, scheduled_at, booking_source_channel, is_primary, is_booking)
-    values (${oppId}, ${type}, ${startTime ?? new Date().toISOString()}, ${source ?? null}, ${type === "strategy"}, ${isBooking})
+    insert into sales.call (opportunity_id, type, scheduled_at, booking_source_channel, is_primary, is_booking, calendar_map_id)
+    values (${oppId}, ${type}, ${startTime ?? new Date().toISOString()}, ${source ?? null}, ${type === "strategy"}, ${isBooking}, ${calendarMapId})
     returning id`;
   return created[0].id;
 }
@@ -167,7 +174,7 @@ async function normalizeGhl(eventType: string, payload: any): Promise<string> {
     p.appointment?.calendar_name ?? p.appointment?.calendarName ?? null,
   );
   const oppId = await findOrCreateActiveOpportunity(contactId, p.source);
-  const callId = await findOrCreateCall(oppId, calendar.type, startTime, p.source, calendar.isBooking);
+  const callId = await findOrCreateCall(oppId, calendar.type, startTime, p.source, calendar.isBooking, calendar.mapId);
   const slot = await currentSlot(callId);
 
   switch (event) {

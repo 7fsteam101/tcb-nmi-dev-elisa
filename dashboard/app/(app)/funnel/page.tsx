@@ -3,7 +3,7 @@ import { pipelineByStage, leakage, cancellationReasons, dailySeries, objectionBr
 import { isDemoMode, reportTimezone } from "@/lib/settings";
 import { num, pct } from "@/lib/format";
 import { Card, Stat, SectionTitle, MiniBars, Badge, label } from "@/components/ui";
-import { RangePicker } from "@/components/range-picker";
+import { PresetBar } from "@/components/preset-bar";
 import { requireAccess } from "@/lib/access";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +13,7 @@ export default async function Funnel({ searchParams }: { searchParams: Promise<{
   const demo = await isDemoMode();
   const tz = await reportTimezone();
   const { days: daysRaw } = await searchParams;
-  const days = Math.min(Math.max(parseInt(daysRaw ?? "30", 10) || 30, 7), 365);
+  const days = Math.min(Math.max(parseInt(daysRaw ?? "30", 10) || 30, 1), 365);
   const [stages, leak, reasons, series, objections] = await Promise.all([
     pipelineByStage(demo),
     leakage({ demo, days }),
@@ -31,7 +31,7 @@ export default async function Funnel({ searchParams }: { searchParams: Promise<{
         <p className="text-sm" style={{ color: "var(--muted)" }}>
           Last {days} days. The booked-to-taken gap is where the money leaks.
         </p>
-        <RangePicker />
+        <PresetBar />
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">

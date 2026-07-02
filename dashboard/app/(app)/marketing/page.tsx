@@ -3,7 +3,7 @@ import { campaignTable, dailySeries, overviewKpis } from "@/lib/kpi";
 import { isDemoMode, reportTimezone } from "@/lib/settings";
 import { money, num, pct } from "@/lib/format";
 import { Card, Stat, SectionTitle, MiniBars } from "@/components/ui";
-import { RangePicker } from "@/components/range-picker";
+import { PresetBar } from "@/components/preset-bar";
 import { requireAccess } from "@/lib/access";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +13,7 @@ export default async function Marketing({ searchParams }: { searchParams: Promis
   const demo = await isDemoMode();
   const tz = await reportTimezone();
   const { days: daysRaw } = await searchParams;
-  const days = Math.min(Math.max(parseInt(daysRaw ?? "30", 10) || 30, 7), 365);
+  const days = Math.min(Math.max(parseInt(daysRaw ?? "30", 10) || 30, 1), 365);
   const p = { demo, days, tz };
   const [campaigns, series, k] = await Promise.all([campaignTable(p), dailySeries(p), overviewKpis(p)]);
 
@@ -29,7 +29,7 @@ export default async function Marketing({ searchParams }: { searchParams: Promis
         <p className="text-sm" style={{ color: "var(--muted)" }}>
           Last {days} days. Spend restates for 48h — yesterday's numbers can shift slightly.
         </p>
-        <RangePicker />
+        <PresetBar />
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
