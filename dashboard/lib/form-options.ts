@@ -1,53 +1,68 @@
 import { sql } from "./db";
 import { isDemoMode } from "./settings";
 
-// Option lists the rep forms need, loaded server-side.
+// Option lists the rep forms need. CONSOLIDATED to 3 sequential queries: the
+// transaction pooler serializes cold connection handshakes, so an 8-way
+// Promise.all here could exceed the serverless time limit (the forms-page 504s).
 export async function formOptions() {
   const demo = await isDemoMode();
-  const [appointments, reps, plans, dqReasons, lostReasons, cancelReasons, objectionTypes, takenCalls] = await Promise.all([
-    sql`
-      select a.id, a.scheduled_for, a.status, ct.full_name
-      from sales.appointment a
-      join sales.call c on c.id = a.call_id
-      join sales.opportunity o on o.id = c.opportunity_id
-      join core.contact ct on ct.id = o.contact_id
-      where a.is_current and a.is_demo = ${demo}
-        and a.scheduled_for between now() - interval '7 days' and now() + interval '7 days'
-      order by a.scheduled_for desc limit 100`,
-    sql`select id, full_name, role from sales.rep where active and role in ('closer','hybrid','setter') order by full_name`,
-    sql`
-      select pp.id, pp.name, pp.installments, pp.installment_amount_minor
+
+  // one pass for every {id,name} lookup list
+  const lookups = await sql`
+    select 'dq' as list, id, name, sort_order from core.dq_reason where active
+    union all select 'lost', id, name, sort_order from core.lost_reason where active
+    union all select 'cancel', id, name, sort_order from core.cancellation_reason where active
+    union all select 'objection', id, name, sort_order from core.objection_type where active
+    order by list, sort_order nulls last, name`;
+  const pick = (list: string) => lookups.filter((r: any) => r.list === list).map((r: any) => ({ id: r.id, label: r.name }));
+
+  // one pass for reps + plans (labeled union, distinct shapes packed as jsonb)
+  const repsPlans = await sql`
+    select 'rep' as kind, id, full_name as a, role::text as b, null::int as n1, null::int as n2 from sales.rep
+      where active and role in ('closer','hybrid','setter')
+    union all
+    select 'plan', pp.id, pp.name::text, null, pp.installments, pp.installment_amount_minor
       from marketing.pricing_plan pp join marketing.offer o on o.id = pp.offer_id
       where o.type = 'core' and (pp.effective_to is null or pp.effective_to >= current_date)
-      order by pp.installments`,
-    sql`select id, name from core.dq_reason where active order by sort_order`,
-    sql`select id, name from core.lost_reason where active order by sort_order`,
-    sql`select id, name from core.cancellation_reason where active order by sort_order`,
-    sql`select id, name from core.objection_type where active order by sort_order`,
-    sql`
-      select c.id, c.occurred_at, ct.full_name
-      from sales.call c
-      join sales.opportunity o on o.id = c.opportunity_id
-      join core.contact ct on ct.id = o.contact_id
-      where c.type = 'strategy' and c.occurred_at is not null and c.is_demo = ${demo}
-      order by c.occurred_at desc limit 50`,
-  ]);
+    order by kind, a`;
+
+  // one pass for both call selectors
+  const calls = await sql`
+    select 'appt' as kind, a.id, a.scheduled_for as at, a.status::text as status, ct.full_name
+    from sales.appointment a
+    join sales.call c on c.id = a.call_id
+    join sales.opportunity o on o.id = c.opportunity_id
+    join core.contact ct on ct.id = o.contact_id
+    where a.is_current and a.is_demo = ${demo}
+      and a.scheduled_for between now() - interval '7 days' and now() + interval '7 days'
+    union all
+    select 'taken', c.id, c.occurred_at, null, ct.full_name
+    from sales.call c
+    join sales.opportunity o on o.id = c.opportunity_id
+    join core.contact ct on ct.id = o.contact_id
+    where c.type = 'strategy' and c.occurred_at is not null and c.is_demo = ${demo}
+    order by kind, at desc
+    limit 150`;
+
   return {
-    appointments: appointments.map((a: any) => ({
-      id: a.id, label: `${a.full_name} — ${new Date(a.scheduled_for).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/New_York" })} (${a.status})`,
+    appointments: calls.filter((r: any) => r.kind === "appt").slice(0, 100).map((a: any) => ({
+      id: a.id,
+      label: `${a.full_name} — ${new Date(a.at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/New_York" })} (${a.status})`,
     })),
-    reps: reps.map((r: any) => ({ id: r.id, label: `${r.full_name} (${r.role})` })),
-    plans: plans.map((p: any) => ({
-      id: p.id, label: `${String(p.name).toUpperCase()} — ${p.installments} x $${(p.installment_amount_minor / 100).toLocaleString()}`,
-      totalMinor: p.installments * p.installment_amount_minor,
+    takenCalls: calls.filter((r: any) => r.kind === "taken").slice(0, 50).map((c: any) => ({
+      id: c.id,
+      label: `${c.full_name} — taken ${new Date(c.at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`,
     })),
-    dqReasons: dqReasons.map((r: any) => ({ id: r.id, label: r.name })),
-    lostReasons: lostReasons.map((r: any) => ({ id: r.id, label: r.name })),
-    cancelReasons: cancelReasons.map((r: any) => ({ id: r.id, label: r.name })),
-    objectionTypes: objectionTypes.map((r: any) => ({ id: r.id, label: r.name })),
-    takenCalls: takenCalls.map((c: any) => ({
-      id: c.id, label: `${c.full_name} — taken ${new Date(c.occurred_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`,
+    reps: repsPlans.filter((r: any) => r.kind === "rep").map((r: any) => ({ id: r.id, label: `${r.a} (${r.b})` })),
+    plans: repsPlans.filter((r: any) => r.kind === "plan").map((p: any) => ({
+      id: p.id,
+      label: `${String(p.a).toUpperCase()} — ${p.n1} x $${(p.n2 / 100).toLocaleString()}`,
+      totalMinor: p.n1 * p.n2,
     })),
+    dqReasons: pick("dq"),
+    lostReasons: pick("lost"),
+    cancelReasons: pick("cancel"),
+    objectionTypes: pick("objection"),
   };
 }
 

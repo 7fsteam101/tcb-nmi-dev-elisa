@@ -5,6 +5,8 @@ import { processPending } from "@/lib/sync/ingest";
 import { syncAllGhl } from "@/lib/sync/ghl";
 import { reconcileStripe } from "@/lib/sync/stripe-reconcile";
 
+export const maxDuration = 60;
+
 // Daily sweep: push pending write-backs to Close/GHL, retry failed inbound
 // events, pull the last 48h of GHL activity, and reconcile Stripe (charges,
 // refunds, disputes) as the safety net under the webhooks. Also fired inline

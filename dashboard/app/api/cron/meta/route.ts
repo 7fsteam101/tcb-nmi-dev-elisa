@@ -3,6 +3,8 @@ import { sql } from "@/lib/db";
 import { checkCronSecret } from "@/lib/webhook";
 import { getProviderToken, ensureConnection, markSynced } from "@/lib/sync/providers";
 
+export const maxDuration = 60;
+
 // Daily Meta ad-spend pull (yesterday + today, so restatements are caught).
 // Dormant until META_ACCESS_TOKEN / a meta connection + META_AD_ACCOUNT_ID exist.
 export async function GET(req: NextRequest) {
