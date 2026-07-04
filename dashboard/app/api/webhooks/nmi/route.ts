@@ -3,6 +3,8 @@ import { checkWebhookSecret, bodyHash } from "@/lib/webhook";
 import { ensureConnection } from "@/lib/sync/providers";
 import { storeAndProcess } from "@/lib/sync/ingest";
 
+export const maxDuration = 60;
+
 // NMI silent-post / webhook target (program payments). Accepts JSON or
 // form-encoded posts.
 export async function POST(req: NextRequest) {

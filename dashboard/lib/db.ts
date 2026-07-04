@@ -12,6 +12,12 @@ import postgres from "postgres";
 //                       without TCP keepalive such a zombie hangs its next
 //                       query forever. Keepalive surfaces it as a fast,
 //                       retryable connection error instead.
+//   max: 4              a Vercel instance can serve a few concurrent requests
+//                       (the app shell + page each issue queries); max:1
+//                       gridlocks them on one connection. 4 is the balance:
+//                       enough headroom per warm instance, still bounded against
+//                       the shared pooler. Real single-user traffic never bursts
+//                       hard enough to matter; this only shapes worst case.
 //   NEVER wrap `sql` in a Proxy — postgres.js fragment embedding breaks
 //   (NOT_TAGGED_CALL), proven twice. Unhandled-rejection protection lives in
 //   instrumentation.ts instead.
@@ -23,7 +29,7 @@ export const sql =
     ssl: "require",
     prepare: false,
     fetch_types: false,
-    max: 6,
+    max: 4,
     idle_timeout: 20,
     max_lifetime: 60 * 5,
     connect_timeout: 15,

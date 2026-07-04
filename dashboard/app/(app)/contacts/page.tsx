@@ -6,6 +6,7 @@ import { num } from "@/lib/format";
 import { Card, Badge, label } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 const LIFECYCLE_TONE: Record<string, "good" | "warn" | "bad" | "neutral" | "accent"> = {
   lead: "neutral", qualified: "accent", customer: "good", do_not_contact: "bad",

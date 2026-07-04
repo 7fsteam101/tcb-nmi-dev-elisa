@@ -8,6 +8,7 @@ import { PresetBar } from "@/components/preset-bar";
 import { requireAccess } from "@/lib/access";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 const ratio = (a: number, b: number) => (b > 0 ? a / b : 0);
 // StatSpark's chip expects percentage points (12.5 = +12.5%), not a fraction.

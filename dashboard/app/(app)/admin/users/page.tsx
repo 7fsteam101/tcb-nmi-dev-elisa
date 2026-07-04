@@ -3,6 +3,7 @@ import { requireSession } from "@/lib/auth";
 import { UsersEditor } from "./editor";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 export default async function UsersAdmin() {
   const me = await requireSession();

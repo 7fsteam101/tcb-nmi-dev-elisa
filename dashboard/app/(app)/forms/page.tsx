@@ -2,6 +2,9 @@ import Link from "next/link";
 import { Card } from "@/components/ui";
 import { requireAccess } from "@/lib/access";
 
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
+
 const FORMS = [
   { href: "/forms/sales-call", title: "Sales Call Report", desc: "Log a strategy-call outcome: taken or missed, offer, close, DQ, objections. Creates the deal and pushes the result to Close." },
   { href: "/forms/missed-call", title: "Missed Call Report", desc: "No-show, cancellation, or a reschedule to a new time. Keeps the slot history intact and updates Close." },

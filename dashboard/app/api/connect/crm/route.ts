@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { ghlInstallUrl } from "@/lib/sync/ghl";
 
+export const maxDuration = 60;
+
 // Kicks off the GHL Marketplace install: redirects to the chooselocation
 // consent screen. Requires GHL_CLIENT_ID/SECRET env (from the registered app).
 export async function GET(req: NextRequest) {

@@ -6,6 +6,7 @@ import { Card, Stat, SectionTitle, Badge, InfoTip } from "@/components/ui";
 import { requireAccess } from "@/lib/access";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 // week_start is a plain date (YYYY-MM-DD) — format in UTC so the day never shifts.
 const dayLabel = (d: string | Date) =>

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db";
 import { checkCronSecret } from "@/lib/webhook";
 
+export const maxDuration = 60;
+
 // Daily receivable aging: scheduled → late when past due; late → delinquent at 14+ days.
 export async function GET(req: NextRequest) {
   const denied = checkCronSecret(req);

@@ -3,6 +3,8 @@ import { checkWebhookSecret, bodyHash } from "@/lib/webhook";
 import { ensureConnection } from "@/lib/sync/providers";
 import { storeAndProcess } from "@/lib/sync/ingest";
 
+export const maxDuration = 60;
+
 // Stripe webhook target (the $25 booking fee). The URL secret gates access;
 // add STRIPE_WEBHOOK_SECRET signature verification when the client connects.
 export async function POST(req: NextRequest) {

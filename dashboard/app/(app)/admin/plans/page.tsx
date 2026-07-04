@@ -3,6 +3,7 @@ import { isDemoMode } from "@/lib/settings";
 import { PlanEditor } from "./editor";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 export default async function PlansAdmin() {
   const demo = await isDemoMode();

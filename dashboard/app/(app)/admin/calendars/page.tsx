@@ -2,6 +2,7 @@ import { sql } from "@/lib/db";
 import { CalendarEditor } from "./editor";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 export default async function CalendarsAdmin() {
   const calendars = await sql`

@@ -5,6 +5,7 @@ import { Card, SectionTitle } from "@/components/ui";
 import { DemoToggle, ChangePasswordForm } from "./forms";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 export default async function Settings() {
   const user = await requireSession();

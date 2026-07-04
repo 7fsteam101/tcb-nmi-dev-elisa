@@ -3,6 +3,8 @@ import { checkWebhookSecret, bodyHash } from "@/lib/webhook";
 import { ensureConnection } from "@/lib/sync/providers";
 import { storeAndProcess } from "@/lib/sync/ingest";
 
+export const maxDuration = 60;
+
 // Target for GHL WORKFLOW custom webhooks (both sub-accounts). Each workflow
 // posts our envelope: { tcb_event, location_id, contact{}, appointment{}, form{}, reason, moved_by }
 // tcb_event: appointment_booked | appointment_rescheduled | appointment_confirmed |

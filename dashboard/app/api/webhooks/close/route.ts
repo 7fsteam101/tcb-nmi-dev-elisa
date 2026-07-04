@@ -3,6 +3,8 @@ import { checkWebhookSecret, bodyHash } from "@/lib/webhook";
 import { ensureConnection } from "@/lib/sync/providers";
 import { storeAndProcess } from "@/lib/sync/ingest";
 
+export const maxDuration = 60;
+
 // Close webhook subscription target. Subscribe (once the API key is in) to
 // lead + opportunity created/updated events.
 export async function POST(req: NextRequest) {

@@ -9,6 +9,7 @@ import { requireAccess } from "@/lib/access";
 import { MarkButtons } from "./mark-buttons";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 const PENDING_HELP = "Pending = the slot's time passed with no attendance marked.";
 

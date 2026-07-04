@@ -2,6 +2,7 @@ import { sql } from "@/lib/db";
 import { TeamEditor } from "./editor";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 export default async function TeamAdmin() {
   const reps = await sql`select id, full_name, email, role, active from sales.rep order by active desc, full_name`;

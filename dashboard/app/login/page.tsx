@@ -3,6 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
+
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");

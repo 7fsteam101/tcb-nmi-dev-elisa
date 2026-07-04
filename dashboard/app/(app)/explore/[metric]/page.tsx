@@ -7,6 +7,7 @@ import { money, dateTime, shortDate } from "@/lib/format";
 import { Card, Badge, STATUS_TONE, label } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 // The Pulse-style drill-down: every widget links here and shows its rows.
 export default async function Explore({

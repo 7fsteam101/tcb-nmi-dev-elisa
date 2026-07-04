@@ -2,6 +2,7 @@ import { sql } from "@/lib/db";
 import { PricingEditor } from "./editor";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 export default async function PricingAdmin() {
   const [offers, plans] = await Promise.all([

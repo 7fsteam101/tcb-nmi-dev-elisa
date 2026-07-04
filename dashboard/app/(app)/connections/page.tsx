@@ -10,6 +10,7 @@ import { BackfillButton } from "./backfill-button";
 import { GhlControls } from "./ghl-controls";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 export default async function Connections() {
   const user = await requireSession();

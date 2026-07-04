@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { exchangeCode, saveGhlConnection, mintLocationTokens } from "@/lib/sync/ghl";
 
+export const maxDuration = 60;
+
 // OAuth callback for the GHL Marketplace app. A sub-account install returns a
 // location token directly; an agency install returns a company token that we
 // exchange for per-location tokens (one connection per sub-account).
