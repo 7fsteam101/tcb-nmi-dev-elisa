@@ -48,15 +48,28 @@ export async function createSession(user: SessionUser) {
   });
 }
 
+// Cached default admin used when AUTH_DISABLED is on (login temporarily off).
+let authOffAdmin: SessionUser | null = null;
+async function defaultAdmin(): Promise<SessionUser | null> {
+  if (authOffAdmin) return authOffAdmin;
+  const [u] = await sql`select id, email, full_name, role, rep_id from core.app_user where role = 'admin' and active order by created_at limit 1`;
+  if (u) authOffAdmin = { id: u.id, email: u.email, name: u.full_name, role: u.role, repId: u.rep_id };
+  return authOffAdmin;
+}
+
 export async function getSession(): Promise<SessionUser | null> {
   const token = (await cookies()).get(COOKIE)?.value;
-  if (!token) return null;
-  try {
-    const { payload } = await jwtVerify(token, secret());
-    return payload as unknown as SessionUser;
-  } catch {
-    return null;
+  if (token) {
+    try {
+      const { payload } = await jwtVerify(token, secret());
+      return payload as unknown as SessionUser;
+    } catch {
+      // fall through
+    }
   }
+  // login temporarily off: treat everyone as the default admin
+  if (process.env.AUTH_DISABLED === "true") return defaultAdmin();
+  return null;
 }
 
 export async function requireSession(): Promise<SessionUser> {

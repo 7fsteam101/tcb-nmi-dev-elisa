@@ -8,6 +8,9 @@ const PUBLIC = [/^\/login/, /^\/api\/login/, /^\/api\/webhooks\//, /^\/api\/cron
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  // Temporary auth-off switch (env AUTH_DISABLED=true): let everything through.
+  // getSession() supplies a default admin so pages/actions still work.
+  if (process.env.AUTH_DISABLED === "true") return NextResponse.next();
   if (PUBLIC.some((p) => p.test(pathname))) return NextResponse.next();
 
   const token = req.cookies.get("tcb_session")?.value;
