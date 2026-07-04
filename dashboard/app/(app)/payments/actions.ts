@@ -23,6 +23,12 @@ export async function createPaymentLinkAction(_prev: unknown, formData: FormData
   const amount = formData.get("amount") ? Math.round(parseFloat(String(formData.get("amount"))) * 100) : 0;
   const processorRaw = String(formData.get("processor") ?? "nmi");
   const contactId = (formData.get("contactId") as string) || null;
+  const productId = (formData.get("productId") as string) || null;
+  const isPlan = String(formData.get("planType")) === "plan";
+  const FREQS = ["monthly", "biweekly", "weekly", "custom"];
+  const freqRaw = String(formData.get("frequency") ?? "");
+  const frequency = isPlan && FREQS.includes(freqRaw) ? freqRaw : null;
+  const installments = isPlan ? Math.max(2, parseInt(String(formData.get("installments"))) || 2) : null;
 
   // Resolve the picked contact's name + email from core.contact so we copy the
   // real values onto the payment_link row (the picker only sends the id).
@@ -49,9 +55,9 @@ export async function createPaymentLinkAction(_prev: unknown, formData: FormData
 
     await sql`
       insert into finance.payment_link (amount_minor, description, customer_name, customer_email, contact_id,
-                                        processor, external_id, url, status, created_by_user_id)
+                                        product_id, frequency, installments, processor, external_id, url, status, created_by_user_id)
       values (${amount}, ${(formData.get("description") as string) || null}, ${name}, ${email ?? null},
-              ${contactId}, 'stripe', ${null}, ${null}, 'created', ${user.id})`;
+              ${contactId}, ${productId}, ${frequency}, ${installments}, 'stripe', ${null}, ${null}, 'created', ${user.id})`;
     revalidatePath("/payments");
     return {
       ok: true,
@@ -67,6 +73,9 @@ export async function createPaymentLinkAction(_prev: unknown, formData: FormData
     customerName: name ?? ((formData.get("customerName") as string) || undefined),
     customerEmail: email ?? ((formData.get("customerEmail") as string) || undefined),
     contactId: contactId ?? undefined,
+    productId: productId ?? undefined,
+    frequency: frequency ?? undefined,
+    installments: installments ?? undefined,
   }, user.id);
   revalidatePath("/payments");
   return result;
