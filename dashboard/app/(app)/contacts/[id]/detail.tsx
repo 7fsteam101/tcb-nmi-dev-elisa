@@ -2,9 +2,10 @@ import Link from "next/link";
 import { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { sql } from "@/lib/db";
-import { reportTimezone } from "@/lib/settings";
+import { reportTimezone, getSetting } from "@/lib/settings";
 import { money, dateTime, shortDate } from "@/lib/format";
 import { Card, SectionTitle, Badge, STATUS_TONE, label } from "@/components/ui";
+import { ExternalLinks } from "@/components/external-links";
 import { ContactTabs } from "./tabs";
 import { NoteForm } from "./note-form";
 
@@ -34,10 +35,15 @@ export async function ContactBody({ id }: { id: string }) {
   const [contact] = await sql`
     select ct.id, ct.full_name, ct.primary_email, ct.primary_phone, ct.lifecycle_status,
            ct.merged_into_contact_id, ct.close_id, ct.ghl_marketing_id, ct.ghl_repair_id,
-           ct.monday_lead_id, ct.created_source, rep.full_name as owner
+           ct.monday_lead_id, ct.created_source, ct.created_at, ct.updated_at, rep.full_name as owner
     from core.contact ct left join sales.rep rep on rep.id = ct.owner_rep_id where ct.id = ${id}`;
   if (!contact) return <None>Contact not found</None>;
   if (contact.merged_into_contact_id) redirect(`/contacts/${contact.merged_into_contact_id}`);
+  const ghlLoc = {
+    marketing: await getSetting<string>("ghl_marketing_location_id", ""),
+    repair: await getSetting<string>("ghl_repair_location_id", ""),
+  };
+  const extIds = { closeId: contact.close_id, ghlMarketingId: contact.ghl_marketing_id, ghlRepairId: contact.ghl_repair_id, mondayId: contact.monday_lead_id };
   const tz = await reportTimezone();
 
   // pooler-safe: batches of <= 4 concurrent (never all 13 at once)
@@ -67,14 +73,16 @@ export async function ContactBody({ id }: { id: string }) {
   const paymentsByDeal = gb(payments, "deal_id");
 
   const extras = identifiers.filter((i: any) => ![contact.primary_email, contact.primary_phone].filter(Boolean).map((v) => String(v).toLowerCase()).includes(String(i.value).toLowerCase()));
-  const hasExternal = contact.close_id || contact.ghl_marketing_id || contact.ghl_repair_id || contact.monday_lead_id;
+  const ghlMktUrl = ghlLoc.marketing && contact.ghl_marketing_id
+    ? `https://app.gohighlevel.com/v2/location/${ghlLoc.marketing}/contacts/detail/${contact.ghl_marketing_id}`
+    : contact.ghl_marketing_id ? "https://app.gohighlevel.com/" : null;
   const totalPaid = payments.reduce((s: number, p: any) => s + (p.type === "booking_25" ? 0 : Number(p.amount_minor)), 0);
   const wonDeal = deals.find((d: any) => d.status !== "refunded");
 
   // ---- activity feed (merge everything by time, newest first) ----
-  type Ev = { when: any; text: string; sub?: string; tn?: string };
+  type Ev = { when: any; text: string; sub?: string; tn?: string; href?: string };
   const feed: Ev[] = [];
-  optIns.forEach((o: any) => feed.push({ when: o.submitted_at, text: `Opted in${o.source_channel ? ` via ${label(o.source_channel)}` : ""}`, sub: o.source_campaign ?? undefined, tn: "accent" }));
+  optIns.forEach((o: any) => feed.push({ when: o.submitted_at, text: `Form submitted${o.source_channel ? ` via ${label(o.source_channel)}` : ""}`, sub: o.source_campaign ?? undefined, tn: "accent", href: ghlMktUrl ?? undefined }));
   appointments.forEach((a: any) => feed.push({ when: a.scheduled_for, text: `Appointment ${label(a.status)}`, sub: a.reason ?? undefined, tn: tone(a.status) }));
   deals.forEach((d: any) => feed.push({ when: d.deal_close_date, text: `Deal ${label(d.status)} ${money(d.total_contract_value_minor)}`, tn: d.status === "refunded" ? "bad" : "good" }));
   payments.forEach((p: any) => feed.push({ when: p.occurred_at, text: `Payment ${money(p.amount_minor)}`, sub: label(p.type), tn: "good" }));
@@ -107,20 +115,24 @@ export async function ContactBody({ id }: { id: string }) {
         <Mini label="Cash collected" value={money(totalPaid)} tn={totalPaid > 0 ? "good" : "neutral"} />
         <Mini label="Won deal" value={wonDeal ? money(wonDeal.total_contract_value_minor) : "None"} tn={wonDeal ? "good" : "neutral"} />
       </div>
-      {(contact.created_source || extras.length > 0) && (
-        <div className="mt-3 text-xs" style={{ color: "var(--muted)" }}>
-          {contact.created_source && <div>Created via {label(contact.created_source)}</div>}
-          {extras.length > 0 && <div className="mt-1">Also: {extras.map((i: any) => `${label(i.type)} ${i.value}`).join(" · ")}</div>}
+      <SectionTitle>Contact details</SectionTitle>
+      <Card>
+        <div className="grid grid-cols-1 gap-x-8 gap-y-2 sm:grid-cols-2">
+          <Detail label="Email" value={contact.primary_email} />
+          <Detail label="Phone" value={contact.primary_phone} />
+          <Detail label="Owner" value={contact.owner} />
+          <Detail label="Created via" value={contact.created_source ? label(contact.created_source) : null} />
+          <Detail label="Created" value={dateTime(contact.created_at, tz)} />
+          <Detail label="Last updated" value={dateTime(contact.updated_at, tz)} />
+          {extras.length > 0 && <Detail label="Other identifiers" value={extras.map((i: any) => `${label(i.type)} ${i.value}`).join(" · ")} />}
         </div>
-      )}
-      {hasExternal && (
-        <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
-          {contact.close_id && <a href={`https://app.close.com/lead/${contact.close_id}/`} target="_blank" rel="noreferrer" style={{ color: "var(--accent)" }}>Open in Close &nearr;</a>}
-          {contact.ghl_marketing_id && <span style={{ color: "var(--muted)" }}>GHL marketing: {contact.ghl_marketing_id}</span>}
-          {contact.ghl_repair_id && <span style={{ color: "var(--muted)" }}>GHL repair: {contact.ghl_repair_id}</span>}
-          {contact.monday_lead_id && <span style={{ color: "var(--muted)" }}>Monday: {contact.monday_lead_id}</span>}
-        </div>
-      )}
+        {(contact.close_id || contact.ghl_marketing_id || contact.ghl_repair_id || contact.monday_lead_id) && (
+          <div className="mt-3 border-t pt-3" style={{ borderColor: "var(--line)" }}>
+            <div className="mb-2 text-xs" style={{ color: "var(--muted)" }}>External systems</div>
+            <ExternalLinks ids={extIds} loc={ghlLoc} variant="urls" />
+          </div>
+        )}
+      </Card>
     </div>
   );
 
@@ -286,7 +298,11 @@ export async function ContactBody({ id }: { id: string }) {
       {activity.map((e, i) => (
         <div key={i} className="relative mb-4">
           <span className="absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full" style={{ background: TONE_COLOR[e.tn ?? "neutral"] }} />
-          <div className="text-sm" style={{ color: "var(--text)" }}>{e.text}</div>
+          <div className="text-sm" style={{ color: "var(--text)" }}>
+            {e.href
+              ? <a href={e.href} target="_blank" rel="noreferrer" style={{ color: "var(--accent)" }}>{e.text} &nearr;</a>
+              : e.text}
+          </div>
           {e.sub && <div className="text-[12px]" style={{ color: "var(--muted)" }}>{e.sub}</div>}
           <div className="text-[11px]" style={{ color: "var(--muted)" }}>{dateTime(e.when, tz)}</div>
         </div>
@@ -296,9 +312,12 @@ export async function ContactBody({ id }: { id: string }) {
 
   return (
     <div>
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-xl font-semibold">{contact.full_name}</h1>
-        <Badge tone={tone(contact.lifecycle_status)}>{label(contact.lifecycle_status)}</Badge>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-xl font-semibold">{contact.full_name}</h1>
+          <Badge tone={tone(contact.lifecycle_status)}>{label(contact.lifecycle_status)}</Badge>
+        </div>
+        <ExternalLinks ids={extIds} loc={ghlLoc} variant="buttons" />
       </div>
       <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
         {contact.primary_email ?? "—"} &middot; {contact.primary_phone ?? "—"} &middot; Owner: {contact.owner ?? "—"}
@@ -322,6 +341,15 @@ export async function ContactBody({ id }: { id: string }) {
           { key: "activity", label: "Activity", content: activitySection },
         ]} />
       </div>
+    </div>
+  );
+}
+
+function Detail({ label: l, value }: { label: string; value: string | null | undefined }) {
+  return (
+    <div className="flex items-baseline gap-2">
+      <span className="w-28 shrink-0 text-xs" style={{ color: "var(--muted)" }}>{l}</span>
+      <span className="min-w-0 truncate text-sm" style={{ color: "var(--text)" }}>{value || "—"}</span>
     </div>
   );
 }

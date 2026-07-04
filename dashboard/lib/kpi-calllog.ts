@@ -26,8 +26,11 @@ export type CallLogRow = {
   contact_id: string;
   contact_name: string;
   contact_email: string | null;
+  contact_phone: string | null;
   rep_id: string | null;
   closer: string | null;
+  stage: string | null;
+  booking_source: string | null;
   cancellation_reason: string | null;
 };
 
@@ -67,7 +70,9 @@ export async function callLogRows({ demo, days, q, closerId, status }: {
     select a.id as appointment_id, a.created_at, a.scheduled_for, a.seq, a.status,
            (a.status in ('scheduled','confirmed') and a.scheduled_for <= now()) as needs_attendance,
            ct.id as contact_id, ct.full_name as contact_name, ct.primary_email as contact_email,
+           ct.primary_phone as contact_phone,
            rep.id as rep_id, rep.full_name as closer,
+           o.stage as stage, c.booking_source_channel as booking_source,
            cr.name as cancellation_reason
     from sales.appointment a
     join sales.call c on c.id = a.call_id

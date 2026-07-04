@@ -8,6 +8,8 @@ import { dateTime } from "@/lib/format";
 import { KeyForm } from "./key-form";
 import { BackfillButton } from "./backfill-button";
 import { GhlControls } from "./ghl-controls";
+import { GhlLocations } from "./ghl-locations";
+import { getSetting } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -20,6 +22,8 @@ export default async function Connections() {
     sql`select status, count(*) as n from sync.writeback_queue group by status`,
     sql`select provider, status, count(*) as n from sync.raw_events group by provider, status order by provider`,
   ]);
+  const ghlMarketingLoc = await getSetting<string>("ghl_marketing_location_id", "");
+  const ghlRepairLoc = await getSetting<string>("ghl_repair_location_id", "");
   const h = await headers();
   const base = `https://${h.get("host") ?? "your-app.vercel.app"}`;
   const hook = (p: string) => `${base}/api/webhooks/${p}?secret=<WEBHOOK_SECRET>`;
@@ -70,6 +74,14 @@ export default async function Connections() {
               calendars in Admin, Calendars.
             </p>
             <GhlControls appRegistered={Boolean(process.env.GHL_CLIENT_ID)} />
+          </Card>
+          <SectionTitle>GHL location ids</SectionTitle>
+          <Card>
+            <p className="mb-3 text-sm" style={{ color: "var(--muted)" }}>
+              The sub-account location ids let the GHL buttons on a contact deep-link straight to the record.
+              Find each in GHL under Settings, Business Info (or the URL: app.gohighlevel.com/v2/location/&lt;id&gt;/...).
+            </p>
+            <GhlLocations marketing={ghlMarketingLoc} repair={ghlRepairLoc} />
           </Card>
         </div>
         <div>

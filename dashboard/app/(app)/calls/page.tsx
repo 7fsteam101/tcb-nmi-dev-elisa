@@ -3,12 +3,12 @@ import { callLogRows, callLogSummary, closerOptions } from "@/lib/kpi-calllog";
 import { recentCallOutcomes } from "@/lib/kpi";
 import { dqRates, dqReasons } from "@/lib/kpi-quality";
 import { isDemoMode, reportTimezone } from "@/lib/settings";
-import { dateTime, money, num, pct, shortDate } from "@/lib/format";
+import { dateTime, money, num, pct } from "@/lib/format";
 import { Card, Stat, SectionTitle, Badge, STATUS_TONE, label, InfoTip } from "@/components/ui";
 import { HBarList } from "@/components/charts";
 import { DateRangeBar } from "@/components/date-range";
+import { CallsTable } from "@/components/calls-table";
 import { requireAccess } from "@/lib/access";
-import { MarkButtons } from "./mark-buttons";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -195,50 +195,7 @@ export default async function Calls({
       </form>
 
       <Card>
-        <div className="overflow-x-auto">
-          <table>
-            <thead>
-              <tr>
-                <th>Created <InfoTip text="When this slot was booked — each reschedule creates a new slot." /></th>
-                <th>Event date</th>
-                <th>Lead</th>
-                <th>Closer</th>
-                <th>Attempt <InfoTip text="Slot number for this booking — #2 and up means it was rescheduled." /></th>
-                <th>Status <InfoTip text={PENDING_HELP} /></th>
-                <th>Cancellation reason</th>
-                <th>Actions <InfoTip text="Quick attendance marking. Show up files a minimal taken report — the closer still files the full Sales Call Report after." /></th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.appointment_id}>
-                  <td style={{ color: "var(--muted)" }}>{shortDate(r.created_at, tz)}</td>
-                  <td>{dateTime(r.scheduled_for, tz)}</td>
-                  <td>
-                    <Link href={`/contacts/${r.contact_id}`} style={{ color: "var(--accent)" }}>{r.contact_name}</Link>
-                    {r.contact_email && <div className="text-xs" style={{ color: "var(--muted)" }}>{r.contact_email}</div>}
-                  </td>
-                  <td>{r.closer ?? "—"}</td>
-                  <td>{r.seq > 1 ? <Badge tone="warn">{`#${r.seq}`}</Badge> : "#1"}</td>
-                  <td>
-                    <Badge tone={r.needs_attendance ? "warn" : (STATUS_TONE[r.status] ?? "neutral")}>
-                      {r.needs_attendance ? "pending" : label(r.status)}
-                    </Badge>
-                  </td>
-                  <td style={{ color: "var(--muted)" }}>{r.cancellation_reason ?? "—"}</td>
-                  <td>
-                    {r.needs_attendance
-                      ? <MarkButtons appointmentId={r.appointment_id} />
-                      : <span style={{ color: "var(--muted)" }}>—</span>}
-                  </td>
-                </tr>
-              ))}
-              {rows.length === 0 && (
-                <tr><td colSpan={8} style={{ color: "var(--muted)" }}>No call slots match this view</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        <CallsTable rows={rows} tz={tz} />
       </Card>
 
       <SectionTitle>Recent outcomes</SectionTitle>
