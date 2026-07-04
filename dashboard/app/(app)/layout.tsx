@@ -6,6 +6,7 @@ import { getEffectiveUser } from "@/lib/view-as";
 import { LogoutButton, NavLink, NavGroup } from "./nav";
 import { ViewAsControl, ViewAsBanner } from "./view-as";
 import { TopBanners } from "./banners";
+import { shellSignals } from "@/lib/announcements";
 
 type Item = { href: string; label: string; icon: string; gate?: PageKey; badge?: number };
 
@@ -16,11 +17,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const showAdminChrome = real.role === "admin" && !isPreview;
   const has = (p: PageKey) => pages.includes(p);
 
-  // pending-attendance badge on Call Logs
-  const [pend] = has("calls")
-    ? await sql`select count(*)::int as n from sales.appointment where is_current and status in ('scheduled','confirmed') and scheduled_for <= now()`
-    : [{ n: 0 }];
-  const pendingCalls = Number(pend?.n ?? 0) || undefined;
+  // single shell query: pending-calls badge + system alerts + pinned banners
+  const shell = await shellSignals();
+  const pendingCalls = has("calls") ? (shell.pendingCalls || undefined) : undefined;
 
   const rawGroups: { label: string; items: Item[] }[] = [
     { label: "Insights", items: [
@@ -102,7 +101,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
       <div className="min-w-0 flex-1">
         {isPreview && <ViewAsBanner name={user.name} role={user.role} />}
-        <TopBanners />
+        <TopBanners alerts={shell.alerts} pinned={shell.pinned} />
         {demo && (
           <div className="px-6 py-2 text-center text-xs font-semibold"
             style={{ background: "color-mix(in srgb, var(--warn) 18%, transparent)", color: "var(--warn)" }}>

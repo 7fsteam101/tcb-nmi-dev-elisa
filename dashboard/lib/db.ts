@@ -30,10 +30,14 @@ export const sql =
     prepare: false,
     fetch_types: false,
     max: 4,
-    idle_timeout: 20,
+    idle_timeout: 5, // release pooler slots fast so idle warm instances do not hoard the free-tier connection cap
     max_lifetime: 60 * 5,
     connect_timeout: 15,
     keep_alive: 20,
+    // server-side backstop: no single statement legitimately runs this long, so
+    // a stuck query aborts here (retryable error) instead of hanging to the
+    // 60s gateway limit. Frees the connection immediately.
+    connection: { statement_timeout: 20000 },
   });
 
 if (process.env.NODE_ENV !== "production") globalForDb.sql = sql;

@@ -3,6 +3,7 @@ import { weeklySnapshot, pipelineValue, projected30d } from "@/lib/kpi-closer";
 import { isDemoMode, reportTimezone } from "@/lib/settings";
 import { money, num, pct } from "@/lib/format";
 import { Card, Stat, SectionTitle, Badge, InfoTip } from "@/components/ui";
+import { resolveRange } from "@/lib/range";
 import { requireAccess } from "@/lib/access";
 
 export const dynamic = "force-dynamic";
@@ -20,12 +21,11 @@ function DeltaChip({ cur, prev }: { cur: number; prev: number }) {
   return <Badge tone={tone}>{`${d >= 0 ? "+" : ""}${pct(d, 0)}`}</Badge>;
 }
 
-export default async function Weekly({ searchParams }: { searchParams: Promise<{ days?: string }> }) {
+export default async function Weekly({ searchParams }: { searchParams: Promise<{ days?: string; from?: string; to?: string }> }) {
   await requireAccess("overview");
   const demo = await isDemoMode();
   const tz = await reportTimezone();
-  const { days: daysRaw } = await searchParams;
-  const days = Math.min(Math.max(parseInt(daysRaw ?? "30", 10) || 30, 1), 365);
+  const days = resolveRange(await searchParams).days;
   const [snap, pipeline, projected] = await Promise.all([
     weeklySnapshot({ demo, tz }),
     pipelineValue(demo),

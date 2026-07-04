@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { systemAlerts, activeAnnouncements } from "@/lib/announcements";
+import type { SystemAlert } from "@/lib/announcements";
 
 const TINT: Record<string, { bg: string; fg: string }> = {
   info: { bg: "color-mix(in srgb, var(--accent) 15%, transparent)", fg: "var(--accent)" },
@@ -8,10 +8,8 @@ const TINT: Record<string, { bg: string; fg: string }> = {
   critical: { bg: "color-mix(in srgb, var(--bad) 16%, transparent)", fg: "var(--bad)" },
 };
 
-// Slim top bars: live system alerts first, then admin-pinned announcements.
-export async function TopBanners() {
-  const [alerts, anns] = await Promise.all([systemAlerts(), activeAnnouncements()]);
-  const pinned = anns.filter((a: any) => a.pinned_to_banner);
+// Pure component — data comes from the shell's single query (no query here).
+export function TopBanners({ alerts, pinned }: { alerts: SystemAlert[]; pinned: any[] }) {
   if (!alerts.length && !pinned.length) return null;
   return (
     <div>
@@ -23,7 +21,7 @@ export async function TopBanners() {
       ))}
       {pinned.map((a: any) => (
         <div key={a.id} className="flex items-center justify-center gap-2 px-6 py-1.5 text-center text-xs"
-          style={{ background: TINT[a.level].bg, color: TINT[a.level].fg }}>
+          style={{ background: TINT[a.level]?.bg ?? TINT.info.bg, color: TINT[a.level]?.fg ?? TINT.info.fg }}>
           <span className="font-semibold">{a.title}</span>
           {a.body && <span className="hidden truncate opacity-90 sm:inline">— {a.body}</span>}
           <Link href="/announcements" className="underline opacity-80">Announcements</Link>

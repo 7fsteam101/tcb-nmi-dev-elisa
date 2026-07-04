@@ -4,7 +4,7 @@ import { recentCallOutcomes } from "@/lib/kpi";
 import { isDemoMode, reportTimezone } from "@/lib/settings";
 import { dateTime, money, num, shortDate } from "@/lib/format";
 import { Card, SectionTitle, Badge, STATUS_TONE, label, InfoTip } from "@/components/ui";
-import { PresetBar } from "@/components/preset-bar";
+import { DateRangeBar } from "@/components/date-range";
 import { requireAccess } from "@/lib/access";
 import { MarkButtons } from "./mark-buttons";
 
@@ -86,7 +86,7 @@ export default async function Calls({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <PresetBar />
+          <DateRangeBar />
           <Link href="/forms/sales-call" className="btn">Log a call outcome</Link>
         </div>
       </div>

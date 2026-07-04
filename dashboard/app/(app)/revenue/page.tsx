@@ -6,7 +6,8 @@ import { isDemoMode, reportTimezone } from "@/lib/settings";
 import { money, num, pct } from "@/lib/format";
 import { Card, SectionTitle, Badge, InfoTip } from "@/components/ui";
 import { StatSpark } from "@/components/stat-spark";
-import { PresetBar } from "@/components/preset-bar";
+import { DateRangeBar } from "@/components/date-range";
+import { resolveRange } from "@/lib/range";
 import { requireAccess } from "@/lib/access";
 
 export const dynamic = "force-dynamic";
@@ -22,12 +23,11 @@ function EmptyNote({ children }: { children: string }) {
   return <div className="py-2 text-sm" style={{ color: "var(--muted)" }}>{children}</div>;
 }
 
-export default async function Revenue({ searchParams }: { searchParams: Promise<{ days?: string }> }) {
+export default async function Revenue({ searchParams }: { searchParams: Promise<{ days?: string; from?: string; to?: string }> }) {
   await requireAccess("receivables");
   const demo = await isDemoMode();
   const tz = await reportTimezone();
-  const { days: daysRaw } = await searchParams;
-  const days = Math.min(Math.max(parseInt(daysRaw ?? "30", 10) || 30, 1), 365);
+  const days = resolveRange(await searchParams).days;
   const [cmp, daily, byMonth, split, stack, commissions, pipeline, projected] = await Promise.all([
     overviewComparison({ demo, days }),
     dailyCloserSeries({ demo, days, tz }),
@@ -64,7 +64,7 @@ export default async function Revenue({ searchParams }: { searchParams: Promise<
         <p className="text-sm" style={{ color: "var(--muted)" }}>
           Last {days} days vs the {days} days before. Invoiced = contracts signed; cash = money that actually moved.
         </p>
-        <PresetBar />
+        <DateRangeBar />
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">

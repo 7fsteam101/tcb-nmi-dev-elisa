@@ -2,37 +2,42 @@ import { sql } from "./db";
 
 // Every query filters on is_demo so demo mode and live mode never mix.
 // Dates bucket in the report timezone (client-confirmable, default ET).
-type Params = { demo: boolean; days: number; tz: string };
+// Window: `days` gives the rolling default; when `since`/`until` are passed
+// (a custom range) they bound the window explicitly (until null = open forward,
+// which preserves rolling behavior so future-dated bookings still count).
+type Params = { demo: boolean; days: number; tz: string; since?: string; until?: string | null };
 
-export async function overviewKpis({ demo, days, tz }: Params) {
+export async function overviewKpis({ demo, days, since, until }: Params) {
   const [row] = await sql`
-    with range as (select now() - make_interval(days => ${days}) as since)
+    with range as (select coalesce(${since ?? null}::timestamptz, now() - make_interval(days => ${days})) as since,
+                          ${until ?? null}::timestamptz as until)
     select
       (select count(*) from sales.opt_in o, range r
-        where o.is_demo = ${demo} and o.submitted_at >= r.since and o.counts_as_unique) as leads,
+        where o.is_demo = ${demo} and o.submitted_at >= r.since and (r.until is null or o.submitted_at < r.until) and o.counts_as_unique) as leads,
       (select count(*) from sales.call c, range r
         where c.is_demo = ${demo} and c.type = 'strategy' and c.is_primary and c.is_booking
           and not coalesce(c.is_duplicate, false)
-          and coalesce(c.current_scheduled_at, c.scheduled_at) >= r.since) as booked,
+          and coalesce(c.current_scheduled_at, c.scheduled_at) >= r.since
+          and (r.until is null or coalesce(c.current_scheduled_at, c.scheduled_at) < r.until)) as booked,
       (select count(*) from sales.appointment a, range r
-        where a.is_demo = ${demo} and a.status = 'taken' and a.scheduled_for >= r.since) as taken,
+        where a.is_demo = ${demo} and a.status = 'taken' and a.scheduled_for >= r.since and (r.until is null or a.scheduled_for < r.until)) as taken,
       (select count(*) from sales.appointment a, range r
-        where a.is_demo = ${demo} and a.status = 'no_show' and a.scheduled_for >= r.since) as no_shows,
+        where a.is_demo = ${demo} and a.status = 'no_show' and a.scheduled_for >= r.since and (r.until is null or a.scheduled_for < r.until)) as no_shows,
       (select count(*) from sales.deal d, range r
-        where d.is_demo = ${demo} and d.deal_close_date >= r.since::date and d.status <> 'refunded') as deals_won,
+        where d.is_demo = ${demo} and d.deal_close_date >= r.since::date and (r.until is null or d.deal_close_date < r.until::date) and d.status <> 'refunded') as deals_won,
       (select coalesce(sum(d.total_contract_value_minor), 0) from sales.deal d, range r
-        where d.is_demo = ${demo} and d.deal_close_date >= r.since::date and d.status <> 'refunded') as booked_revenue_minor,
+        where d.is_demo = ${demo} and d.deal_close_date >= r.since::date and (r.until is null or d.deal_close_date < r.until::date) and d.status <> 'refunded') as booked_revenue_minor,
       (select coalesce(sum(p.amount_minor), 0) from finance.successful_payment p, range r
-        where p.is_demo = ${demo} and p.type <> 'booking_25' and p.occurred_at >= r.since) as cash_collected_minor,
+        where p.is_demo = ${demo} and p.type <> 'booking_25' and p.occurred_at >= r.since and (r.until is null or p.occurred_at < r.until)) as cash_collected_minor,
       (select coalesce(sum(v.amount_minor), 0) from finance.reversal v, range r
-        where v.is_demo = ${demo} and v.occurred_at >= r.since) as reversals_minor,
+        where v.is_demo = ${demo} and v.occurred_at >= r.since and (r.until is null or v.occurred_at < r.until)) as reversals_minor,
       (select coalesce(sum(s.spend_minor), 0) from marketing.ad_spend s, range r
-        where s.is_demo = ${demo} and s.date >= r.since::date) as ad_spend_minor,
+        where s.is_demo = ${demo} and s.date >= r.since::date and (r.until is null or s.date < r.until::date)) as ad_spend_minor,
       (select count(*) from sales.appointment a, range r
-        where a.is_demo = ${demo} and a.status = 'rescheduled' and a.rescheduled_at >= r.since) as reschedules,
+        where a.is_demo = ${demo} and a.status = 'rescheduled' and a.rescheduled_at >= r.since and (r.until is null or a.rescheduled_at < r.until)) as reschedules,
       (select count(*) from sales.appointment a, range r
         where a.is_demo = ${demo} and a.status in ('cancelled_by_lead','cancelled_by_team')
-          and a.scheduled_for >= r.since) as cancellations
+          and a.scheduled_for >= r.since and (r.until is null or a.scheduled_for < r.until)) as cancellations
   `;
   return row;
 }
@@ -40,24 +45,29 @@ export async function overviewKpis({ demo, days, tz }: Params) {
 // Leadership close rate: deals won / ALL bookings on the calendar, including
 // no-shows and cancellations. Denominator = the same unique primary strategy-call
 // bookings as the "booked" KPI; numerator = deals won in range.
-export async function leadershipCloseRate({ demo, days }: Omit<Params, "tz">) {
+export async function leadershipCloseRate({ demo, days, since, until }: Omit<Params, "tz">) {
   const [row] = await sql`
-    with range as (select now() - make_interval(days => ${days}) as since)
+    with range as (select coalesce(${since ?? null}::timestamptz, now() - make_interval(days => ${days})) as since,
+                          ${until ?? null}::timestamptz as until)
     select
       (select count(*) from sales.deal d, range r
-        where d.is_demo = ${demo} and d.deal_close_date >= r.since::date and d.status <> 'refunded') as deals_won,
+        where d.is_demo = ${demo} and d.deal_close_date >= r.since::date and (r.until is null or d.deal_close_date < r.until::date) and d.status <> 'refunded') as deals_won,
       (select count(*) from sales.call c, range r
         where c.is_demo = ${demo} and c.type = 'strategy' and c.is_primary and c.is_booking
           and not coalesce(c.is_duplicate, false)
-          and coalesce(c.current_scheduled_at, c.scheduled_at) >= r.since) as booked
+          and coalesce(c.current_scheduled_at, c.scheduled_at) >= r.since
+          and (r.until is null or coalesce(c.current_scheduled_at, c.scheduled_at) < r.until)) as booked
   `;
   return row;
 }
 
-export async function dailySeries({ demo, days, tz }: Params) {
+export async function dailySeries({ demo, days, tz, from, to }: Params & { from?: string | null; to?: string | null }) {
   return sql`
     with d as (
-      select generate_series(current_date - ${days - 1}::int, current_date, interval '1 day')::date as day
+      select generate_series(
+        coalesce(${from ?? null}::date, current_date - ${days - 1}::int),
+        coalesce(${to ?? null}::date, current_date),
+        interval '1 day')::date as day
     )
     select d.day,
       (select count(*) from sales.opt_in o where o.is_demo = ${demo} and o.counts_as_unique
@@ -92,9 +102,11 @@ export async function pipelineByStage(demo: boolean) {
 }
 
 // The leakage story: what happens between "booked" and "taken".
-export async function leakage({ demo, days }: Omit<Params, "tz">) {
+export async function leakage({ demo, days, since, until }: Omit<Params, "tz">) {
   const [row] = await sql`
-    with bookings as (
+    with rng as (select coalesce(${since ?? null}::timestamptz, now() - make_interval(days => ${days})) as since,
+                        ${until ?? null}::timestamptz as until),
+    bookings as (
       select c.id,
         count(a.id) as slots,
         count(*) filter (where a.status = 'rescheduled') as reschedules,
@@ -103,8 +115,10 @@ export async function leakage({ demo, days }: Omit<Params, "tz">) {
         bool_or(a.status in ('cancelled_by_lead','cancelled_by_team')) as cancelled
       from sales.call c
       join sales.appointment a on a.call_id = c.id
+      cross join rng
       where c.is_demo = ${demo} and c.type = 'strategy' and c.is_primary and c.is_booking
-        and coalesce(c.current_scheduled_at, c.scheduled_at) >= now() - make_interval(days => ${days})
+        and coalesce(c.current_scheduled_at, c.scheduled_at) >= rng.since
+        and (rng.until is null or coalesce(c.current_scheduled_at, c.scheduled_at) < rng.until)
       group by c.id)
     select
       count(*) as bookings,

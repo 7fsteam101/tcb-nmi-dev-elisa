@@ -4,7 +4,8 @@ import { isDemoMode, reportTimezone } from "@/lib/settings";
 import { money, num, pct } from "@/lib/format";
 import { Card, SectionTitle, InfoTip } from "@/components/ui";
 import { StatSpark } from "@/components/stat-spark";
-import { PresetBar } from "@/components/preset-bar";
+import { DateRangeBar } from "@/components/date-range";
+import { resolveRange } from "@/lib/range";
 import { requireAccess } from "@/lib/access";
 
 export const dynamic = "force-dynamic";
@@ -36,12 +37,11 @@ function TwoLineChart({ current, previous, titles, height = 130 }: {
   );
 }
 
-export default async function Reps({ searchParams }: { searchParams: Promise<{ days?: string }> }) {
+export default async function Reps({ searchParams }: { searchParams: Promise<{ days?: string; from?: string; to?: string }> }) {
   await requireAccess("reps");
   const demo = await isDemoMode();
   const tz = await reportTimezone();
-  const { days: daysRaw } = await searchParams;
-  const days = Math.min(Math.max(parseInt(daysRaw ?? "30", 10) || 30, 1), 365);
+  const days = resolveRange(await searchParams).days;
   const [closers, cashCmp, daily, cmp] = await Promise.all([
     closerAnalytics({ demo, days }),
     dailyCashSeries({ demo, days, tz }),
@@ -88,7 +88,7 @@ export default async function Reps({ searchParams }: { searchParams: Promise<{ d
         <p className="text-sm" style={{ color: "var(--muted)" }}>
           Last {days} days vs the {days} days before. Commission tier: 10% base, 15% while the trailing 2-week close rate holds 33.3%+.
         </p>
-        <PresetBar />
+        <DateRangeBar />
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3">

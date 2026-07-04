@@ -9,20 +9,20 @@ export function deltaPct(current: number, previous: number): number | null {
   return ((current - previous) / previous) * 100;
 }
 
-type Params = { demo: boolean; days: number; tz: string };
+type Params = { demo: boolean; days: number; tz: string; prevSince?: string; prevUpto?: string };
 
 /**
  * Same aggregate shape as overviewKpis (lib/kpi.ts) but over the PREVIOUS
- * window: now()-2*days .. now()-days. Every subquery mirrors overviewKpis's
- * filters exactly (counts_as_unique, is_booking, is_duplicate, refunded-deal
- * and booking_25 exclusions) with the shifted range — keep the two functions
- * in sync if either changes.
+ * window: now()-2*days .. now()-days (or explicit prevSince..prevUpto for a
+ * custom range). Every subquery mirrors overviewKpis's filters exactly
+ * (counts_as_unique, is_booking, is_duplicate, refunded-deal and booking_25
+ * exclusions) with the shifted range — keep the two functions in sync.
  */
-export async function overviewComparison({ demo, days }: Params) {
+export async function overviewComparison({ demo, days, prevSince, prevUpto }: Params) {
   const [row] = await sql`
     with range as (
-      select now() - make_interval(days => ${days * 2}) as since,
-             now() - make_interval(days => ${days}) as upto
+      select coalesce(${prevSince ?? null}::timestamptz, now() - make_interval(days => ${days * 2})) as since,
+             coalesce(${prevUpto ?? null}::timestamptz, now() - make_interval(days => ${days})) as upto
     )
     select
       (select count(*) from sales.opt_in o, range r
