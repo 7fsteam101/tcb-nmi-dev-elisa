@@ -25,9 +25,12 @@ html, body {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
 }
 
 .card-hover:hover { border-color: var(--accent); transition: border-color 120ms; }
+
+h1 { letter-spacing: -0.01em; }
 
 input, select, textarea {
   background: var(--panel-2);
@@ -60,6 +63,10 @@ input[type="checkbox"] { width: auto; }
 .btn-ghost:hover { color: var(--text); border-color: var(--accent); }
 
 table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-th { text-align: left; color: var(--muted); font-weight: 500; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--line); white-space: nowrap; }
-td { padding: 0.55rem 0.75rem; border-bottom: 1px solid color-mix(in srgb, var(--line) 50%, transparent); }
+th { text-align: left; color: var(--muted); font-weight: 500; padding: 0.6rem 0.85rem; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 0.7rem 0.85rem; border-bottom: 1px solid color-mix(in srgb, var(--line) 50%, transparent); }
+tbody tr { transition: background 100ms; }
+tbody tr:hover { background: color-mix(in srgb, var(--panel-2) 55%, transparent); }
 tr:last-child td { border-bottom: none; }
+/* numeric columns read better right-aligned + tabular */
+td.text-right, th.text-right { font-variant-numeric: tabular-nums; }
