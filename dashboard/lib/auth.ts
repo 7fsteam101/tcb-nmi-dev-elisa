@@ -34,15 +34,16 @@ export function verifyPassword(password: string, stored: string): boolean {
 
 // -- sessions (JWT cookie) ---------------------------------------------
 export async function createSession(user: SessionUser) {
+  // 30-day session so the team rarely has to re-enter their login.
   const token = await new SignJWT({ ...user })
     .setProtectedHeader({ alg: "HS256" })
-    .setExpirationTime("7d")
+    .setExpirationTime("30d")
     .sign(secret());
   (await cookies()).set(COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
-    maxAge: 60 * 60 * 24 * 7,
+    maxAge: 60 * 60 * 24 * 30,
     path: "/",
   });
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +13,9 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
+  // remember the last email used on this device so it is pre-filled next time
+  useEffect(() => { const saved = localStorage.getItem("tcb_email"); if (saved) setEmail(saved); }, []);
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
@@ -23,6 +26,7 @@ export default function LoginPage() {
       body: JSON.stringify({ email, password }),
     });
     if (res.ok) {
+      localStorage.setItem("tcb_email", email);
       router.push("/overview");
       router.refresh();
     } else {

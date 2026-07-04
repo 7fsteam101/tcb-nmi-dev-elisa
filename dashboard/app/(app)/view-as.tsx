@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Icon } from "@/components/icons";
 import { setViewAsAction, clearViewAsAction } from "./view-as-actions";
 
@@ -8,6 +9,7 @@ type U = { id: string; label: string };
 
 // Prominent top-bar control: an admin picks a role or a specific user to preview.
 export function ViewAsControl({ users, current }: { users: U[]; current: string | null }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
   const ROLES = [
@@ -16,7 +18,9 @@ export function ViewAsControl({ users, current }: { users: U[]; current: string 
     { id: "role:setter", label: "Setter" },
     { id: "role:csm", label: "CSM" },
   ];
-  const pick = (id: string) => { setOpen(false); start(() => setViewAsAction(id)); };
+  // set the cookie, then navigate to the app root so the preview lands on a page
+  // the role can actually see (avoids a redirect flash), and refresh the shell.
+  const pick = (id: string) => { setOpen(false); start(async () => { await setViewAsAction(id); router.push("/overview"); router.refresh(); }); };
 
   return (
     <div className="relative">
@@ -55,12 +59,13 @@ export function ViewAsControl({ users, current }: { users: U[]; current: string 
 }
 
 export function ViewAsBanner({ name, role }: { name: string; role: string }) {
+  const router = useRouter();
   const [pending, start] = useTransition();
   return (
     <div className="flex items-center justify-center gap-3 px-6 py-1.5 text-xs font-semibold"
       style={{ background: "color-mix(in srgb, var(--accent) 22%, transparent)", color: "var(--accent)" }}>
-      Previewing as {name} — this is exactly their view
-      <button onClick={() => start(() => clearViewAsAction())} disabled={pending}
+      Previewing as {name} ({role}) — this is exactly their view
+      <button onClick={() => start(async () => { await clearViewAsAction(); router.push("/overview"); router.refresh(); })} disabled={pending}
         className="rounded border px-2 py-0.5" style={{ borderColor: "var(--accent)" }}>
         Exit preview
       </button>
