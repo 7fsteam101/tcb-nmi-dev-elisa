@@ -52,6 +52,9 @@ export type SalesCallInput = {
   followUp?: FollowUpInput;
   notes?: string;
   submittedByUserId: string;
+  // couples: one deal, partner linked, combined value on the deal (CLIENT-DECISIONS #5)
+  isCouple?: boolean;
+  partnerContactId?: string;
 };
 
 async function apptContext(appointmentId: string) {
@@ -190,19 +193,26 @@ export async function submitSalesCall(input: SalesCallInput) {
     const tcv = input.amountContractedMinor ?? installments.reduce((s, r) => s + r.amountMinor, 0);
     if (tcv <= 0) throw new Error("Amount contracted is required on a won deal");
 
+    // Record the plan AS SOLD (frozen snapshot): derive the real plan_type from
+    // the installment structure (1=pif, 3/6/7/12/13 -> Npay, custom cadence ->
+    // custom) instead of the old hardcoded pif/3pay.
+    const count = installments.length;
+    const PLAN_BY_COUNT: Record<number, string> = { 1: "pif", 3: "3pay", 6: "6pay", 7: "7pay", 12: "12pay", 13: "13pay" };
+    const planType = dealType === "won_pif" ? "pif" : cadence === "custom" ? "custom" : (PLAN_BY_COUNT[count] ?? "custom");
+
     const [deal] = await sql`
       insert into sales.deal (opportunity_id, contact_id, closer_rep_id, offer_id, total_contract_value_minor,
-                              plan_type_snapshot, deal_close_date, status, is_demo, source)
+                              plan_type_snapshot, deal_close_date, status, is_demo, source, is_couple, partner_contact_id)
       values (${ctx.opportunity_id}, ${ctx.contact_id}, ${input.repId},
               (select id from marketing.offer where type = 'core'), ${tcv},
-              ${dealType === "won_pif" ? "pif" : null}, current_date, 'active', ${ctx.is_demo}, 'sales_call_report')
+              ${planType}::public.plan_type, current_date, 'active', ${ctx.is_demo}, 'sales_call_report',
+              ${input.isCouple ?? false}, ${input.partnerContactId ?? null})
       returning id`;
     const [pplan] = await sql`
       insert into finance.payment_plan (deal_id, version, plan_type, total_minor, is_current, is_demo, cadence, start_date)
-      values (${deal.id}, 1, ${dealType === "won_pif" ? "pif" : cadence === "custom" ? "zero_down" : "3pay"}::public.plan_type,
+      values (${deal.id}, 1, ${planType}::public.plan_type,
               ${tcv}, true, ${ctx.is_demo}, ${cadence}::public.payment_cadence, ${startDate})
       returning id`;
-    // honest plan_type note: the enum keeps legacy names; cadence + rows carry the real structure
     for (let k = 0; k < installments.length; k++) {
       await sql`
         insert into finance.receivable (payment_plan_id, deal_id, installment_no, due_date, amount_minor, status, is_demo)
@@ -231,9 +241,11 @@ export async function submitSalesCall(input: SalesCallInput) {
       update sales.opportunity set stage = 'deposit', expected_close_date = ${input.expectedCloseDate ?? null}
       where id = ${ctx.opportunity_id}`;
     if (input.cashCollectedMinor && input.cashCollectedMinor > 0) {
+      // stamp contact_id so the deposit is attributable even before the deal exists
+      // (the deal is created at full close; a later reconcile links it onto the deal).
       await sql`
-        insert into finance.successful_payment (rep_id, processor, type, amount_minor, occurred_at, is_demo)
-        values (${input.repId}, 'nmi', 'deposit', ${input.cashCollectedMinor}, now(), ${ctx.is_demo})`;
+        insert into finance.successful_payment (contact_id, rep_id, processor, type, amount_minor, occurred_at, is_demo)
+        values (${ctx.contact_id}, ${input.repId}, 'nmi', 'deposit', ${input.cashCollectedMinor}, now(), ${ctx.is_demo})`;
       results.push("Deposit recorded");
     }
     results.push(`Deposit taken${input.expectedCloseDate ? `, full close expected ${input.expectedCloseDate}` : ""} — the deal record is created when it fully closes`);
@@ -313,6 +325,7 @@ export type MissedCallInput = {
   reasonId?: string;
   dqReasonId?: string;
   newTime?: string;
+  movedBy?: "closer" | "lead_link"; // who moved it (drives the by-lead vs by-closer split)
   followUp?: FollowUpInput;
   notes?: string;
 };
@@ -322,10 +335,16 @@ export async function submitMissedCall(input: MissedCallInput) {
   await logSubmission("missed_call", input.repId, ctx.call_id, input);
   const results: string[] = [];
 
-  if (["scheduled", "confirmed"].includes(ctx.appointment_status)) {
-    if (input.what === "rescheduled") {
+  const movedBy = input.movedBy === "lead_link" ? "lead_link" : "closer";
+  if (input.what === "rescheduled" && ["scheduled", "confirmed", "pending_rebook"].includes(ctx.appointment_status)) {
+    if (ctx.appointment_status === "pending_rebook" && input.newTime) {
+      // completing a parked rebook: give the pending slot its new live date
+      await sql`update sales.appointment set scheduled_for = ${input.newTime}, status = 'scheduled' where id = ${input.appointmentId}`;
+      await sql`update sales.call set current_scheduled_at = ${input.newTime} where id = ${ctx.call_id}`;
+      results.push("Rebook completed — the pending slot now has a live date");
+    } else {
       await sql`
-        update sales.appointment set status = 'rescheduled', rescheduled_at = now(), moved_by = 'closer',
+        update sales.appointment set status = 'rescheduled', rescheduled_at = now(), moved_by = ${movedBy},
           reason_id = ${input.reasonId ?? null} where id = ${input.appointmentId}`;
       const [prev] = await sql`select seq from sales.appointment where id = ${input.appointmentId}`;
       await sql`update sales.appointment set is_current = false where call_id = ${ctx.call_id}`;
@@ -338,15 +357,15 @@ export async function submitMissedCall(input: MissedCallInput) {
       results.push(input.newTime
         ? "Reschedule recorded — old slot kept in history, new slot live"
         : "Reschedule recorded with NO date yet — sits in the rebook-pending queue until a new time is set");
-    } else {
-      await sql`
-        update sales.appointment set status = ${input.what}, reason_id = ${input.reasonId ?? null}
-        where id = ${input.appointmentId}`;
-      const stage = input.what === "no_show" ? "no_show"
-        : input.what === "cancelled_by_lead" ? "call_canceled_by_lead" : "call_canceled_by_team";
-      await sql`update sales.opportunity set stage = ${stage} where id = ${ctx.opportunity_id}`;
-      results.push(`Recorded ${input.what.replaceAll("_", " ")}`);
     }
+  } else if (input.what !== "rescheduled" && ["scheduled", "confirmed"].includes(ctx.appointment_status)) {
+    await sql`
+      update sales.appointment set status = ${input.what}, reason_id = ${input.reasonId ?? null}
+      where id = ${input.appointmentId}`;
+    const stage = input.what === "no_show" ? "no_show"
+      : input.what === "cancelled_by_lead" ? "call_canceled_by_lead" : "call_canceled_by_team";
+    await sql`update sales.opportunity set stage = ${stage} where id = ${ctx.opportunity_id}`;
+    results.push(`Recorded ${input.what.replaceAll("_", " ")}`);
   } else {
     results.push("This slot already has a final status — nothing changed (history is immutable)");
   }

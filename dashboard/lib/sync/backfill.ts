@@ -45,6 +45,7 @@ export async function runCloseBackfill(budgetMs = 45_000) {
           fullName: lead.display_name,
           email: primary?.emails?.[0]?.email,
           phone: primary?.phones?.[0]?.phone,
+          createdSource: "close_import",
         });
         // every extra email/phone on every Close contact becomes an identifier (append-only)
         for (const c of lead.contacts ?? []) {
@@ -80,8 +81,9 @@ export async function runCloseBackfill(budgetMs = 45_000) {
           if (!unmappedStages.includes(opp.status_label)) unmappedStages.push(opp.status_label);
           continue;
         }
-        const { id: contactId } = await upsertContact({ closeId: opp.lead_id, fullName: opp.lead_name });
-        const terminal = ["deposit", "won_pif", "won_pp", "lost", "dq_on_call", "call_canceled_by_team"].includes(stage ?? "");
+        const { id: contactId } = await upsertContact({ closeId: opp.lead_id, fullName: opp.lead_name, createdSource: "close_import" });
+        // same TERMINAL set the live sync uses (normalize.ts) so import + live agree on closed_at
+        const terminal = ["deposit", "won_pif", "won_pp", "closed_won", "active_partner", "lost", "dq_on_call", "call_canceled_by_team", "not_a_fit"].includes(stage ?? "");
         await sql`
           insert into sales.opportunity (contact_id, stage, opened_at, close_id, cohort_month, closed_at)
           values (${contactId}, ${stage ?? "lead_opt_in"}, coalesce(${opp.date_created ?? null}, now()), ${opp.id},

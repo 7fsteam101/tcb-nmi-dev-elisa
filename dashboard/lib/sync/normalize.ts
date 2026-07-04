@@ -133,17 +133,28 @@ async function resolveCallType(locationId: string, calendarId: string | null, ca
   };
 }
 
-async function findOrCreateCall(oppId: string, type: string, startTime: string | null, source?: string, isBooking = true, calendarMapId: string | null = null): Promise<string> {
+async function findOrCreateCall(oppId: string, type: string, startTime: string | null, source?: string, isBooking = true, calendarMapId: string | null = null, ghlAppointmentId: string | null = null): Promise<string> {
+  // LOCKED reschedule rule: the GHL appointment id is THE match key. If we have
+  // seen this appointment before, it is the SAME booking — reuse the call so a
+  // reschedule updates the existing slots instead of creating a second booking.
+  if (ghlAppointmentId) {
+    const byAppt = await sql`select id from sales.call where ghl_appointment_id = ${ghlAppointmentId} limit 1`;
+    if (byAppt.length) {
+      if (calendarMapId) await sql`update sales.call set calendar_map_id = coalesce(calendar_map_id, ${calendarMapId}) where id = ${byAppt[0].id}`;
+      return byAppt[0].id;
+    }
+  }
   const rows = type === "strategy"
     ? await sql`select id from sales.call where opportunity_id = ${oppId} and type = 'strategy' and is_primary limit 1`
     : await sql`select id from sales.call where opportunity_id = ${oppId} and type = ${type} order by created_at desc limit 1`;
   if (rows.length) {
     if (calendarMapId) await sql`update sales.call set calendar_map_id = coalesce(calendar_map_id, ${calendarMapId}) where id = ${rows[0].id}`;
+    if (ghlAppointmentId) await sql`update sales.call set ghl_appointment_id = coalesce(ghl_appointment_id, ${ghlAppointmentId}) where id = ${rows[0].id}`;
     return rows[0].id;
   }
   const created = await sql`
-    insert into sales.call (opportunity_id, type, scheduled_at, booking_source_channel, is_primary, is_booking, calendar_map_id)
-    values (${oppId}, ${type}, ${startTime ?? new Date().toISOString()}, ${source ?? null}, ${type === "strategy"}, ${isBooking}, ${calendarMapId})
+    insert into sales.call (opportunity_id, type, scheduled_at, booking_source_channel, is_primary, is_booking, calendar_map_id, ghl_appointment_id)
+    values (${oppId}, ${type}, ${startTime ?? new Date().toISOString()}, ${source ?? null}, ${type === "strategy"}, ${isBooking}, ${calendarMapId}, ${ghlAppointmentId})
     returning id`;
   return created[0].id;
 }
@@ -193,8 +204,9 @@ async function normalizeGhl(eventType: string, payload: any): Promise<string> {
     p.appointment?.calendar_id ?? p.appointment?.calendarId ?? null,
     p.appointment?.calendar_name ?? p.appointment?.calendarName ?? null,
   );
+  const ghlApptId = p.appointment?.id ?? p.appointment?.appointment_id ?? null;
   const oppId = await findOrCreateActiveOpportunity(contactId, p.source);
-  const callId = await findOrCreateCall(oppId, calendar.type, startTime, p.source, calendar.isBooking, calendar.mapId);
+  const callId = await findOrCreateCall(oppId, calendar.type, startTime, p.source, calendar.isBooking, calendar.mapId, ghlApptId);
   const slot = await currentSlot(callId);
 
   switch (event) {
@@ -203,7 +215,10 @@ async function normalizeGhl(eventType: string, payload: any): Promise<string> {
       else if (["taken", "no_show", "cancelled_by_lead", "cancelled_by_team", "rescheduled"].includes(slot.status))
         await addSlot(callId, startTime, slot.seq + 1); // terminal slots are immutable — new slot
       if (calendar.type === "strategy" && calendar.isBooking) {
-        await sql`update sales.opportunity set stage = 'strategy_call_booked' where id = ${oppId} and stage = 'lead_opt_in'`;
+        // a rebook after a miss re-opens the pipeline: reopen from lead OR from a
+        // prior missed/cancelled/warm state (a live call is booked again).
+        await sql`update sales.opportunity set stage = 'strategy_call_booked'
+          where id = ${oppId} and stage in ('lead_opt_in','no_show','call_canceled_by_lead','warm_list')`;
         await stampAttribution(oppId, p.source ?? null, "booking"); // the booking source = the converting touch
       }
       return `booking slot recorded (${calendar.type} calendar)`;
@@ -324,9 +339,16 @@ async function normalizeStripe(eventType: string, payload: any): Promise<string>
   const chargeId = obj.id;
 
   let strategyCallId: string | null = null;
+  let contactId: string | null = null;
   if (email) {
+    const [ct] = await sql`
+      select ct.id from core.contact ct
+      where lower(ct.primary_email) = lower(${email}) or exists (
+        select 1 from core.contact_identifier ci where ci.contact_id = ct.id and ci.type = 'email' and lower(ci.value) = lower(${email}))
+      limit 1`;
+    contactId = ct?.id ?? null;
     const rows = await sql`
-      select c.id from sales.call c
+      select c.id, o.contact_id from sales.call c
       join sales.opportunity o on o.id = c.opportunity_id
       join core.contact ct on ct.id = o.contact_id
       where c.type = 'strategy' and c.booking_payment_id is null
@@ -334,10 +356,11 @@ async function normalizeStripe(eventType: string, payload: any): Promise<string>
           select 1 from core.contact_identifier ci where ci.contact_id = ct.id and ci.type = 'email' and lower(ci.value) = lower(${email})))
       order by c.created_at desc limit 1`;
     strategyCallId = rows[0]?.id ?? null;
+    contactId = rows[0]?.contact_id ?? contactId;
   }
   const [pay] = await sql`
-    insert into finance.successful_payment (strategy_call_id, processor, type, amount_minor, occurred_at, stripe_charge_id)
-    values (${strategyCallId}, 'stripe', 'booking_25', ${amount}, now(), ${chargeId})
+    insert into finance.successful_payment (strategy_call_id, contact_id, processor, type, amount_minor, occurred_at, stripe_charge_id)
+    values (${strategyCallId}, ${contactId ?? null}, 'stripe', 'booking_25', ${amount}, now(), ${chargeId})
     returning id`;
   if (strategyCallId) await sql`update sales.call set booking_payment_id = ${pay.id} where id = ${strategyCallId}`;
   return strategyCallId ? "booking fee linked to strategy call" : "booking fee stored (no matching call yet)";
@@ -368,22 +391,36 @@ async function normalizeNmi(eventType: string, payload: any): Promise<string> {
   const txn = p.transactionid ?? p.transaction_id ?? `nmi_${Date.now()}`;
 
   let receivable: any = null;
-  if (email && amountMinor > 0) {
-    const rows = await sql`
-      select r.id, r.deal_id from finance.receivable r
-      join sales.deal d on d.id = r.deal_id
-      join core.contact ct on ct.id = d.contact_id
-      join finance.payment_plan pp on pp.id = r.payment_plan_id and pp.is_current
-      where r.status in ('scheduled','late','delinquent') and r.amount_minor = ${amountMinor}
-        and (lower(ct.primary_email) = lower(${email}) or exists (
-          select 1 from core.contact_identifier ci where ci.contact_id = ct.id and ci.type = 'email' and lower(ci.value) = lower(${email})))
-      order by r.due_date asc limit 1`;
-    receivable = rows[0] ?? null;
+  let contactId: string | null = null;
+  if (email) {
+    // resolve the payer contact by email so even an UNMATCHED payment attaches to
+    // a person (the "money is always attributable" rule, 0025).
+    const [ct] = await sql`
+      select ct.id from core.contact ct
+      where lower(ct.primary_email) = lower(${email}) or exists (
+        select 1 from core.contact_identifier ci where ci.contact_id = ct.id and ci.type = 'email' and lower(ci.value) = lower(${email}))
+      limit 1`;
+    contactId = ct?.id ?? null;
+    if (amountMinor > 0) {
+      const rows = await sql`
+        select r.id, r.deal_id, d.contact_id, pp.plan_type from finance.receivable r
+        join sales.deal d on d.id = r.deal_id
+        join core.contact ct on ct.id = d.contact_id
+        join finance.payment_plan pp on pp.id = r.payment_plan_id and pp.is_current
+        where r.status in ('scheduled','late','delinquent') and r.amount_minor = ${amountMinor}
+          and (lower(ct.primary_email) = lower(${email}) or exists (
+            select 1 from core.contact_identifier ci where ci.contact_id = ct.id and ci.type = 'email' and lower(ci.value) = lower(${email})))
+        order by r.due_date asc limit 1`;
+      receivable = rows[0] ?? null;
+    }
   }
+  // derive the real payment type from the plan (pif vs installment) instead of the
+  // old always-'installment' no-op.
+  const payType = receivable ? (receivable.plan_type === "pif" ? "pif" : "installment") : "installment";
   const [pay] = await sql`
-    insert into finance.successful_payment (deal_id, receivable_id, processor, type, amount_minor, occurred_at, nmi_transaction_id)
-    values (${receivable?.deal_id ?? null}, ${receivable?.id ?? null}, 'nmi',
-            ${receivable ? "installment" : "installment"}, ${amountMinor}, now(), ${txn})
+    insert into finance.successful_payment (deal_id, receivable_id, contact_id, processor, type, amount_minor, occurred_at, nmi_transaction_id)
+    values (${receivable?.deal_id ?? null}, ${receivable?.id ?? null}, ${receivable?.contact_id ?? contactId ?? null}, 'nmi',
+            ${payType}, ${amountMinor}, now(), ${txn})
     returning id`;
   if (receivable) {
     await sql`update finance.receivable set status = 'paid', paid_at = current_date, payment_id = ${pay.id} where id = ${receivable.id}`;

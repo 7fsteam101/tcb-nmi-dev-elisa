@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireSession } from "@/lib/auth";
 import { submitSalesCall, type CallResult, type FollowUpInput } from "@/lib/forms";
+import { upsertContact } from "@/lib/sync/contacts";
 
 const money = (v: FormDataEntryValue | null) =>
   v && String(v).trim() !== "" ? Math.round(parseFloat(String(v)) * 100) : undefined;
@@ -26,10 +27,29 @@ export async function submitSalesCallAction(_prev: unknown, formData: FormData) 
         date: r.date,
       })).filter((r: { amountMinor: number; date: string }) => r.amountMinor > 0 && r.date);
     }
+    const isCouple = formData.get("isCouple") === "on";
+    let partnerContactId: string | undefined;
+    if (isCouple) {
+      const partnerFirstName = (formData.get("partnerFirstName") as string) || undefined;
+      const partnerLastName = (formData.get("partnerLastName") as string) || undefined;
+      const partnerEmail = (formData.get("partnerEmail") as string) || undefined;
+      // Only create the partner if we actually have something to identify them by.
+      if (partnerFirstName || partnerLastName || partnerEmail) {
+        const partner = await upsertContact({
+          firstName: partnerFirstName,
+          lastName: partnerLastName,
+          email: partnerEmail,
+          createdSource: "couples_partner",
+        });
+        partnerContactId = partner.id;
+      }
+    }
+
     const result = await submitSalesCall({
       appointmentId: String(formData.get("appointmentId")),
       repId: String(formData.get("repId")),
       outcome: "taken",
+      ...(isCouple ? { isCouple: true as const, partnerContactId } : {}),
       callResult,
       offerMade: formData.get("offerMade") === "on",
       dealType: (formData.get("dealType") as never) || undefined,

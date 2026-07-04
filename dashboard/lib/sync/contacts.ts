@@ -80,7 +80,14 @@ export async function upsertContact(c: IncomingContact): Promise<{ id: string; c
             'lead', ${c.closeId ?? null}, ${c.ghlMarketingId ?? null}, ${c.ghlRepairId ?? null},
             ${c.createdSource ?? "unknown"})
     returning id`;
-  return { id: rows[0].id, created: true };
+  const id = rows[0].id;
+  // Also seed the append-only identifier history so findContact can match on it
+  // later (the primary_* columns alone left 839 contacts unmatchable in backfill).
+  if (c.email) await sql`insert into core.contact_identifier (contact_id, type, value, is_primary, source)
+    values (${id}, 'email', ${c.email}, true, ${c.createdSource ?? "sync"}) on conflict do nothing`;
+  if (c.phone) await sql`insert into core.contact_identifier (contact_id, type, value, is_primary, source)
+    values (${id}, 'phone', ${c.phone}, true, ${c.createdSource ?? "sync"}) on conflict do nothing`;
+  return { id, created: true };
 }
 
 const WON_STAGES = ["deposit", "won_pif", "won_pp", "closed_won", "active_partner"];

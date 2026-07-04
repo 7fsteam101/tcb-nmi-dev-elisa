@@ -41,6 +41,7 @@ export function SalesCallForm({ options }: { options: FormOptions }) {
   const [dealType, setDealType] = useState("");
   const [qualified, setQualified] = useState("yes");
   const [cadence, setCadence] = useState("monthly");
+  const [isCouple, setIsCouple] = useState(false);
   const [followUp, setFollowUp] = useState("");
   const [rows, setRows] = useState<{ amount: string; date: string }[]>([{ amount: "", date: "" }]);
 
@@ -182,6 +183,23 @@ export function SalesCallForm({ options }: { options: FormOptions }) {
                         </div>
                       )}
                     </>
+                  )}
+
+                  <CheckRow>
+                    <input type="checkbox" name="isCouple" checked={isCouple} onChange={(e) => setIsCouple(e.target.checked)} />
+                    <span>Couples deal (two people, one contract)</span>
+                  </CheckRow>
+                  <p className="text-[11px] leading-relaxed" style={{ color: "var(--muted)" }}>
+                    For a couples deal, enter the COMBINED value for both people as the Amount contracted above.
+                  </p>
+                  {isCouple && (
+                    <ConditionalPanel tone="accent" title="Partner" hint="The second person on this contract. They get linked to the same deal.">
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <Field label="Partner first name"><input name="partnerFirstName" /></Field>
+                        <Field label="Partner last name"><input name="partnerLastName" /></Field>
+                      </div>
+                      <Field label="Partner email"><input name="partnerEmail" type="email" /></Field>
+                    </ConditionalPanel>
                   )}
                 </ConditionalPanel>
               </Section>

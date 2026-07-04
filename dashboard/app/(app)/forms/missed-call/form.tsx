@@ -80,6 +80,12 @@ export function MissedCallForm({ options }: { options: FormOptions }) {
                   <Field label="New date and time">
                     <input type="datetime-local" name="newTime" />
                   </Field>
+                  <Field label="Rescheduled by" hint="Who moved the call.">
+                    <select name="movedBy" defaultValue="closer">
+                      <option value="closer">Closer</option>
+                      <option value="lead_link">Lead</option>
+                    </select>
+                  </Field>
                 </ConditionalPanel>
               )}
               <Field label="Reason">

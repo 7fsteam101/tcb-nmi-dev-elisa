@@ -14,6 +14,8 @@ export async function submitMissedCallAction(_prev: unknown, formData: FormData)
       assigneeRepId: (formData.get("followUpAssignee") as string) || undefined,
       whyNot: (formData.get("followUpWhyNot") as string) || undefined,
     };
+    const movedBy: "closer" | "lead_link" =
+      formData.get("movedBy") === "lead_link" ? "lead_link" : "closer";
     const result = await submitMissedCall({
       appointmentId: String(formData.get("appointmentId")),
       repId: String(formData.get("repId")),
@@ -21,6 +23,7 @@ export async function submitMissedCallAction(_prev: unknown, formData: FormData)
       reasonId: (formData.get("reasonId") as string) || undefined,
       dqReasonId: (formData.get("dqReasonId") as string) || undefined,
       newTime: (formData.get("newTime") as string) || undefined,
+      movedBy,
       followUp,
       notes: (formData.get("notes") as string) || undefined,
     });
