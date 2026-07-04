@@ -34,6 +34,7 @@ export default async function AppLayout({ children, drawer }: { children: React.
       { href: "/calls", label: "Call Logs", icon: "calls", gate: "calls", badge: pendingCalls },
       { href: "/contacts", label: "Contacts", icon: "contacts", gate: "calls" },
       { href: "/reps", label: "Closer Analytics", icon: "reps", gate: "reps" },
+      { href: "/contracts", label: "Contracts", icon: "knowledge", gate: "reps" },
       { href: "/setter-reports", label: "Setter Reports", icon: "forms", gate: "calls" },
     ]},
     { label: "Money", items: [
