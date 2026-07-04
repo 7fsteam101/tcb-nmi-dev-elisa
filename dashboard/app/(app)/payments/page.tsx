@@ -16,14 +16,15 @@ export default async function Payments() {
   await requireAccess("receivables");
   const user = await requireSession();
 
-  const [links, contactRows, products, stripeFlag] = await Promise.all([
-    listPaymentLinks(),
-    sql`select id, full_name, primary_email from core.contact where full_name is not null order by full_name limit 500` as unknown as Promise<
-      { id: string; full_name: string | null; primary_email: string | null }[]>,
-    sql`select id, name, description, amount_minor, allow_plan, default_installments, default_frequency
-        from finance.payment_product where active order by sort_order nulls last, name` as unknown as Promise<ProductOption[]>,
-    getSetting<string>("payment_links_stripe_enabled", "false"),
-  ]);
+  // Sequential (not Promise.all): this page loads a 500-row contact list plus
+  // three other reads; fanning them concurrently on top of the layout's shell
+  // queries spikes past the free-tier pooler cap and stalls. Latency here is fine.
+  const links = await listPaymentLinks();
+  const contactRows = await (sql`select id, full_name, primary_email from core.contact where full_name is not null order by full_name limit 500` as unknown as Promise<
+    { id: string; full_name: string | null; primary_email: string | null }[]>);
+  const products = await (sql`select id, name, description, amount_minor, allow_plan, default_installments, default_frequency
+      from finance.payment_product where active order by sort_order nulls last, name` as unknown as Promise<ProductOption[]>);
+  const stripeFlag = await getSetting<string>("payment_links_stripe_enabled", "false");
 
   const contacts: ContactOption[] = contactRows.map((c) => ({ id: c.id, name: c.full_name ?? "", email: c.primary_email ?? "" }));
   const isAdmin = user.role === "admin";
