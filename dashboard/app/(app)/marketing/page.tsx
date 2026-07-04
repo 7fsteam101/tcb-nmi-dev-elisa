@@ -1,29 +1,33 @@
 import Link from "next/link";
 import { dailySeries, overviewKpis } from "@/lib/kpi";
-import { campaignFunnel } from "@/lib/kpi-campaign";
+import { campaignFunnel, metaReport, normalizeGrain } from "@/lib/kpi-campaign";
 import { isDemoMode, reportTimezone } from "@/lib/settings";
 import { money, num } from "@/lib/format";
-import { Card, Stat, SectionTitle, InfoTip } from "@/components/ui";
+import { label, Card, Stat, SectionTitle, InfoTip } from "@/components/ui";
 import { DateRangeBar } from "@/components/date-range";
-import { LineChart, DonutChart } from "@/components/charts";
+import { GranularityToggle } from "@/components/granularity";
+import { LineChart, DonutChart, BarChart } from "@/components/charts";
 import { resolveRange } from "@/lib/range";
 import { requireAccess } from "@/lib/access";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-export default async function Marketing({ searchParams }: { searchParams: Promise<{ days?: string; from?: string; to?: string }> }) {
+export default async function Marketing({ searchParams }: { searchParams: Promise<{ days?: string; from?: string; to?: string; grain?: string }> }) {
   await requireAccess("marketing");
+  const sp = await searchParams;
   const demo = await isDemoMode();
   const tz = await reportTimezone();
-  const range = resolveRange(await searchParams);
+  const range = resolveRange(sp);
+  const grain = normalizeGrain(sp.grain);
   const days = range.days;
   const until = range.custom ? range.until : null;
   const rq = range.custom ? `from=${range.from}&to=${range.to}` : `days=${days}`;
-  const [campaigns, series, k] = await Promise.all([
+  const [campaigns, series, k, report] = await Promise.all([
     campaignFunnel({ demo, days, since: range.since, until }),
     dailySeries({ demo, days, tz, from: range.from, to: range.to }),
     overviewKpis({ demo, days, tz, since: range.since, until }),
+    metaReport({ demo, grain, since: range.since, until }),
   ]);
 
   const spend = Number(k.ad_spend_minor);
@@ -37,6 +41,24 @@ export default async function Marketing({ searchParams }: { searchParams: Promis
   const campaignDonut = (withSpend.length ? withSpend : campaigns).slice(0, 6)
     .map((c: any) => ({ label: c.campaign, value: Math.round(Number(c.spend_minor) / 100) || Number(c.leads) }));
 
+  // Report section: spend / leads / clicks bucketed by the selected grain.
+  const bucketLabel = (d: string) => {
+    const dt = new Date(String(d) + "T12:00:00");
+    if (grain === "month") return dt.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+    return dt.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  };
+  const reportRows = report.map((r: any) => ({
+    key: String(r.bucket),
+    label: grain === "week" ? `wk ${bucketLabel(r.bucket)}` : bucketLabel(r.bucket),
+    spend: Number(r.spend_minor),
+    leads: Number(r.leads),
+    clicks: Number(r.clicks),
+  }));
+  const spendBars = reportRows.map((r) => ({ label: r.label, value: Math.round(r.spend / 100) }));
+  const leadBars = reportRows.map((r) => ({ label: r.label, value: r.leads }));
+  const clickBars = reportRows.map((r) => ({ label: r.label, value: r.clicks }));
+  const grainWord = label(grain === "day" ? "daily" : grain === "month" ? "monthly" : "weekly");
+
   return (
     <div>
       <h1 className="text-xl font-semibold">Meta Ads</h1>
@@ -44,7 +66,10 @@ export default async function Marketing({ searchParams }: { searchParams: Promis
         <p className="text-sm" style={{ color: "var(--muted)" }}>
           {range.label}. Spend restates for 48h — yesterday's numbers can shift slightly.
         </p>
-        <DateRangeBar />
+        <div className="flex flex-wrap items-center gap-2">
+          <GranularityToggle />
+          <DateRangeBar />
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -117,6 +142,55 @@ export default async function Marketing({ searchParams }: { searchParams: Promis
                 );
               })}
               {campaigns.length === 0 && <tr><td colSpan={10} style={{ color: "var(--muted)" }}>No campaign data yet — connect GHL forms (for UTMs) and Meta in Connections</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      <SectionTitle right={<GranularityToggle />}>Report</SectionTitle>
+      <p className="mb-2 text-xs" style={{ color: "var(--muted)" }}>
+        Spend, leads and clicks bucketed {grainWord.toLowerCase()}. Switch the grain with the toggle. Populates as Meta connects.
+      </p>
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+        <div>
+          <div className="mb-2 text-xs font-medium" style={{ color: "var(--muted)" }}>Spend ($)</div>
+          <Card><BarChart data={spendBars} color="var(--accent)" format={(v) => money(v * 100)} height={160} /></Card>
+        </div>
+        <div>
+          <div className="mb-2 text-xs font-medium" style={{ color: "var(--muted)" }}>Leads</div>
+          <Card><BarChart data={leadBars} color="var(--good)" format={(v) => num(v)} height={160} /></Card>
+        </div>
+        <div>
+          <div className="mb-2 text-xs font-medium" style={{ color: "var(--muted)" }}>Clicks</div>
+          <Card><BarChart data={clickBars} color="var(--warn)" format={(v) => num(v)} height={160} /></Card>
+        </div>
+      </div>
+
+      <Card className="mt-3">
+        <div className="overflow-x-auto">
+          <table>
+            <thead>
+              <tr>
+                <th>{grainWord}</th>
+                <th className="text-right">Spend</th>
+                <th className="text-right">Leads</th>
+                <th className="text-right">Clicks</th>
+                <th className="text-right">CPL <InfoTip text="Spend / leads in this bucket" /></th>
+                <th className="text-right">CPC <InfoTip text="Spend / clicks in this bucket" /></th>
+              </tr>
+            </thead>
+            <tbody>
+              {reportRows.map((r) => (
+                <tr key={r.key}>
+                  <td>{r.label}</td>
+                  <td className="text-right">{r.spend ? money(r.spend) : "—"}</td>
+                  <td className="text-right">{r.leads ? num(r.leads) : "—"}</td>
+                  <td className="text-right">{r.clicks ? num(r.clicks) : "—"}</td>
+                  <td className="text-right">{r.spend && r.leads ? money(Math.round(r.spend / r.leads)) : "—"}</td>
+                  <td className="text-right">{r.spend && r.clicks ? money(Math.round(r.spend / r.clicks)) : "—"}</td>
+                </tr>
+              ))}
+              {reportRows.length === 0 && <tr><td colSpan={6} style={{ color: "var(--muted)" }}>No spend in this window yet — connect Meta in Connections</td></tr>}
             </tbody>
           </table>
         </div>

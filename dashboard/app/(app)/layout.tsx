@@ -27,17 +27,19 @@ export default async function AppLayout({ children, drawer }: { children: React.
   const rawGroups: { label: string; items: Item[] }[] = [
     { label: "Insights", items: [
       { href: "/overview", label: "Overview", icon: "overview", gate: "overview" },
-      { href: "/weekly", label: "Weekly Snapshot", icon: "weekly", gate: "overview" },
+      { href: "/weekly", label: "Performance Report", icon: "weekly", gate: "overview" },
       { href: "/funnel", label: "Funnel & Leakage", icon: "funnel", gate: "funnel" },
     ]},
     { label: "Sales", items: [
       { href: "/calls", label: "Call Logs", icon: "calls", gate: "calls", badge: pendingCalls },
       { href: "/contacts", label: "Contacts", icon: "contacts", gate: "calls" },
       { href: "/reps", label: "Closer Analytics", icon: "reps", gate: "reps" },
+      { href: "/setter-reports", label: "Setter Reports", icon: "forms", gate: "calls" },
     ]},
     { label: "Money", items: [
       { href: "/receivables", label: "Receivables", icon: "money", gate: "receivables" },
       { href: "/revenue", label: "Revenue", icon: "revenue", gate: "receivables" },
+      { href: "/commission", label: "Commissions", icon: "reps", gate: "reps" },
       { href: "/payments", label: "Payment Links", icon: "link", gate: "receivables" },
     ]},
     { label: "Marketing", items: [

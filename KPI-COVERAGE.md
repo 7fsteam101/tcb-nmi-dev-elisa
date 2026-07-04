@@ -82,3 +82,46 @@ All nine weekly numbers + pipeline value + projected 30-day cash: **in today's b
 3. **Meta token** — activates 6 (all paid-traffic numbers)
 4. **Stripe** — booking fees + refund side
 5. **SendBlue key** — speed-to-lead family (wave 2)
+
+## Gaps (2026-07-04 audit)
+
+Audit of every KPI above against what is actually rendered in a page today (a KPI
+counts as covered only when a widget, chart, table or stat renders it on a page,
+not merely that a query function exists). The KPIs below have no visible widget
+yet. "Page it should live on" names the route where it belongs when built. Most
+are gated on a data source per the state column above, so this is a build backlog,
+not a bug list.
+
+### Paid traffic / top of funnel
+- CPC, CTR: page `marketing` (add to the new Report section / campaign table).
+- ROAS on invoiced revenue: page `marketing` (cash-ROAS variant exists; invoiced variant is a sibling column).
+- Lead volume by source: page `marketing` (source is on every opt-in; no by-source widget rendered yet).
+
+### Setting / middle of funnel
+- Speed to lead: page `calls` (gated on SendBlue).
+- Calls booked per setter: page `reps` (gated on GHL booking-creator attribution).
+- Calls booked per lead source: page `marketing` (query-ready, not rendered).
+- DQ rate at setting + reasons: page `calls`.
+- A1 calendar bookings (30-day dispute hold): page `calls`.
+
+### Sales / closing
+- Follow-up close rate (1st vs 2nd/3rd call): page `calls` (gated on GHL call-sequence history).
+- Time to close (first call to signed): page `weekly` (gated on GHL + contract events).
+- DQ rate at closing + reasons: page `calls` (logic live; no dedicated widget rendered).
+
+### Sales team health
+- Speed to lead per closer: page `reps` (gated on SendBlue).
+- Call report submission rate (on time vs missing): page `reps` (rule shipped; not surfaced as a widget).
+
+### Retention / fulfillment
+- Onboarding completion rate: page `receivables` (fulfilment records exist; no widget).
+- Collection rate: page `receivables` (logic live; not rendered).
+- Churn rate: page `receivables` (gated on NMI / Monday status feed).
+
+### Email & MOF
+- Open rate / CTR / unsubscribes per campaign: page `marketing` (gated on GHL email-stats API).
+- Calls booked attributed to email: page `marketing` (gated on GHL + attribution fields).
+
+Everything else in this doc that is marked LIVE or "in today's build" was confirmed
+rendering on a page (Overview, Funnel, Reps, Revenue, Receivables, Weekly). No
+false-positive coverage was found in the audit.

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { receivablesSummary, receivablesList, projectedCashByMonth } from "@/lib/kpi";
 import { isDemoMode } from "@/lib/settings";
 import { money, shortDate } from "@/lib/format";
@@ -67,7 +68,15 @@ export default async function Receivables({ searchParams }: { searchParams: Prom
             {list.map((r: any) => (
               <tr key={r.id}>
                 <td>{shortDate(r.due_date)}</td>
-                <td>{r.contact_name}</td>
+                <td>
+                  {r.contact_id ? (
+                    <Link href={`/contacts/${r.contact_id}`} style={{ color: "var(--accent)" }}>
+                      {r.contact_name}
+                    </Link>
+                  ) : (
+                    r.contact_name
+                  )}
+                </td>
                 <td className="uppercase">{label(r.plan_type)}</td>
                 <td>#{r.installment_no}</td>
                 <td className="text-right">{money(r.amount_minor)}</td>

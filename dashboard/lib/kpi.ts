@@ -189,7 +189,7 @@ export async function receivablesSummary(demo: boolean) {
 export async function receivablesList(demo: boolean) {
   return sql`
     select r.id, r.installment_no, r.due_date, r.amount_minor, r.status, r.paid_at,
-           ct.full_name as contact_name, pp.plan_type, d.deal_close_date
+           ct.id as contact_id, ct.full_name as contact_name, pp.plan_type, d.deal_close_date
     from finance.receivable r
     join finance.payment_plan pp on pp.id = r.payment_plan_id and pp.is_current
     join sales.deal d on d.id = r.deal_id

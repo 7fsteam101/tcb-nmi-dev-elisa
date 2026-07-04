@@ -1,5 +1,38 @@
 import { sql } from "./db";
 
+// Granularity for the Meta report. Validated against this whitelist before it is
+// ever put near SQL. date_trunc takes a text argument, so we only ever pass one
+// of these three literals, never raw user input.
+export type Grain = "day" | "week" | "month";
+export function normalizeGrain(g: string | null | undefined): Grain {
+  return g === "day" || g === "month" ? g : "week";
+}
+
+// Meta ad-spend report: spend / leads / clicks bucketed by the selected grain
+// (day/week/month) over the window. One row per bucket, ordered chronologically.
+// `grain` is whitelisted to a Grain literal by the caller; we still re-normalize
+// here so the date_trunc argument can never be attacker-controlled. Returns
+// nothing when there is no spend in range (the page renders an empty state).
+export async function metaReport(
+  { demo, grain, since, until }: { demo: boolean; grain: Grain; since: string; until: string | null },
+) {
+  const g = normalizeGrain(grain);
+  return sql`
+    select
+      date_trunc(${g}, s.date)::date as bucket,
+      coalesce(sum(s.spend_minor), 0)::bigint as spend_minor,
+      coalesce(sum(s.leads), 0)::bigint as leads,
+      coalesce(sum(s.clicks), 0)::bigint as clicks,
+      coalesce(sum(s.impressions), 0)::bigint as impressions
+    from marketing.ad_spend s
+    where s.is_demo = ${demo}
+      and s.date >= ${since}::date
+      and (${until}::timestamptz is null or s.date < ${until}::date)
+    group by 1
+    order by 1 asc
+  `;
+}
+
 // Campaign Performance: one row per utm_campaign, joining Meta spend + our funnel
 // (leads -> booked -> won -> cash). A contact's acquisition campaign is the
 // campaign of their EARLIEST opt-in (first touch); booked/won/cash attribute to

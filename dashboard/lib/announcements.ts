@@ -1,22 +1,28 @@
 import { sql } from "./db";
+import { requireSession } from "./auth";
 
-// Active announcements within their show window, pinned first.
+// Active announcements within their show window, pinned first, filtered to the
+// viewer's role. `${role}` is a single scalar bound as a parameter (viewer role),
+// compared against the text[] column via `= any(...)`; this is not the "bare JS
+// array" hazard the db header warns about (that is passing an array itself).
 export async function activeAnnouncements() {
+  const { role } = await requireSession();
   return sql`
     select a.id, a.title, a.body, a.level, a.pinned_to_banner, a.starts_at, a.ends_at,
-           a.created_at, u.full_name as author
+           a.audience_roles, a.created_at, u.full_name as author
     from core.announcement a
     left join core.app_user u on u.id = a.created_by_user_id
     where a.active
       and (a.starts_at is null or a.starts_at <= now())
       and (a.ends_at is null or a.ends_at >= now())
+      and (a.audience_roles is null or a.audience_roles = '{}' or ${role} = any(a.audience_roles))
     order by a.pinned_to_banner desc, a.created_at desc`;
 }
 
 export async function allAnnouncements() {
   return sql`
     select a.id, a.title, a.body, a.level, a.pinned_to_banner, a.active, a.starts_at, a.ends_at,
-           a.created_at, u.full_name as author
+           a.audience_roles, a.created_at, u.full_name as author
     from core.announcement a
     left join core.app_user u on u.id = a.created_by_user_id
     order by a.created_at desc`;
@@ -30,6 +36,7 @@ export type SystemAlert = { level: "warning" | "critical"; text: string; href: s
 // the shell from ~4 queries to 1 is the biggest per-page connection saving we
 // control on the shared (free-tier) pooler.
 export async function shellSignals(): Promise<{ pendingCalls: number; alerts: SystemAlert[]; pinned: any[] }> {
+  const { role } = await requireSession();
   const [row] = await sql`
     select
       (select count(*)::int from sync.connections where status = 'error' or last_error is not null) as conn_err,
@@ -39,7 +46,8 @@ export async function shellSignals(): Promise<{ pendingCalls: number; alerts: Sy
         select a.id, a.title, a.body, a.level, a.created_at from core.announcement a
         where a.active and a.pinned_to_banner
           and (a.starts_at is null or a.starts_at <= now())
-          and (a.ends_at is null or a.ends_at >= now())) x) as pinned`;
+          and (a.ends_at is null or a.ends_at >= now())
+          and (a.audience_roles is null or a.audience_roles = '{}' or ${role} = any(a.audience_roles))) x) as pinned`;
   const alerts: SystemAlert[] = [];
   if (row?.conn_err > 0) alerts.push({ level: "critical", text: "A data source has a sync error — check Connections", href: "/connections" });
   if (row?.pending > 0) alerts.push({ level: "warning", text: `${row.pending} call${row.pending === 1 ? "" : "s"} need attendance marking`, href: "/calls?status=pending" });

@@ -14,7 +14,7 @@ function parseKV(body: string): Record<string, string> {
 }
 
 export async function createPaymentLink(
-  input: { amountMinor: number; description?: string; customerName?: string; customerEmail?: string },
+  input: { amountMinor: number; description?: string; customerName?: string; customerEmail?: string; contactId?: string },
   userId: string,
 ) {
   const key = await getProviderToken("nmi");
@@ -45,10 +45,10 @@ export async function createPaymentLink(
   const invoiceId = kv.invoice_id ?? kv.transactionid ?? null;
 
   const [row] = await sql`
-    insert into finance.payment_link (amount_minor, description, customer_name, customer_email, processor,
+    insert into finance.payment_link (amount_minor, description, customer_name, customer_email, contact_id, processor,
                                       external_id, url, status, created_by_user_id)
     values (${input.amountMinor}, ${input.description ?? null}, ${input.customerName ?? null}, ${input.customerEmail},
-            'nmi', ${invoiceId}, null, ${ok ? "sent" : "failed"}, ${userId})
+            ${input.contactId ?? null}, 'nmi', ${invoiceId}, null, ${ok ? "sent" : "failed"}, ${userId})
     returning id`;
 
   return ok
@@ -59,7 +59,7 @@ export async function createPaymentLink(
 export async function listPaymentLinks() {
   return sql`
     select pl.id, pl.amount_minor, pl.description, pl.customer_name, pl.customer_email,
-           pl.status, pl.url, pl.external_id, pl.created_at, u.full_name as creator
+           pl.processor, pl.status, pl.url, pl.external_id, pl.created_at, u.full_name as creator
     from finance.payment_link pl
     left join core.app_user u on u.id = pl.created_by_user_id
     order by pl.created_at desc limit 50`;

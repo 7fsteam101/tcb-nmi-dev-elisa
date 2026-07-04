@@ -154,12 +154,13 @@ export default async function Weekly({
     <div>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold">Weekly Snapshot</h1>
+          <h1 className="text-xl font-semibold">Performance Report</h1>
           <p className="text-sm" style={{ color: "var(--muted)" }}>
-            Week starts Monday, {tz}. Trend charts group by {noun}, last {PERIODS} {noun === "day" ? "days" : `${noun}s`}.
+            Trends grouped by {noun}, last {PERIODS} {noun === "day" ? "days" : `${noun}s`}. Times in {tz}.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[11px] uppercase tracking-wider" style={{ color: "var(--muted)" }}>View by</span>
           <GranularityToggle param="grain" defaultGrain="week" />
           <DateRangeBar />
         </div>

@@ -2,13 +2,12 @@ import Link from "next/link";
 import { closerAnalytics, dailyCashSeries, dailyCloserSeries, overviewComparison } from "@/lib/kpi-closer";
 import { isDemoMode, reportTimezone } from "@/lib/settings";
 import { money, num, pct } from "@/lib/format";
-import { Card, SectionTitle, InfoTip, Badge } from "@/components/ui";
+import { Card, SectionTitle, InfoTip } from "@/components/ui";
 import { StatSpark } from "@/components/stat-spark";
 import { DateRangeBar } from "@/components/date-range";
 import { ProgressRing } from "@/components/charts";
 import { resolveRange } from "@/lib/range";
 import { requireAccess } from "@/lib/access";
-import { commissionForReps } from "@/lib/commission";
 import { goalProgress } from "@/lib/goals";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +16,15 @@ export const maxDuration = 60;
 const ratio = (a: number, b: number) => (b > 0 ? a / b : 0);
 // StatSpark's chip expects percentage points (12.5 = +12.5%), not a fraction.
 const delta = (cur: number, prev: number) => (prev > 0 ? ((cur - prev) / prev) * 100 : null);
+
+// Tone follows the DIRECTION of change: up is an improvement (green), down is a
+// regression (red), a flat/no-baseline delta stays neutral. Every metric on this
+// page is "higher is better" (volume, cash, AOV, show rate, close rate), so the
+// sign of the delta is the honest signal — a fixed tone can paint a decline green.
+const deltaTone = (deltaPct: number | null): "good" | "bad" | undefined => {
+  if (deltaPct == null || deltaPct === 0) return undefined;
+  return deltaPct > 0 ? "good" : "bad";
+};
 
 /** Dependency-free two-line SVG chart: current period (green) vs previous (muted). */
 function TwoLineChart({ current, previous, titles, height = 130 }: {
@@ -40,6 +48,26 @@ function TwoLineChart({ current, previous, titles, height = 130 }: {
   );
 }
 
+// Rank heat: the top third of active closers get a blue (accent) row tint that is
+// strongest at #1, the bottom third get a red (bad) tint strongest at last place,
+// the middle stays neutral. color-mix over var() tokens so it reads in dark + light.
+function rankRowStyle(rank: number, activeCount: number): React.CSSProperties {
+  if (activeCount < 2) return {};
+  const third = activeCount / 3;
+  if (rank < third) {
+    // 0 (top) => strongest; fade toward the middle.
+    const strength = 16 - (rank / Math.max(third - 1, 1)) * 10; // ~16% down to ~6%
+    return { background: `color-mix(in srgb, var(--accent) ${strength.toFixed(1)}%, transparent)` };
+  }
+  if (rank >= activeCount - third) {
+    // last place => strongest; fade toward the middle.
+    const fromBottom = activeCount - 1 - rank;
+    const strength = 16 - (fromBottom / Math.max(third - 1, 1)) * 10;
+    return { background: `color-mix(in srgb, var(--bad) ${strength.toFixed(1)}%, transparent)` };
+  }
+  return {};
+}
+
 export default async function Reps({ searchParams }: { searchParams: Promise<{ days?: string; from?: string; to?: string }> }) {
   await requireAccess("reps");
   const demo = await isDemoMode();
@@ -52,11 +80,8 @@ export default async function Reps({ searchParams }: { searchParams: Promise<{ d
     overviewComparison({ demo, days }),
   ]);
   // Separate batch so the page never exceeds 4 concurrent queries.
-  const [commission, repGoals] = await Promise.all([
-    commissionForReps(demo, days),
-    goalProgress(demo, "rep"),
-  ]);
-  // A rep's cash_collected goal, keyed by rep id, for the commission table rings.
+  const repGoals = await goalProgress(demo, "rep");
+  // A rep's cash_collected goal, keyed by rep id, for the leaderboard rings.
   const cashGoalByRep = new Map(
     repGoals.filter((g) => g.metric === "cash_collected" && g.rep_id).map((g) => [g.rep_id as string, g]),
   );
@@ -71,6 +96,17 @@ export default async function Reps({ searchParams }: { searchParams: Promise<{ d
   const prevCashPerCall = ratio(prev.cashMinor, prev.taken);
   const curAov = ratio(cur.invoicedMinor, cur.won);
   const prevAov = ratio(prev.invoicedMinor, prev.won);
+
+  // Deltas computed once so the value tone and the chip agree on direction.
+  const dBooked = delta(cur.booked, prev.booked);
+  const dOnCalendar = delta(cur.onCalendar, prev.onCalendar);
+  const dTaken = delta(cur.taken, prev.taken);
+  const dWon = delta(cur.won, prev.won);
+  const dCash = delta(cur.cashMinor, prev.cashMinor);
+  const dCashPerCall = delta(curCashPerCall, prevCashPerCall);
+  const dAov = delta(curAov, prevAov);
+  const dShow = delta(curShow, prevShow);
+  const dClose = delta(curClose, prevClose);
 
   const s = {
     booked: daily.map((d: any) => Number(d.booked)),
@@ -93,6 +129,11 @@ export default async function Reps({ searchParams }: { searchParams: Promise<{ d
   const cashCurTotal = cashCurrent.reduce((a, b) => a + b, 0);
   const cashPrevTotal = cashPrevious.reduce((a, b) => a + b, 0);
 
+  // Count of closers with real activity — drives the rank-heat gradient bounds so
+  // idle placeholder rows do not distort the top/bottom bands.
+  const activeCount = closers.filter((r: any) =>
+    Number(r.taken) + Number(r.on_calendar) + Number(r.won) + Number(r.cash_minor) > 0).length;
+
   return (
     <div>
       <h1 className="text-xl font-semibold">Closer Analytics</h1>
@@ -105,33 +146,31 @@ export default async function Reps({ searchParams }: { searchParams: Promise<{ d
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
         <StatSpark label="Total booked calls" value={num(cur.booked)} series={s.booked}
-          deltaPct={delta(cur.booked, prev.booked)} href={`/explore/booked?days=${days}`}
+          tone={deltaTone(dBooked)} deltaPct={dBooked} href={`/explore/booked?days=${days}`}
           help="Unique paid strategy-call bookings whose current slot lands in range — counted once no matter how often they reschedule." />
         <StatSpark label="Calls on calendar" value={num(cur.onCalendar)} series={s.onCalendar}
-          deltaPct={delta(cur.onCalendar, prev.onCalendar)} href={`/explore/booked?days=${days}`}
+          tone={deltaTone(dOnCalendar)} deltaPct={dOnCalendar} href={`/explore/booked?days=${days}`}
           help="Live calendar volume: current appointment slots in range, any status (scheduled, confirmed, taken, no-show, cancelled)." />
         <StatSpark label="Live (taken) calls" value={num(cur.taken)} series={s.taken}
-          deltaPct={delta(cur.taken, prev.taken)} href={`/explore/taken?days=${days}`}
+          tone={deltaTone(dTaken)} deltaPct={dTaken} href={`/explore/taken?days=${days}`}
           help="Strategy-call slots that actually happened, by event start time." />
-        <StatSpark label="Closed won" value={num(cur.won)} series={s.won} tone="good"
-          deltaPct={delta(cur.won, prev.won)} href={`/explore/deals?days=${days}`}
+        <StatSpark label="Closed won" value={num(cur.won)} series={s.won}
+          tone={deltaTone(dWon)} deltaPct={dWon} href={`/explore/deals?days=${days}`}
           help="Deals won by deal close date. Refunded deals are excluded." />
-        <StatSpark label="Cash collected" value={money(cur.cashMinor)} series={s.cash} tone="good"
-          deltaPct={delta(cur.cashMinor, prev.cashMinor)} href={`/explore/cash?days=${days}`}
+        <StatSpark label="Cash collected" value={money(cur.cashMinor)} series={s.cash}
+          tone={deltaTone(dCash)} deltaPct={dCash} href={`/explore/cash?days=${days}`}
           help="Gross program payments (NMI), excluding the $25 booking fees, before reversals." />
         <StatSpark label="Cash per live call" value={money(curCashPerCall)} series={s.cashPerCall}
-          deltaPct={delta(curCashPerCall, prevCashPerCall)} href={`/explore/cash?days=${days}`}
+          tone={deltaTone(dCashPerCall)} deltaPct={dCashPerCall} href={`/explore/cash?days=${days}`}
           help="Cash collected divided by taken calls — what a seat on the calendar is worth." />
         <StatSpark label="AOV" value={money(curAov)} series={s.aov}
-          deltaPct={delta(curAov, prevAov)} href={`/explore/deals?days=${days}`}
+          tone={deltaTone(dAov)} deltaPct={dAov} href={`/explore/deals?days=${days}`}
           help="Average order value: total contract value of won deals divided by deals won." />
         <StatSpark label="Show rate" value={pct(curShow)} series={s.show}
-          tone={curShow >= 0.7 ? "good" : curShow >= 0.5 ? "warn" : "bad"}
-          deltaPct={delta(curShow, prevShow)} href={`/explore/no_shows?days=${days}`}
+          tone={deltaTone(dShow)} deltaPct={dShow} href={`/explore/no_shows?days=${days}`}
           help="Taken / (taken + no-shows) on slots that reached their time." />
         <StatSpark label="Close rate" value={pct(curClose)} series={s.close}
-          tone={curClose >= 0.333 ? "good" : curClose >= 0.2 ? "warn" : "bad"}
-          deltaPct={delta(curClose, prevClose)} href={`/explore/deals?days=${days}`}
+          tone={deltaTone(dClose)} deltaPct={dClose} href={`/explore/deals?days=${days}`}
           help="Deals won / calls taken (the closer variant). 33.3%+ on the trailing 2 weeks unlocks the 15% commission tier." />
       </div>
 
@@ -177,17 +216,17 @@ export default async function Reps({ searchParams }: { searchParams: Promise<{ d
                   <th className="text-right">CR% <InfoTip text="Deals won / calls taken" /></th>
                   <th className="text-right">SR% <InfoTip text="Taken / (taken + no-shows) on this closer's slots" /></th>
                   <th className="text-right">Cash <InfoTip text="Cash collected attributed to this closer, with cash per taken call underneath" /></th>
-                  <th className="text-right">Est. comm. <InfoTip text="Cash x current tier rate (10% base, 15% while trailing 14-day close rate is 33.3%+). Indicative — payroll runs off validated commission reports." /></th>
+                  <th className="text-right">Goal <InfoTip text="Progress toward this closer's cash-collected goal for the current period" /></th>
                 </tr>
               </thead>
               <tbody>
                 {closers.map((r: any, i: number) => {
                   const hasActivity =
                     Number(r.taken) + Number(r.on_calendar) + Number(r.won) + Number(r.cash_minor) > 0;
+                  const goal = cashGoalByRep.get(r.id);
                   return (
                     <tr key={r.id} style={{
-                      ...(i === 0 && hasActivity ? { background: "rgba(212,175,55,.12)" } : {}),
-                      ...(hasActivity ? {} : { opacity: 0.45 }),
+                      ...(hasActivity ? rankRowStyle(i, activeCount) : { opacity: 0.45 }),
                     }}>
                       <td>{i + 1}</td>
                       <td>
@@ -206,7 +245,15 @@ export default async function Reps({ searchParams }: { searchParams: Promise<{ d
                           {r.cash_per_taken_minor != null ? `${money(r.cash_per_taken_minor)}/call` : "—"}
                         </div>
                       </td>
-                      <td className="text-right">{money(r.est_commission_minor)}</td>
+                      <td className="text-right">
+                        {goal ? (
+                          <div className="flex justify-end">
+                            <ProgressRing value={Math.min(1, goal.pct)} label={pct(goal.pct, 0)} size={54} />
+                          </div>
+                        ) : (
+                          <span style={{ color: "var(--muted)" }}>—</span>
+                        )}
+                      </td>
                     </tr>
                   );
                 })}
@@ -218,54 +265,6 @@ export default async function Reps({ searchParams }: { searchParams: Promise<{ d
           </Card>
         </div>
       </div>
-
-      <SectionTitle>Commission (estimate)</SectionTitle>
-      <Card>
-        <div className="mb-3 flex items-center gap-1.5 text-xs" style={{ color: "var(--muted)" }}>
-          Rule-driven estimate
-          <InfoTip text="Computed from the commission rules enabled per member (base rate, tier bonus, refund clawback). Toggle a rule per member in Admin -> Commission. Estimate only; payroll runs off validated commission reports." />
-        </div>
-        <table>
-          <thead>
-            <tr>
-              <th>Closer</th>
-              <th className="text-right">Cash collected</th>
-              <th className="text-right">Effective rate</th>
-              <th className="text-right">Tier active</th>
-              <th className="text-right">Est. owed</th>
-              <th className="text-right">Goal</th>
-            </tr>
-          </thead>
-          <tbody>
-            {commission.map((r) => {
-              const goal = cashGoalByRep.get(r.rep_id);
-              return (
-                <tr key={r.rep_id}>
-                  <td>{r.full_name}</td>
-                  <td className="text-right">{money(r.cash_minor)}</td>
-                  <td className="text-right">{pct(r.effective_rate)}</td>
-                  <td className="text-right">
-                    {r.tier_active ? <Badge tone="good">Active</Badge> : <Badge>Base</Badge>}
-                  </td>
-                  <td className="text-right">{money(r.owed_minor)}</td>
-                  <td className="text-right">
-                    {goal ? (
-                      <div className="flex justify-end">
-                        <ProgressRing value={Math.min(1, goal.pct)} label={pct(goal.pct, 0)} size={62} />
-                      </div>
-                    ) : (
-                      <span style={{ color: "var(--muted)" }}>—</span>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-            {commission.length === 0 && (
-              <tr><td colSpan={6} style={{ color: "var(--muted)" }}>No active closers</td></tr>
-            )}
-          </tbody>
-        </table>
-      </Card>
     </div>
   );
 }

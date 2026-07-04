@@ -20,6 +20,21 @@ export function Composer() {
         <label className="flex items-center gap-1.5 text-sm"><input type="checkbox" name="pinned" /> Pin to top banner</label>
         <button type="submit" disabled={pending} className="btn">{pending ? "Posting..." : "Post announcement"}</button>
       </div>
+      <div>
+        <label className="mb-1 block text-xs" style={{ color: "var(--muted)" }}>
+          Audience (leave empty for everyone)
+        </label>
+        <select name="roles" multiple size={5} className="w-auto min-w-48">
+          <option value="admin">Admin</option>
+          <option value="leadership">Leadership</option>
+          <option value="closer">Closer</option>
+          <option value="setter">Setter</option>
+          <option value="csm">CSM</option>
+        </select>
+        <p className="mt-1 text-[11px]" style={{ color: "var(--muted)" }}>
+          Hold Cmd or Ctrl to pick more than one role. No selection means everyone sees it.
+        </p>
+      </div>
       <div className="grid grid-cols-2 gap-3">
         <label className="text-xs" style={{ color: "var(--muted)" }}>Show from<input name="starts" type="datetime-local" /></label>
         <label className="text-xs" style={{ color: "var(--muted)" }}>Hide after<input name="ends" type="datetime-local" /></label>
