@@ -7,6 +7,8 @@ import { LogoutButton, NavLink, NavGroup } from "./nav";
 import { ViewAsControl, ViewAsBanner } from "./view-as";
 import { TopBanners } from "./banners";
 import { shellSignals } from "@/lib/announcements";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { cookies } from "next/headers";
 
 type Item = { href: string; label: string; icon: string; gate?: PageKey; badge?: number };
 
@@ -20,6 +22,7 @@ export default async function AppLayout({ children, drawer }: { children: React.
   // single shell query: pending-calls badge + system alerts + pinned banners
   const shell = await shellSignals();
   const pendingCalls = has("calls") ? (shell.pendingCalls || undefined) : undefined;
+  const theme = (await cookies()).get("tcb_theme")?.value === "light" ? "light" : "dark";
 
   const rawGroups: { label: string; items: Item[] }[] = [
     { label: "Insights", items: [
@@ -84,6 +87,10 @@ export default async function AppLayout({ children, drawer }: { children: React.
           ))}
         </nav>
         <div className="mt-4 border-t pt-3" style={{ borderColor: "var(--line)" }}>
+          <div className="mb-2 flex items-center justify-between px-1.5">
+            <span className="text-[10px] uppercase tracking-wider" style={{ color: "var(--muted)" }}>Theme</span>
+            <ThemeToggle initial={theme} />
+          </div>
           <NavLink href="/settings" label="Settings" icon="settings" />
           <div className="mt-2 flex items-center gap-2 px-1.5">
             <div className="flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-semibold"

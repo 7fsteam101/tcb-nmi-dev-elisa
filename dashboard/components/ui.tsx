@@ -52,7 +52,7 @@ export function Badge({ children, tone = "neutral" }: { children: ReactNode; ton
   };
   return (
     <span
-      className="inline-block rounded-full border px-2 py-0.5 text-[11px] font-medium"
+      className="inline-block rounded-full border px-2 py-0.5 text-[12px] font-medium"
       style={{ color: colors[tone], borderColor: `color-mix(in srgb, ${colors[tone]} 40%, transparent)`, background: `color-mix(in srgb, ${colors[tone]} 10%, transparent)` }}
     >
       {children}
@@ -90,4 +90,11 @@ export const STATUS_TONE: Record<string, "good" | "warn" | "bad" | "neutral" | "
   pending: "warn", sent: "good", failed: "bad", skipped: "neutral",
 };
 
-export const label = (s: string | null | undefined) => (s ?? "—").replaceAll("_", " ");
+// Human status label: underscores to spaces, first letter capitalized, and a
+// few known acronyms upper-cased. "no_show" -> "No show", "won_pif" -> "Won PIF".
+const ACRONYMS: Record<string, string> = { pif: "PIF", pp: "PP", dq: "DQ", csm: "CSM", nafa: "NAFA", ghl: "GHL", nmi: "NMI", cpl: "CPL", roas: "ROAS", aov: "AOV" };
+export const label = (s: string | null | undefined) => {
+  if (s == null || s === "") return "—";
+  const out = String(s).replaceAll("_", " ").split(" ").map((w) => ACRONYMS[w.toLowerCase()] ?? w).join(" ");
+  return out.charAt(0).toUpperCase() + out.slice(1);
+};
