@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { campaignTable, dailySeries, overviewKpis } from "@/lib/kpi";
+import { dailySeries, overviewKpis } from "@/lib/kpi";
+import { campaignFunnel } from "@/lib/kpi-campaign";
 import { isDemoMode, reportTimezone } from "@/lib/settings";
 import { money, num } from "@/lib/format";
-import { Card, Stat, SectionTitle } from "@/components/ui";
+import { Card, Stat, SectionTitle, InfoTip } from "@/components/ui";
 import { DateRangeBar } from "@/components/date-range";
 import { LineChart, DonutChart } from "@/components/charts";
 import { resolveRange } from "@/lib/range";
@@ -20,7 +21,7 @@ export default async function Marketing({ searchParams }: { searchParams: Promis
   const until = range.custom ? range.until : null;
   const rq = range.custom ? `from=${range.from}&to=${range.to}` : `days=${days}`;
   const [campaigns, series, k] = await Promise.all([
-    campaignTable({ demo, days }),
+    campaignFunnel({ demo, days, since: range.since, until }),
     dailySeries({ demo, days, tz, from: range.from, to: range.to }),
     overviewKpis({ demo, days, tz, since: range.since, until }),
   ]);
@@ -32,7 +33,9 @@ export default async function Marketing({ searchParams }: { searchParams: Promis
 
   const spendSeries = series.map((d: any) => Number(d.spend_minor) / 100);
   const dayLabels = series.map((d: any) => new Date(d.day).toLocaleDateString("en-US", { month: "short", day: "numeric" }));
-  const campaignDonut = campaigns.slice(0, 6).map((c: any) => ({ label: c.campaign_name, value: Math.round(Number(c.spend_minor) / 100) }));
+  const withSpend = campaigns.filter((c: any) => Number(c.spend_minor) > 0);
+  const campaignDonut = (withSpend.length ? withSpend : campaigns).slice(0, 6)
+    .map((c: any) => ({ label: c.campaign, value: Math.round(Number(c.spend_minor) / 100) || Number(c.leads) }));
 
   return (
     <div>
@@ -70,31 +73,53 @@ export default async function Marketing({ searchParams }: { searchParams: Promis
         </div>
       </div>
 
-      <SectionTitle>Campaigns</SectionTitle>
+      <SectionTitle>Campaign Performance</SectionTitle>
+      <p className="mb-2 text-xs" style={{ color: "var(--muted)" }}>
+        One row per UTM campaign, joining Meta spend to our funnel. Populates as GHL form opt-ins (with UTMs) and Meta connect.
+      </p>
       <Card>
-        <table>
-          <thead>
-            <tr><th>Campaign</th><th className="text-right">Spend</th><th className="text-right">Meta leads</th>
-            <th className="text-right">CPL (Meta)</th><th className="text-right">Clicks</th><th className="text-right">Impressions</th></tr>
-          </thead>
-          <tbody>
-            {campaigns.map((c: any) => (
-              <tr key={c.campaign_name}>
-                <td>
-                  <Link href={`/explore/adspend?arg=${encodeURIComponent(c.campaign_name)}&${rq}`} style={{ color: "var(--accent)" }}>
-                    {c.campaign_name}
-                  </Link>
-                </td>
-                <td className="text-right">{money(c.spend_minor)}</td>
-                <td className="text-right">{num(c.meta_leads)}</td>
-                <td className="text-right">{c.cpl_minor ? money(c.cpl_minor) : "—"}</td>
-                <td className="text-right">{num(c.clicks)}</td>
-                <td className="text-right">{num(c.impressions)}</td>
+        <div className="overflow-x-auto">
+          <table>
+            <thead>
+              <tr>
+                <th>Campaign</th>
+                <th className="text-right">Spend</th>
+                <th className="text-right">Clicks</th>
+                <th className="text-right">Leads</th>
+                <th className="text-right">CPL <InfoTip text="Spend / leads from this campaign" /></th>
+                <th className="text-right">Booked</th>
+                <th className="text-right">Won</th>
+                <th className="text-right">CPA <InfoTip text="Spend / deals won" /></th>
+                <th className="text-right">Cash</th>
+                <th className="text-right">ROAS <InfoTip text="Cash collected / spend" /></th>
               </tr>
-            ))}
-            {campaigns.length === 0 && <tr><td colSpan={6} style={{ color: "var(--muted)" }}>No spend data yet — connect Meta in Connections</td></tr>}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {campaigns.map((c: any) => {
+                const sp = Number(c.spend_minor), ld = Number(c.leads), wn = Number(c.won), csh = Number(c.cash_minor);
+                return (
+                  <tr key={c.campaign}>
+                    <td>
+                      <Link href={`/explore/adspend?arg=${encodeURIComponent(c.campaign)}&${rq}`} style={{ color: "var(--accent)" }}>{c.campaign}</Link>
+                    </td>
+                    <td className="text-right">{sp ? money(sp) : "—"}</td>
+                    <td className="text-right">{Number(c.clicks) ? num(c.clicks) : "—"}</td>
+                    <td className="text-right">{num(ld)}</td>
+                    <td className="text-right">{sp && ld ? money(Math.round(sp / ld)) : "—"}</td>
+                    <td className="text-right">{num(c.booked)}</td>
+                    <td className="text-right">{num(wn)}</td>
+                    <td className="text-right">{sp && wn ? money(Math.round(sp / wn)) : "—"}</td>
+                    <td className="text-right">{csh ? money(csh) : "—"}</td>
+                    <td className="text-right" style={sp && csh / sp >= 2 ? { color: "var(--good)" } : undefined}>
+                      {sp ? `${(csh / sp).toFixed(2)}x` : "—"}
+                    </td>
+                  </tr>
+                );
+              })}
+              {campaigns.length === 0 && <tr><td colSpan={10} style={{ color: "var(--muted)" }}>No campaign data yet — connect GHL forms (for UTMs) and Meta in Connections</td></tr>}
+            </tbody>
+          </table>
+        </div>
       </Card>
     </div>
   );

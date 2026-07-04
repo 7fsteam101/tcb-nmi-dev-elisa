@@ -97,14 +97,69 @@ on the contact's plan (marks it paid); refund/void/chargeback → reversal.
 
 ---
 
-## 5. Meta — ad spend
+## 5. Meta — ad spend (decision: non-expiring System User token, read-only)
 
-1. Business Manager → create a system-user token with `ads_read` on the ad
-   account.
-2. Paste it in Connections → Meta, and set `META_AD_ACCOUNT_ID` (Vercel env).
+Why a System User token, not Cloudflare Workers or a user token: it can be set
+to never expire (a user token dies in ~60 days and breaks the pipeline), and it
+is server-to-server with no OAuth dance because it is their own ad account.
+Read-only scopes only, so a leaked token can never spend money.
 
-**What fires:** a daily cron pulls per-ad spend/CPC/CTR (re-pulling a trailing
-window to catch Meta's restatements) into `marketing.ad_spend`.
+1. Business Settings → Users → **System Users** → Add (or reuse) → **Assign
+   assets** → the ad account → **View performance** (`ads_read`).
+2. **Generate token** for that system user with `ads_read` + `read_insights`
+   only (NOT `ads_management`) → **no expiration**.
+3. Copy the **ad account id** (`act_...`).
+4. Paste token in Connections → Meta, ad account id in the Account id field.
+   (Or set `META_ACCESS_TOKEN` / `META_AD_ACCOUNT_ID` as Vercel env.)
+
+**What fires:** the daily `/api/cron/meta` job pulls per-campaign spend / clicks /
+impressions / CPC via the Insights API (re-pulling a trailing window to catch
+Meta's 48h restatements) into `marketing.ad_spend`.
+
+---
+
+## 6. Dub — link clicks + UTMs (decision: API key; needs Dub Pro)
+
+Two separate jobs — both feed the campaign report:
+
+**A. Per-lead UTM (attribution) — no Dub API needed.** The UTMs must land on the
+GHL opt-in form as **hidden fields**: `utm_source`, `utm_medium`,
+`utm_campaign`, `utm_content`, `utm_term` (and Dub sets a `dub_id` we can also
+capture). These write to `sales.opt_in` (`utm`, `source_campaign`,
+`dub_link_id`) and drive first / last / converting-touch attribution, so every
+lead and contact shows its true source.
+- **Setup:** confirm those 5 hidden fields exist on the GHL form. If Dub is the
+  short-link in front of the funnel, its links already carry the UTMs and pass
+  them to the landing page, which forwards them into the form.
+
+**B. Click volume (Dub Analytics API) — needs Dub Pro.** Dub's analytics endpoint
+returns clicks grouped by `utm_campaigns` / `utm_sources` / `utm_mediums` /
+`top_links`. The Analytics API is a **Pro-plan feature**.
+- **Setup:** Dub → Settings → API Keys → create a read key → paste in
+  Connections → Dub. The daily job pulls clicks-by-campaign into the report.
+- If they are not on Pro: skip this; attribution still works fully from the UTMs
+  on the form (job A). We just lose the top-of-funnel click count.
+
+**Join key for all of it:** `utm_campaign`. It must match the Meta campaign name
+and the Dub link's campaign for the three sources to line up in one row — worth
+enforcing a naming convention with their media buyer.
+
+---
+
+## Reporting — Campaign Performance (the unified funnel)
+
+One report, one row per `utm_campaign`, joining all three sources:
+
+| From | Columns |
+|---|---|
+| Meta | Spend, impressions, clicks, CPC |
+| Dub (Pro) | Link clicks, top links |
+| Our data | Leads → Booked → Taken → Won → Cash |
+
+Derived per campaign: **CPL** (spend / leads), **cost per booked call**, **CPA**
+(spend / deals), **ROAS** (cash / spend). Plus per-lead UTM source on each
+contact's story. Empty spend/click columns until Meta/Dub connect; the funnel
+half works today from our own data.
 
 ---
 

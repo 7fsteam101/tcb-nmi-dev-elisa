@@ -14,7 +14,8 @@ export function KeyForm() {
             <option value="close">Close (API key)</option>
             <option value="stripe">Stripe (restricted key)</option>
             <option value="nmi">NMI (security key)</option>
-            <option value="meta">Meta (access token)</option>
+            <option value="meta">Meta (system-user token, read-only)</option>
+            <option value="dub">Dub (API key, Pro plan)</option>
           </select>
         </div>
         <div>
@@ -24,7 +25,7 @@ export function KeyForm() {
       </div>
       <div>
         <label className="mb-1 block text-xs" style={{ color: "var(--muted)" }}>Account id (optional)</label>
-        <input name="accountId" placeholder="org / account id, or leave blank" />
+        <input name="accountId" placeholder="For Meta: the ad account id (act_...). Otherwise leave blank." />
       </div>
       <div>
         <label className="mb-1 block text-xs" style={{ color: "var(--muted)" }}>Key</label>

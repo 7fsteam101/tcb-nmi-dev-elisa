@@ -1,6 +1,7 @@
 import { sql } from "../db";
 
-export type Provider = "ghl" | "close" | "stripe" | "nmi" | "meta";
+// Mirrors the sync.provider enum in the DB (migration 0021 added dub/sendblue/monday).
+export type Provider = "ghl" | "close" | "stripe" | "nmi" | "meta" | "dub" | "sendblue" | "monday";
 
 // One row per connected account (sync.connections). Tokens live in Supabase
 // Vault; connections hold only a reference. Env vars act as a bootstrap
