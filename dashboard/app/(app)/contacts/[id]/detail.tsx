@@ -50,7 +50,7 @@ export async function ContactBody({ id }: { id: string }) {
   const [deals, plans, receivables, payments] = await Promise.all([
     sql`select d.id, d.opportunity_id, d.plan_type_snapshot, d.total_contract_value_minor, d.status, d.deal_close_date from sales.deal d where d.contact_id = ${id} order by d.deal_close_date desc`,
     sql`select pp.id, pp.deal_id, pp.version, pp.plan_type, pp.total_minor, pp.is_current from finance.payment_plan pp where pp.deal_id in (select d.id from sales.deal d where d.contact_id = ${id}) order by pp.version`,
-    sql`select r.id, r.payment_plan_id, r.installment_no, r.due_date, r.amount_minor, r.status from finance.receivable r where r.deal_id in (select d.id from sales.deal d where d.contact_id = ${id}) order by r.installment_no`,
+    sql`select r.id, r.deal_id, r.payment_plan_id, r.installment_no, r.due_date, r.amount_minor, r.status from finance.receivable r where r.deal_id in (select d.id from sales.deal d where d.contact_id = ${id}) order by r.installment_no`,
     sql`select p.id, p.deal_id, p.type, p.amount_minor, p.processor, p.occurred_at from finance.successful_payment p where p.deal_id in (select d.id from sales.deal d where d.contact_id = ${id}) order by p.occurred_at`,
   ]);
   const [optIns, reports, notes, agreements] = await Promise.all([
@@ -63,7 +63,7 @@ export async function ContactBody({ id }: { id: string }) {
   const callsByOpp = gb(calls, "opportunity_id");
   const slotsByCall = gb(appointments, "call_id");
   const plansByDeal = gb(plans, "deal_id");
-  const recvByPlan = gb(receivables, "payment_plan_id");
+  const recvByDeal = gb(receivables, "deal_id");
   const paymentsByDeal = gb(payments, "deal_id");
 
   const extras = identifiers.filter((i: any) => ![contact.primary_email, contact.primary_phone].filter(Boolean).map((v) => String(v).toLowerCase()).includes(String(i.value).toLowerCase()));
@@ -82,6 +82,21 @@ export async function ContactBody({ id }: { id: string }) {
   reports.forEach((r: any) => feed.push({ when: r.submitted_at, text: `${label(r.type)} report ${label(r.status)}`, tn: tone(r.status) }));
   notes.forEach((n: any) => feed.push({ when: n.created_at, text: `Note by ${n.author ?? "team"}`, sub: n.body, tn: "neutral" }));
   const activity = feed.filter((e) => e.when).sort((a, b) => new Date(b.when).getTime() - new Date(a.when).getTime());
+
+  // top-of-profile metric strip
+  const booked = calls.filter((c: any) => c.type === "strategy").length;
+  const taken = appointments.filter((a: any) => a.status === "taken").length;
+  const contractedMinor = deals.filter((d: any) => d.status !== "refunded").reduce((s: number, d: any) => s + Number(d.total_contract_value_minor), 0);
+  const lastActivity = activity[0]?.when;
+  const strip: [string, string][] = [
+    ["Opt-ins", String(optIns.length)],
+    ["Booked", String(booked)],
+    ["Taken", String(taken)],
+    ["Opportunities", String(opportunities.length)],
+    ["Cash collected", money(totalPaid)],
+    ["Contracted", money(contractedMinor)],
+    ["Last activity", lastActivity ? shortDate(lastActivity, tz) : "—"],
+  ];
 
   // ================= sections =================
   const overview = (
@@ -159,7 +174,10 @@ export async function ContactBody({ id }: { id: string }) {
     <div className="space-y-3">
       {deals.map((d: any) => {
         const dp = plansByDeal.get(String(d.id)) ?? [];
+        const dRec = recvByDeal.get(String(d.id)) ?? [];
         const pay = paymentsByDeal.get(String(d.id)) ?? [];
+        const paidMinor = pay.reduce((s: number, p: any) => s + Number(p.amount_minor), 0);
+        const scheduledMinor = dRec.filter((r: any) => r.status !== "paid").reduce((s: number, r: any) => s + Number(r.amount_minor), 0);
         return (
           <Card key={d.id}>
             <div className="flex flex-wrap items-center gap-3">
@@ -168,28 +186,55 @@ export async function ContactBody({ id }: { id: string }) {
               <Badge tone={tone(d.status)}>{label(d.status)}</Badge>
               <span className="text-xs" style={{ color: "var(--muted)" }}>Closed {shortDate(d.deal_close_date, tz)}</span>
             </div>
-            {dp.map((p: any) => {
-              const rec = recvByPlan.get(String(p.id)) ?? [];
-              return (
-                <div key={p.id} className="mt-3 border-t pt-2" style={{ borderColor: "var(--line)" }}>
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="font-medium">Plan v{p.version}</span>
+
+            {/* payment plan */}
+            {dp.length > 0 && (
+              <div className="mt-3 border-t pt-2" style={{ borderColor: "var(--line)" }}>
+                <div className="mb-1 text-[11px] uppercase tracking-wide" style={{ color: "var(--muted)" }}>Payment plan</div>
+                {dp.map((p: any) => (
+                  <div key={p.id} className="flex flex-wrap items-center gap-2 text-sm">
+                    <span className="font-medium">Version {p.version}</span>
                     <Badge tone={p.is_current ? "good" : "neutral"}>{p.is_current ? "current" : "superseded"}</Badge>
+                    <span className="text-xs" style={{ color: "var(--muted)" }}>{label(p.plan_type)}{p.total_minor != null ? ` · ${money(p.total_minor)}` : ""}</span>
                   </div>
-                  {rec.length > 0 && (
-                    <div className="mt-2 overflow-x-auto">
-                      <table>
-                        <thead><tr><th>#</th><th>Due</th><th>Amount</th><th>Status</th></tr></thead>
-                        <tbody>{rec.map((r: any) => <tr key={r.id}><td>#{r.installment_no}</td><td>{shortDate(r.due_date, tz)}</td><td>{money(r.amount_minor)}</td><td><Badge tone={tone(r.status)}>{label(r.status)}</Badge></td></tr>)}</tbody>
-                      </table>
-                    </div>
-                  )}
+                ))}
+              </div>
+            )}
+
+            {/* receivables (schedule) */}
+            {dRec.length > 0 && (
+              <div className="mt-3 border-t pt-2" style={{ borderColor: "var(--line)" }}>
+                <div className="mb-1 flex items-center justify-between">
+                  <span className="text-[11px] uppercase tracking-wide" style={{ color: "var(--muted)" }}>Receivables</span>
+                  <span className="text-[11px]" style={{ color: "var(--muted)" }}>{money(paidMinor)} paid · {money(scheduledMinor)} scheduled</span>
                 </div>
-              );
-            })}
+                <div className="overflow-x-auto">
+                  <table>
+                    <thead><tr><th>#</th><th>Due</th><th className="text-right">Amount</th><th>Status</th></tr></thead>
+                    <tbody>
+                      {dRec.map((r: any) => (
+                        <tr key={r.id}><td>#{r.installment_no}</td><td>{shortDate(r.due_date, tz)}</td><td className="text-right">{money(r.amount_minor)}</td><td><Badge tone={tone(r.status)}>{label(r.status)}</Badge></td></tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* payments */}
             {pay.length > 0 && (
-              <div className="mt-3 border-t pt-2 text-xs" style={{ borderColor: "var(--line)", color: "var(--muted)" }}>
-                {pay.length} payment(s) · {money(pay.reduce((s: number, p: any) => s + Number(p.amount_minor), 0))} total
+              <div className="mt-3 border-t pt-2" style={{ borderColor: "var(--line)" }}>
+                <div className="mb-1 text-[11px] uppercase tracking-wide" style={{ color: "var(--muted)" }}>Payments ({pay.length})</div>
+                <div className="overflow-x-auto">
+                  <table>
+                    <thead><tr><th>Paid</th><th>Type</th><th className="text-right">Amount</th><th>Processor</th></tr></thead>
+                    <tbody>
+                      {pay.map((p: any) => (
+                        <tr key={p.id}><td>{shortDate(p.occurred_at, tz)}</td><td style={{ color: "var(--muted)" }}>{label(p.type)}</td><td className="text-right">{money(p.amount_minor)}</td><td style={{ color: "var(--muted)" }}>{label(p.processor)}</td></tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </Card>
@@ -258,6 +303,14 @@ export async function ContactBody({ id }: { id: string }) {
       <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
         {contact.primary_email ?? "—"} &middot; {contact.primary_phone ?? "—"} &middot; Owner: {contact.owner ?? "—"}
       </p>
+      <div className="mt-3 flex flex-wrap gap-x-6 gap-y-2 border-y py-2.5" style={{ borderColor: "var(--line)" }}>
+        {strip.map(([l, v]) => (
+          <div key={l}>
+            <div className="text-[10px] uppercase tracking-wide" style={{ color: "var(--muted)" }}>{l}</div>
+            <div className="text-sm font-semibold tabular-nums" style={{ color: "var(--text)" }}>{v}</div>
+          </div>
+        ))}
+      </div>
       <div className="mt-4">
         <ContactTabs tabs={[
           { key: "overview", label: "Overview", content: overview },
