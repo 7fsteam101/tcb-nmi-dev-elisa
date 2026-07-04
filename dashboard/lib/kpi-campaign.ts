@@ -33,6 +33,53 @@ export async function metaReport(
   `;
 }
 
+// Lead volume by acquisition source: unique opt-ins grouped by source_channel over
+// the window. One row per channel, largest first. Null/blank channels roll up to
+// '(unattributed)'. Single statement (one connection). Returns nothing when there
+// are no leads in range (the page renders an empty state).
+export async function leadsBySource(
+  { demo, since, until }: { demo: boolean; since: string; until: string | null },
+) {
+  return sql`
+    select coalesce(nullif(trim(o.source_channel), ''), '(unattributed)') as source, count(*)::int as leads
+    from sales.opt_in o
+    where o.is_demo = ${demo} and o.counts_as_unique
+      and o.submitted_at >= ${since}::timestamptz
+      and (${until}::timestamptz is null or o.submitted_at < ${until}::timestamptz)
+    group by 1
+    order by leads desc, source asc
+  `;
+}
+
+// Booked calls by acquisition source: unique primary strategy-call bookings joined
+// back to the booking contact's acquisition channel (the source_channel of their
+// EARLIEST opt-in, i.e. first touch — same attribution rule as campaignFunnel).
+// One row per channel, largest first. Single statement (one connection). Returns
+// nothing when there are no bookings in range (the page renders an empty state).
+export async function bookedBySource(
+  { demo, since, until }: { demo: boolean; since: string; until: string | null },
+) {
+  return sql`
+    with acq as (
+      select distinct on (o.contact_id) o.contact_id,
+        coalesce(nullif(trim(o.source_channel), ''), '(unattributed)') as source
+      from sales.opt_in o
+      where o.is_demo = ${demo} and o.contact_id is not null
+      order by o.contact_id, o.submitted_at asc
+    )
+    select coalesce(a.source, '(unattributed)') as source, count(*)::int as booked
+    from sales.call c
+    join sales.opportunity opp on opp.id = c.opportunity_id
+    left join acq a on a.contact_id = opp.contact_id
+    where c.is_demo = ${demo} and c.type = 'strategy' and c.is_primary and c.is_booking
+      and not coalesce(c.is_duplicate, false)
+      and coalesce(c.current_scheduled_at, c.scheduled_at) >= ${since}::timestamptz
+      and (${until}::timestamptz is null or coalesce(c.current_scheduled_at, c.scheduled_at) < ${until}::timestamptz)
+    group by 1
+    order by booked desc, source asc
+  `;
+}
+
 // Campaign Performance: one row per utm_campaign, joining Meta spend + our funnel
 // (leads -> booked -> won -> cash). A contact's acquisition campaign is the
 // campaign of their EARLIEST opt-in (first touch); booked/won/cash attribute to

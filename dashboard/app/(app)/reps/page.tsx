@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { closerAnalytics, dailyCashSeries, dailyCloserSeries, overviewComparison } from "@/lib/kpi-closer";
+import { reportCompliance } from "@/lib/kpi-quality";
 import { isDemoMode, reportTimezone } from "@/lib/settings";
 import { money, num, pct } from "@/lib/format";
-import { Card, SectionTitle, InfoTip } from "@/components/ui";
+import { Card, SectionTitle, InfoTip, Badge } from "@/components/ui";
 import { StatSpark } from "@/components/stat-spark";
 import { DateRangeBar } from "@/components/date-range";
 import { ProgressRing } from "@/components/charts";
@@ -79,8 +80,11 @@ export default async function Reps({ searchParams }: { searchParams: Promise<{ d
     dailyCloserSeries({ demo, days, tz }),
     overviewComparison({ demo, days }),
   ]);
-  // Separate batch so the page never exceeds 4 concurrent queries.
+  // Separate awaits so the page never exceeds 4 concurrent queries.
   const repGoals = await goalProgress(demo, "rep");
+  const compliance = await reportCompliance({ demo, days });
+  // Report-compliance rows keyed by rep id for the leaderboard column.
+  const complianceByRep = new Map(compliance.map((c) => [c.rep_id, c]));
   // A rep's cash_collected goal, keyed by rep id, for the leaderboard rings.
   const cashGoalByRep = new Map(
     repGoals.filter((g) => g.metric === "cash_collected" && g.rep_id).map((g) => [g.rep_id as string, g]),
@@ -265,6 +269,53 @@ export default async function Reps({ searchParams }: { searchParams: Promise<{ d
           </Card>
         </div>
       </div>
+
+      <SectionTitle>Report compliance</SectionTitle>
+      <Card>
+        <p className="mb-3 text-xs" style={{ color: "var(--muted)" }}>
+          Sales Call Reports are due the same day the call happens. On-time rate = reports filed on time / taken calls, over the last {days} days.
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Closer</th>
+              <th className="text-right">Taken <InfoTip text="Taken strategy calls attributed to this closer in range" /></th>
+              <th className="text-right">On time <InfoTip text="Taken calls whose Sales Call Report was filed the same ET day" /></th>
+              <th className="text-right">Missing <InfoTip text="Taken calls with no validated Sales Call Report filed at all" /></th>
+              <th className="text-right">On-time %</th>
+            </tr>
+          </thead>
+          <tbody>
+            {closers.map((r: any) => {
+              const c = complianceByRep.get(r.id);
+              if (!c || Number(c.taken) === 0) return null;
+              const rate = c.on_time_rate != null ? Number(c.on_time_rate) : null;
+              const tone = rate == null ? "neutral" : rate >= 0.9 ? "good" : rate >= 0.7 ? "warn" : "bad";
+              return (
+                <tr key={r.id}>
+                  <td>
+                    <Link href={`/explore/rep?arg=${r.id}&title=${encodeURIComponent(r.full_name)}&days=${days}`}
+                      style={{ color: "var(--accent)" }}>
+                      {r.full_name}
+                    </Link>
+                  </td>
+                  <td className="text-right">{num(c.taken)}</td>
+                  <td className="text-right">{num(c.on_time)}</td>
+                  <td className="text-right" style={Number(c.missing) > 0 ? { color: "var(--bad)" } : undefined}>
+                    {num(c.missing)}
+                  </td>
+                  <td className="text-right">
+                    {rate != null ? <Badge tone={tone}>{pct(rate, 0)}</Badge> : <span style={{ color: "var(--muted)" }}>—</span>}
+                  </td>
+                </tr>
+              );
+            })}
+            {compliance.length === 0 && (
+              <tr><td colSpan={5} style={{ color: "var(--muted)" }}>No taken calls to grade in this range</td></tr>
+            )}
+          </tbody>
+        </table>
+      </Card>
     </div>
   );
 }

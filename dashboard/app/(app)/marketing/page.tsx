@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { dailySeries, overviewKpis } from "@/lib/kpi";
-import { campaignFunnel, metaReport, normalizeGrain } from "@/lib/kpi-campaign";
+import { campaignFunnel, metaReport, normalizeGrain, leadsBySource, bookedBySource } from "@/lib/kpi-campaign";
 import { isDemoMode, reportTimezone } from "@/lib/settings";
-import { money, num } from "@/lib/format";
+import { money, num, pct } from "@/lib/format";
 import { label, Card, Stat, SectionTitle, InfoTip } from "@/components/ui";
 import { DateRangeBar } from "@/components/date-range";
 import { GranularityToggle } from "@/components/granularity";
-import { LineChart, DonutChart, BarChart } from "@/components/charts";
+import { LineChart, DonutChart, BarChart, HBarList } from "@/components/charts";
 import { resolveRange } from "@/lib/range";
 import { requireAccess } from "@/lib/access";
 
@@ -23,17 +23,34 @@ export default async function Marketing({ searchParams }: { searchParams: Promis
   const days = range.days;
   const until = range.custom ? range.until : null;
   const rq = range.custom ? `from=${range.from}&to=${range.to}` : `days=${days}`;
+  // Batch 1 (<=4 concurrent, matching db.ts max:4). campaignFunnel + overviewKpis
+  // each fan out internally but run as a single SQL statement = one connection each.
   const [campaigns, series, k, report] = await Promise.all([
     campaignFunnel({ demo, days, since: range.since, until }),
     dailySeries({ demo, days, tz, from: range.from, to: range.to }),
     overviewKpis({ demo, days, tz, since: range.since, until }),
     metaReport({ demo, grain, since: range.since, until }),
   ]);
+  // Batch 2 (2 more single-statement queries) runs after batch 1 resolves, so we
+  // never exceed 4 concurrent connections on the pooler.
+  const [leadSources, bookedSources] = await Promise.all([
+    leadsBySource({ demo, since: range.since, until }),
+    bookedBySource({ demo, since: range.since, until }),
+  ]);
 
   const spend = Number(k.ad_spend_minor);
   const leads = Number(k.leads);
   const booked = Number(k.booked);
   const netCash = Number(k.cash_collected_minor) - Number(k.reversals_minor);
+  const bookedRevenue = Number(k.booked_revenue_minor);
+
+  // Window totals for CPC / CTR, summed from the report buckets (same window).
+  const totalSpend = report.reduce((s: number, r: any) => s + Number(r.spend_minor), 0);
+  const totalClicks = report.reduce((s: number, r: any) => s + Number(r.clicks), 0);
+  const totalImpr = report.reduce((s: number, r: any) => s + Number(r.impressions), 0);
+
+  const leadSourceRows = leadSources.map((r: any) => ({ label: label(r.source), value: Number(r.leads) }));
+  const bookedSourceRows = bookedSources.map((r: any) => ({ label: label(r.source), value: Number(r.booked) }));
 
   const spendSeries = series.map((d: any) => Number(d.spend_minor) / 100);
   const dayLabels = series.map((d: any) => new Date(d.day).toLocaleDateString("en-US", { month: "short", day: "numeric" }));
@@ -53,6 +70,7 @@ export default async function Marketing({ searchParams }: { searchParams: Promis
     spend: Number(r.spend_minor),
     leads: Number(r.leads),
     clicks: Number(r.clicks),
+    impressions: Number(r.impressions),
   }));
   const spendBars = reportRows.map((r) => ({ label: r.label, value: Math.round(r.spend / 100) }));
   const leadBars = reportRows.map((r) => ({ label: r.label, value: r.leads }));
@@ -72,7 +90,7 @@ export default async function Marketing({ searchParams }: { searchParams: Promis
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
         <Stat label="Ad spend" value={money(spend)} href={`/explore/adspend?${rq}`} />
         <Stat label="Cost per lead" value={leads ? money(Math.round(spend / leads)) : "—"} href={`/explore/leads?${rq}`}
           help="Spend / unique opt-ins (our count, not Meta's)." />
@@ -81,6 +99,9 @@ export default async function Marketing({ searchParams }: { searchParams: Promis
         <Stat label="ROAS (net cash)" value={spend ? `${(netCash / spend).toFixed(2)}x` : "—"}
           tone={spend && netCash / spend >= 2 ? "good" : "warn"} href={`/explore/cash?${rq}`}
           help="Net cash collected / ad spend, same window. Cash-basis, not booked revenue." />
+        <Stat label="ROAS (invoiced)" value={spend ? `${(bookedRevenue / spend).toFixed(2)}x` : "—"}
+          tone={spend && bookedRevenue / spend >= 2 ? "good" : "warn"} href={`/explore/deals?${rq}`}
+          help="Booked revenue (won deals' total contract value, non-refunded) / ad spend, same window. Accrual-basis, not cash." />
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
@@ -94,6 +115,27 @@ export default async function Marketing({ searchParams }: { searchParams: Promis
           <SectionTitle>Spend by campaign</SectionTitle>
           <Card>
             <DonutChart data={campaignDonut} centerValue={money(spend)} centerLabel="total" />
+          </Card>
+        </div>
+      </div>
+
+      <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
+        <div>
+          <SectionTitle>Leads by source</SectionTitle>
+          <p className="mb-2 text-xs" style={{ color: "var(--muted)" }}>
+            Unique opt-ins in this window, grouped by acquisition channel.
+          </p>
+          <Card href={`/explore/leads?${rq}`}>
+            <HBarList data={leadSourceRows} format={(v) => num(v)} />
+          </Card>
+        </div>
+        <div>
+          <SectionTitle>Booked calls by source</SectionTitle>
+          <p className="mb-2 text-xs" style={{ color: "var(--muted)" }}>
+            Unique strategy-call bookings in this window, by the contact's first-touch channel.
+          </p>
+          <Card href={`/explore/booked?${rq}`}>
+            <HBarList data={bookedSourceRows} format={(v) => num(v)} />
           </Card>
         </div>
       </div>
@@ -151,6 +193,14 @@ export default async function Marketing({ searchParams }: { searchParams: Promis
       <p className="mb-2 text-xs" style={{ color: "var(--muted)" }}>
         Spend, leads and clicks bucketed {grainWord.toLowerCase()}. Switch the grain with the toggle. Populates as Meta connects.
       </p>
+      <div className="mb-3 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <Stat label="Clicks" value={num(totalClicks)} help="Total link clicks in this window (from Meta)." />
+        <Stat label="Impressions" value={num(totalImpr)} help="Total ad impressions in this window (from Meta)." />
+        <Stat label="CPC" value={totalClicks ? money(Math.round(totalSpend / totalClicks), { cents: true }) : "—"}
+          href={`/explore/adspend?${rq}`} help="Cost per click: ad spend / link clicks, same window." />
+        <Stat label="CTR" value={totalImpr ? pct(totalClicks / totalImpr, 2) : "—"}
+          help="Click-through rate: link clicks / impressions, same window." />
+      </div>
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
         <div>
           <div className="mb-2 text-xs font-medium" style={{ color: "var(--muted)" }}>Spend ($)</div>
@@ -177,6 +227,7 @@ export default async function Marketing({ searchParams }: { searchParams: Promis
                 <th className="text-right">Clicks</th>
                 <th className="text-right">CPL <InfoTip text="Spend / leads in this bucket" /></th>
                 <th className="text-right">CPC <InfoTip text="Spend / clicks in this bucket" /></th>
+                <th className="text-right">CTR <InfoTip text="Clicks / impressions in this bucket" /></th>
               </tr>
             </thead>
             <tbody>
@@ -187,10 +238,11 @@ export default async function Marketing({ searchParams }: { searchParams: Promis
                   <td className="text-right">{r.leads ? num(r.leads) : "—"}</td>
                   <td className="text-right">{r.clicks ? num(r.clicks) : "—"}</td>
                   <td className="text-right">{r.spend && r.leads ? money(Math.round(r.spend / r.leads)) : "—"}</td>
-                  <td className="text-right">{r.spend && r.clicks ? money(Math.round(r.spend / r.clicks)) : "—"}</td>
+                  <td className="text-right">{r.spend && r.clicks ? money(Math.round(r.spend / r.clicks), { cents: true }) : "—"}</td>
+                  <td className="text-right">{r.impressions && r.clicks ? pct(r.clicks / r.impressions, 2) : "—"}</td>
                 </tr>
               ))}
-              {reportRows.length === 0 && <tr><td colSpan={6} style={{ color: "var(--muted)" }}>No spend in this window yet — connect Meta in Connections</td></tr>}
+              {reportRows.length === 0 && <tr><td colSpan={7} style={{ color: "var(--muted)" }}>No spend in this window yet — connect Meta in Connections</td></tr>}
             </tbody>
           </table>
         </div>

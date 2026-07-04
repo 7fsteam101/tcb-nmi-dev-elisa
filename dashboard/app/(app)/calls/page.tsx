@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { callLogRows, callLogSummary, closerOptions } from "@/lib/kpi-calllog";
 import { recentCallOutcomes } from "@/lib/kpi";
+import { dqRates, dqReasons } from "@/lib/kpi-quality";
 import { isDemoMode, reportTimezone } from "@/lib/settings";
-import { dateTime, money, num, shortDate } from "@/lib/format";
-import { Card, SectionTitle, Badge, STATUS_TONE, label, InfoTip } from "@/components/ui";
+import { dateTime, money, num, pct, shortDate } from "@/lib/format";
+import { Card, Stat, SectionTitle, Badge, STATUS_TONE, label, InfoTip } from "@/components/ui";
+import { HBarList } from "@/components/charts";
 import { DateRangeBar } from "@/components/date-range";
 import { requireAccess } from "@/lib/access";
 import { MarkButtons } from "./mark-buttons";
@@ -55,6 +57,22 @@ export default async function Calls({
     closerOptions(demo),
     recentCallOutcomes(demo),
   ]);
+  // Separate batch so the page never exceeds 4 concurrent queries.
+  const [dq, dqReasonRows] = await Promise.all([
+    dqRates({ demo, days }),
+    dqReasons({ demo, days }),
+  ]);
+
+  const closingDqRate = dq.taken > 0 ? dq.closingDqd / dq.taken : null;
+  const settingDqRate = dq.totalOpps > 0 ? dq.settingDqd / dq.totalOpps : null;
+  const settingReasons = dqReasonRows
+    .filter((r) => r.stage === "setting")
+    .map((r) => ({ label: r.reason, value: Number(r.n) }))
+    .slice(0, 6);
+  const closingReasons = dqReasonRows
+    .filter((r) => r.stage === "closing")
+    .map((r) => ({ label: r.reason, value: Number(r.n) }))
+    .slice(0, 6);
 
   // Chip/banner links keep the current search + closer + range, swap the status.
   const href = (nextStatus: string) => {
@@ -123,6 +141,40 @@ export default async function Calls({
             </Link>
           );
         })}
+      </div>
+
+      <SectionTitle>Disqualifications</SectionTitle>
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        <Card>
+          <Stat
+            label="DQ Rate at Setting"
+            value={settingDqRate != null ? pct(settingDqRate) : "—"}
+            sub={`${num(dq.settingDqd)} of ${num(dq.totalOpps)} opportunities in the last ${days} days`}
+            tone={settingDqRate != null && settingDqRate > 0.4 ? "warn" : undefined}
+            help="Opportunities disqualified before a strategy call (dq_stage = setting), over all opportunities opened in range."
+          />
+          <div className="mt-3 text-xs font-medium" style={{ color: "var(--muted)" }}>Top reasons at setting</div>
+          <div className="mt-1.5">
+            {settingReasons.length > 0
+              ? <HBarList data={settingReasons} format={(v) => num(v)} />
+              : <div className="py-4 text-center text-xs" style={{ color: "var(--muted)" }}>No setting disqualifications in range</div>}
+          </div>
+        </Card>
+        <Card>
+          <Stat
+            label="DQ Rate at Closing"
+            value={closingDqRate != null ? pct(closingDqRate) : "—"}
+            sub={`${num(dq.closingDqd)} of ${num(dq.taken)} taken calls in the last ${days} days`}
+            tone={closingDqRate != null && closingDqRate > 0.2 ? "warn" : undefined}
+            help="Taken strategy calls disqualified on the call (disposition = dq_on_call), over all taken strategy calls in range."
+          />
+          <div className="mt-3 text-xs font-medium" style={{ color: "var(--muted)" }}>Top reasons at closing</div>
+          <div className="mt-1.5">
+            {closingReasons.length > 0
+              ? <HBarList data={closingReasons} format={(v) => num(v)} />
+              : <div className="py-4 text-center text-xs" style={{ color: "var(--muted)" }}>No closing disqualifications in range</div>}
+          </div>
+        </Card>
       </div>
 
       <SectionTitle>Call log</SectionTitle>

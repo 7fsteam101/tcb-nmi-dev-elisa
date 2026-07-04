@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { receivablesSummary, receivablesList, projectedCashByMonth } from "@/lib/kpi";
+import { onboardingAndCollection } from "@/lib/kpi-quality";
 import { isDemoMode } from "@/lib/settings";
-import { money, shortDate } from "@/lib/format";
-import { Card, Stat, SectionTitle, Badge, STATUS_TONE, label } from "@/components/ui";
+import { money, pct, shortDate } from "@/lib/format";
+import { Card, Stat, SectionTitle, Badge, STATUS_TONE, label, InfoTip } from "@/components/ui";
+import { ProgressRing } from "@/components/charts";
 import { PresetBar } from "@/components/preset-bar";
 import { requireAccess } from "@/lib/access";
 
@@ -14,11 +16,15 @@ export default async function Receivables({ searchParams }: { searchParams: Prom
   const demo = await isDemoMode();
   const { days: daysRaw } = await searchParams;
   const days = Math.min(Math.max(parseInt(daysRaw ?? "30", 10) || 30, 1), 365);
-  const [summary, list, byMonth] = await Promise.all([
+  const [summary, list, byMonth, quality] = await Promise.all([
     receivablesSummary(demo),
     receivablesList(demo),
     projectedCashByMonth(demo),
+    onboardingAndCollection(demo),
   ]);
+
+  const onboardingRate = quality.onboardingTotal > 0 ? quality.onboardingComplete / quality.onboardingTotal : null;
+  const collectionRate = quality.contractedMinor > 0 ? quality.collectedMinor / quality.contractedMinor : null;
 
   return (
     <div>
@@ -39,6 +45,48 @@ export default async function Receivables({ searchParams }: { searchParams: Prom
           help="Past due, under 14 days." />
         <Stat label="Delinquent" value={money(summary.delinquent_minor)} tone="bad" href={`/explore/receivables?arg=delinquent&days=${days}`}
           help="14+ days past due." />
+      </div>
+
+      <SectionTitle>Delivery and collections</SectionTitle>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <Card>
+          <div className="flex items-center gap-1.5 text-xs" style={{ color: "var(--muted)" }}>
+            Onboarding Completion Rate
+            <InfoTip text="Won deals with onboarding finished, over all won deals needing onboarding (delivery.fulfilment records)." />
+          </div>
+          {onboardingRate != null ? (
+            <div className="mt-2 flex items-center gap-4">
+              <ProgressRing value={onboardingRate} label={`${quality.onboardingComplete} of ${quality.onboardingTotal} onboarded`} />
+              <div>
+                <div className="text-2xl font-semibold tracking-tight">{pct(onboardingRate)}</div>
+                <div className="mt-0.5 text-xs" style={{ color: "var(--muted)" }}>
+                  {quality.onboardingTotal - quality.onboardingComplete} still onboarding
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-2 text-sm" style={{ color: "var(--muted)" }}>No won deals needing onboarding yet</div>
+          )}
+        </Card>
+        <Card>
+          <div className="flex items-center gap-1.5 text-xs" style={{ color: "var(--muted)" }}>
+            Collection Rate
+            <InfoTip text="Cash collected (paid receivables) over the total contracted receivable amount on current payment-plan versions." />
+          </div>
+          {collectionRate != null ? (
+            <div className="mt-2 flex items-center gap-4">
+              <ProgressRing value={collectionRate} label={`${money(quality.collectedMinor)} of ${money(quality.contractedMinor)}`} />
+              <div>
+                <div className="text-2xl font-semibold tracking-tight">{pct(collectionRate)}</div>
+                <div className="mt-0.5 text-xs" style={{ color: "var(--muted)" }}>
+                  {money(quality.contractedMinor - quality.collectedMinor)} outstanding
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-2 text-sm" style={{ color: "var(--muted)" }}>No contracted receivables yet</div>
+          )}
+        </Card>
       </div>
 
       <SectionTitle>Projected cash by month</SectionTitle>
