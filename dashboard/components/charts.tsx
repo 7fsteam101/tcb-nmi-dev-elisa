@@ -173,3 +173,89 @@ export function ProgressRing({ value, label, size = 90 }: { value: number; label
     </div>
   );
 }
+
+// ---------- Vertical bar chart (period comparison) ----------
+// Each bar = one period. Optional `compare` renders a faint "previous" bar
+// behind each, and `target` draws a goal line. `pct` formats values as %.
+export function BarChart({
+  data, height = 180, target, format, color = "#4f8ef7", highlightLast = true,
+}: {
+  data: { label: string; value: number; compare?: number }[];
+  height?: number; target?: number; color?: string; highlightLast?: boolean;
+  format?: (v: number) => string;
+}) {
+  if (!data.length) return emptyNote();
+  const fmt = format ?? ((v: number) => String(v));
+  const max = Math.max(...data.map((d) => Math.max(d.value, d.compare ?? 0)), target ?? 0, 1);
+  const barH = (v: number) => (v / max) * (height - 24);
+  return (
+    <div>
+      <div className="relative flex items-end justify-between gap-2" style={{ height }}>
+        {target != null && target > 0 && (
+          <div className="absolute inset-x-0 flex items-center" style={{ bottom: barH(target) + 20 }}>
+            <div className="h-px flex-1" style={{ background: "var(--warn)", opacity: 0.6 }} />
+            <span className="ml-1 text-[10px]" style={{ color: "var(--warn)" }}>goal {fmt(target)}</span>
+          </div>
+        )}
+        {data.map((d, i) => {
+          const isLast = highlightLast && i === data.length - 1;
+          return (
+            <div key={i} className="flex flex-1 flex-col items-center justify-end gap-1" style={{ height }}>
+              <div className="text-[10px] tabular-nums" style={{ color: "var(--muted)" }}>{fmt(d.value)}</div>
+              <div className="relative flex w-full items-end justify-center" style={{ height: height - 24 }}>
+                {d.compare != null && (
+                  <div className="absolute bottom-0 w-full rounded-t" style={{ height: barH(d.compare), background: "var(--line)", opacity: 0.7, maxWidth: 34 }} />
+                )}
+                <div className="w-full rounded-t" style={{ height: Math.max(barH(d.value), 2), background: color, opacity: isLast ? 1 : 0.75, maxWidth: 34, position: "relative", zIndex: 1 }} />
+              </div>
+              <div className="truncate text-center text-[10px]" style={{ color: "var(--muted)", maxWidth: 60 }}>{d.label}</div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ---------- Multi-series comparison bars (grouped) ----------
+// For "compare reasons": each period has N colored bars side by side.
+export function GroupedBars({
+  periods, series, height = 200, format,
+}: {
+  periods: string[];
+  series: { label: string; color?: string; values: number[] }[];
+  height?: number; format?: (v: number) => string;
+}) {
+  if (!periods.length || !series.length) return emptyNote();
+  const fmt = format ?? ((v: number) => String(v));
+  const max = Math.max(...series.flatMap((s) => s.values), 1);
+  return (
+    <div>
+      <div className="flex items-end justify-between gap-3" style={{ height }}>
+        {periods.map((p, pi) => (
+          <div key={pi} className="flex flex-1 flex-col items-center justify-end gap-1" style={{ height }}>
+            <div className="flex w-full items-end justify-center gap-0.5" style={{ height: height - 20 }}>
+              {series.map((s, si) => (
+                <div key={si} className="rounded-t" style={{
+                  height: Math.max((s.values[pi] / max) * (height - 20), s.values[pi] > 0 ? 2 : 0),
+                  width: `${Math.min(80 / series.length, 16)}px`,
+                  background: s.color ?? PALETTE[si % PALETTE.length],
+                }}>
+                  <title>{`${s.label} · ${p}: ${fmt(s.values[pi])}`}</title>
+                </div>
+              ))}
+            </div>
+            <div className="truncate text-center text-[10px]" style={{ color: "var(--muted)", maxWidth: 70 }}>{p}</div>
+          </div>
+        ))}
+      </div>
+      <div className="mt-2 flex flex-wrap gap-3 text-[11px]">
+        {series.map((s, i) => (
+          <span key={i} className="flex items-center gap-1.5" style={{ color: "var(--muted)" }}>
+            <span className="h-2 w-2 rounded-sm" style={{ background: s.color ?? PALETTE[i % PALETTE.length] }} />{s.label}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}

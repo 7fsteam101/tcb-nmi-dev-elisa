@@ -2,11 +2,14 @@ import Link from "next/link";
 import { closerAnalytics, dailyCashSeries, dailyCloserSeries, overviewComparison } from "@/lib/kpi-closer";
 import { isDemoMode, reportTimezone } from "@/lib/settings";
 import { money, num, pct } from "@/lib/format";
-import { Card, SectionTitle, InfoTip } from "@/components/ui";
+import { Card, SectionTitle, InfoTip, Badge } from "@/components/ui";
 import { StatSpark } from "@/components/stat-spark";
 import { DateRangeBar } from "@/components/date-range";
+import { ProgressRing } from "@/components/charts";
 import { resolveRange } from "@/lib/range";
 import { requireAccess } from "@/lib/access";
+import { commissionForReps } from "@/lib/commission";
+import { goalProgress } from "@/lib/goals";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -48,6 +51,15 @@ export default async function Reps({ searchParams }: { searchParams: Promise<{ d
     dailyCloserSeries({ demo, days, tz }),
     overviewComparison({ demo, days }),
   ]);
+  // Separate batch so the page never exceeds 4 concurrent queries.
+  const [commission, repGoals] = await Promise.all([
+    commissionForReps(demo, days),
+    goalProgress(demo, "rep"),
+  ]);
+  // A rep's cash_collected goal, keyed by rep id, for the commission table rings.
+  const cashGoalByRep = new Map(
+    repGoals.filter((g) => g.metric === "cash_collected" && g.rep_id).map((g) => [g.rep_id as string, g]),
+  );
 
   const cur = cmp.current;
   const prev = cmp.previous;
@@ -206,6 +218,54 @@ export default async function Reps({ searchParams }: { searchParams: Promise<{ d
           </Card>
         </div>
       </div>
+
+      <SectionTitle>Commission (estimate)</SectionTitle>
+      <Card>
+        <div className="mb-3 flex items-center gap-1.5 text-xs" style={{ color: "var(--muted)" }}>
+          Rule-driven estimate
+          <InfoTip text="Computed from the commission rules enabled per member (base rate, tier bonus, refund clawback). Toggle a rule per member in Admin -> Commission. Estimate only; payroll runs off validated commission reports." />
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Closer</th>
+              <th className="text-right">Cash collected</th>
+              <th className="text-right">Effective rate</th>
+              <th className="text-right">Tier active</th>
+              <th className="text-right">Est. owed</th>
+              <th className="text-right">Goal</th>
+            </tr>
+          </thead>
+          <tbody>
+            {commission.map((r) => {
+              const goal = cashGoalByRep.get(r.rep_id);
+              return (
+                <tr key={r.rep_id}>
+                  <td>{r.full_name}</td>
+                  <td className="text-right">{money(r.cash_minor)}</td>
+                  <td className="text-right">{pct(r.effective_rate)}</td>
+                  <td className="text-right">
+                    {r.tier_active ? <Badge tone="good">Active</Badge> : <Badge>Base</Badge>}
+                  </td>
+                  <td className="text-right">{money(r.owed_minor)}</td>
+                  <td className="text-right">
+                    {goal ? (
+                      <div className="flex justify-end">
+                        <ProgressRing value={Math.min(1, goal.pct)} label={pct(goal.pct, 0)} size={62} />
+                      </div>
+                    ) : (
+                      <span style={{ color: "var(--muted)" }}>—</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+            {commission.length === 0 && (
+              <tr><td colSpan={6} style={{ color: "var(--muted)" }}>No active closers</td></tr>
+            )}
+          </tbody>
+        </table>
+      </Card>
     </div>
   );
 }

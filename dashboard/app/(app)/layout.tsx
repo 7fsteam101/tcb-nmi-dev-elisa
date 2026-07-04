@@ -10,7 +10,7 @@ import { shellSignals } from "@/lib/announcements";
 
 type Item = { href: string; label: string; icon: string; gate?: PageKey; badge?: number };
 
-export default async function AppLayout({ children }: { children: React.ReactNode }) {
+export default async function AppLayout({ children, drawer }: { children: React.ReactNode; drawer: React.ReactNode }) {
   const { viewing: user, real, isPreview } = await getEffectiveUser();
   const demo = await isDemoMode();
   const pages = await pagesForUser(user);
@@ -115,6 +115,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         )}
         <main className="p-6">{children}</main>
       </div>
+      {drawer}
     </div>
   );
 }

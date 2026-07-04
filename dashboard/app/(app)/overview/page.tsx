@@ -5,9 +5,10 @@ import { money, num, pct } from "@/lib/format";
 import { Card, SectionTitle, MiniBars } from "@/components/ui";
 import { StatSpark } from "@/components/stat-spark";
 import { DateRangeBar } from "@/components/date-range";
-import { LineChart } from "@/components/charts";
+import { LineChart, ProgressRing } from "@/components/charts";
 import { resolveRange, previousWindow } from "@/lib/range";
 import { requireAccess } from "@/lib/access";
+import { goalProgress, METRIC_LABEL, isMoneyMetric } from "@/lib/goals";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -27,6 +28,8 @@ export default async function Overview({ searchParams }: { searchParams: Promise
     leakage({ demo, days, since: range.since, until }),
     leadershipCloseRate({ demo, days, since: range.since, until }),
   ]);
+  // Kept out of the Promise.all above to hold concurrency at 4 or fewer.
+  const companyGoals = await goalProgress(demo, "company");
 
   const n = (v: unknown) => Number(v ?? 0);
   const showRate = n(k.taken) + n(k.no_shows) > 0 ? n(k.taken) / (n(k.taken) + n(k.no_shows)) : 0;
@@ -102,6 +105,44 @@ export default async function Overview({ searchParams }: { searchParams: Promise
           deltaPct={deltaPct(n(k.ad_spend_minor), n(prev.ad_spend_minor))} href={`/explore/adspend?${rq}`}
           help="Meta spend, and net cash collected divided by spend." />
       </div>
+
+      <SectionTitle>Company goals &amp; projections</SectionTitle>
+      {companyGoals.length === 0 ? (
+        <Card href="/admin/goals">
+          <div className="flex flex-col items-start gap-1 py-2">
+            <div className="text-sm font-medium" style={{ color: "var(--text)" }}>Set company goals</div>
+            <div className="text-xs" style={{ color: "var(--muted)" }}>
+              No company targets yet. Add weekly, monthly, or quarterly goals to track pace here.
+            </div>
+          </div>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {companyGoals.map((g) => {
+            const fmt = (v: number) => (isMoneyMetric(g.metric) ? money(v) : num(v));
+            return (
+              <Card key={g.id}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-medium" style={{ color: "var(--text)" }}>
+                      {METRIC_LABEL[g.metric]}
+                    </div>
+                    <div className="mt-0.5 text-xs capitalize" style={{ color: "var(--muted)" }}>{g.period}</div>
+                  </div>
+                  <ProgressRing value={Math.min(1, g.pct)} label={pct(g.pct, 0)} size={78} />
+                </div>
+                <div className="mt-2 flex items-baseline justify-between text-sm">
+                  <span style={{ color: "var(--text)" }}>{fmt(g.actual)}</span>
+                  <span className="text-xs" style={{ color: "var(--muted)" }}>of {fmt(g.target_value)}</span>
+                </div>
+                <div className="mt-1 text-xs" style={{ color: g.onPace ? "var(--good)" : "var(--warn)" }}>
+                  On pace for {fmt(g.projected)}
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
 
       <SectionTitle>Daily activity</SectionTitle>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
