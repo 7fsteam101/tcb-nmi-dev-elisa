@@ -179,9 +179,10 @@ async function normalizeGhl(eventType: string, payload: any): Promise<string> {
     const oppId = await findOrCreateActiveOpportunity(contactId, source);
     await sql`
       insert into sales.opt_in (contact_id, opportunity_id, submitted_at, goal, credit_score_range, blocker,
-                                source_channel, source_campaign, utm, counts_as_unique)
+                                source_channel, source_campaign, utm, dub_link_id, form_id, ghl_marketing_id, counts_as_unique)
       values (${contactId}, ${oppId}, now(), ${p.form?.goal ?? "other"}, ${p.form?.credit_score_range ?? null},
-              ${p.form?.blocker ?? null}, ${source}, ${p.form?.campaign ?? null}, ${p.form?.utm ?? null},
+              ${p.form?.blocker ?? null}, ${source}, ${p.form?.campaign ?? p.form?.utm_campaign ?? null}, ${p.form?.utm ?? null},
+              ${p.form?.dub_id ?? p.form?.dub_link_id ?? null}, ${p.form?.id ?? p.form?.form_id ?? null}, ${pc.id ?? null},
               not exists (select 1 from sales.opt_in where contact_id = ${contactId} and submitted_at > now() - interval '30 days'))`;
     await stampAttribution(oppId, source, "touch");
     return "opt-in recorded";
