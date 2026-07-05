@@ -6,6 +6,7 @@ import { reportTimezone, getSetting } from "@/lib/settings";
 import { money, dateTime, shortDate } from "@/lib/format";
 import { Card, SectionTitle, Badge, STATUS_TONE, label } from "@/components/ui";
 import { ExternalLinks } from "@/components/external-links";
+import { Icon } from "@/components/icons";
 import { ContactTabs } from "./tabs";
 import { NoteForm } from "./note-form";
 
@@ -300,7 +301,7 @@ export async function ContactBody({ id }: { id: string }) {
           <span className="absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full" style={{ background: TONE_COLOR[e.tn ?? "neutral"] }} />
           <div className="text-sm" style={{ color: "var(--text)" }}>
             {e.href
-              ? <a href={e.href} target="_blank" rel="noreferrer" style={{ color: "var(--accent)" }}>{e.text} &nearr;</a>
+              ? <a href={e.href} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1" style={{ color: "var(--accent)" }}>{e.text} <Icon name="external" size={12} /></a>
               : e.text}
           </div>
           {e.sub && <div className="text-[12px]" style={{ color: "var(--muted)" }}>{e.sub}</div>}

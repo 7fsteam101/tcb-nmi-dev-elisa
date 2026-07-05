@@ -31,4 +31,9 @@ const PATHS: Record<string, React.ReactNode> = {
   sun: <><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19" /></>,
   moon: <path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z" />,
   people: <><circle cx="9" cy="8" r="3" /><path d="M15 8a3 3 0 010 6M3 20a6 6 0 0112 0M15 14a6 6 0 016 6" /></>,
+  external: <><path d="M14 4h6v6M20 4l-9 9M18 13v5a2 2 0 01-2 2H6a2 2 0 01-2-2V8a2 2 0 012-2h5" /></>,
+  x: <path d="M6 6l12 12M18 6L6 18" />,
+  opportunity: <path d="M3 3v18h18M7 14l3-3 3 3 5-6" />,
+  deal: <><path d="M12 2l2.5 5 5.5.8-4 3.9.9 5.5L12 14.5 7.1 17l.9-5.5-4-3.9L9.5 7z" /></>,
+  receivable: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 10h18M7 15h4" /></>,
 };
