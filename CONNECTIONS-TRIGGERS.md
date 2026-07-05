@@ -14,13 +14,20 @@ A daily cron reconciles each source as a safety net under the webhooks.
 
 ## 1. Close — the pipeline (this is the "stage moved" trigger)
 
+**STATUS: LIVE as of July 5, 2026.** The admin key (the "TCB Repair Support" user,
+full read/write) is stored in Supabase Vault; read + write are active; the webhook
+below is subscribed. Historical leads/opportunities are backfilled (~794 leads).
+Gotcha for future debugging: the app resolves the Close connection that HOLDS the
+key (a keyless placeholder connection can otherwise shadow it) — see the
+`token_secret_ref` preference in `getConnection`.
+
 **What we want:** when a rep moves an opportunity to a new stage in Close, the
 matching opportunity in Supabase updates its stage; a won stage flags onboarding;
 a lead edit updates the contact.
 
-**Setup (needs an ADMIN Close API key — the current key can read but not create
-webhooks):**
-1. In Close, an admin creates an API key (Settings → Developer → API Keys).
+**Setup (done, kept here for reference / re-key):**
+1. In Close, an admin creates an API key (Settings → Developer → API Keys). API
+   keys are full read/write (no scoping). Copy it immediately (shown once).
 2. Paste it in the app: Connections → Connect with a key → Close.
 3. Saving it AUTO-SUBSCRIBES these Close webhook events to the app (no manual
    webhook setup): `lead.created`, `lead.updated`, `opportunity.created`,
@@ -43,6 +50,15 @@ supports many subscribers, so nothing conflicts.
 ---
 
 ## 2. GoHighLevel — calendars, bookings, opt-ins (2 sub-accounts)
+
+**The two sub-accounts and what each owns (confirmed July 2):**
+- **Marketing** sub-account: the funnel front end and the **contracts**.
+- **Repair Fulfillment** sub-account: **invoices / payments** and the onboarding /
+  delivery workflows that fire on "Closed Won".
+
+Connect via the GHL **Marketplace app**, authorizing with the
+AI@thecreditbrothers.com account (now an admin). Install the app on each
+sub-account.
 
 **Inbound events (per sub-account), two ways — use whichever the team prefers:**
 
@@ -86,14 +102,22 @@ plus a reversal when funds are actually pulled.
 
 ---
 
-## 4. NMI — program payments
+## 4. NMI — program payments (the main processor)
+
+**STATUS: key connected** (private key in Vault, ~606 payments imported). Remaining:
+confirm the Silent Post URL is set in the NMI portal so go-forward payments post live.
 
 1. NMI portal → Settings → Security Keys → create a private key → paste in
-   Connections → NMI.
+   Connections → NMI. (Done.)
 2. NMI portal → Settings → Silent Post URL → paste the NMI URL (Connections page).
 
 **What fires:** approved payment → matched to the open receivable of that amount
 on the contact's plan (marks it paid); refund/void/chargeback → reversal.
+
+Note (July 2): Stripe and NMI payments live in **one unified table** with a
+`product_type` field (high vs low ticket). NMI processes chargebacks/refunds.
+NMI also powers the branded checkout at `pay.thecreditbrothers.com` and the
+commission math (payments tied to clients tell us whether a rep gets paid).
 
 ---
 
@@ -146,6 +170,37 @@ enforcing a naming convention with their media buyer.
 
 ---
 
+## 7. Monday: historical data transfer (one-time, not an ongoing sync)
+
+Monday holds the pre-Supabase history we want to import once and link back to
+contacts / opportunities. Boards (Katie has access):
+- **BDCR Sales** workspace: **Sales Call Reports** and **Missed Call Reports** (the
+  form submissions: closed y/n, cash collected, qualified counts). Setter Reports
+  board exists but is unused. No commission board (commission posts to a Slack channel).
+- **In House Payment Schedule** board (Chris owns): the **deals** (size + payment
+  plan). High-confidence data, worth importing.
+- **Credit Audits** board (In House Repair workspace): the auditor uploads the
+  **NAFA report/PDF**; that upload triggers the send to Close.
+- **In House Credit Repair** is the primary workspace.
+
+Import target: fold these into `sales.report_submission`, `sales.deal` /
+`finance.payment_plan`, and `credit.nafa` / `credit.intake_submission`, linked by
+contact. This is a migration, not a live connector.
+
+## Automation topology (where the logic actually lives)
+
+The **GitHub `TCB operations` repo is the source of truth** for all automation
+knowledge. Before changing anything on Close/GHL, check it. Key flows:
+- **Close → GHL** (onboarding hand-off): a **Cloudflare Worker**.
+- **Intake → audit**: a Worker logs into IdentityIQ, scrapes the report, builds the
+  NAFA audit, and on success moves the Close opportunity to **Audit Complete**, then
+  sends the report to Close. If the scrape fails, the auditor does it by hand on the
+  Credit Audits Monday board (uploading the NAFA PDF triggers the send to Close).
+- **Zapier**: ~85 zaps but few active; one moves the Close profile to **Intake Form
+  Submitted**. Most real logic has moved to Cloudflare Workers.
+- **The new pipeline (mid-July) must re-point all of the above** onto its stages,
+  especially the "Closed Won" onboarding trigger. Audit for double-fires first.
+
 ## Reporting — Campaign Performance (the unified funnel)
 
 One report, one row per `utm_campaign`, joining all three sources:
@@ -179,8 +234,11 @@ through the inbound sync.
 
 ## Priority order to light everything up
 
-1. **Close admin key** — the instant pipeline mirror (biggest single unlock)
-2. **GHL** — publish the app + install both sub-accounts (or the workflow webhooks)
-3. **Stripe** — webhook + restricted key
-4. **NMI** — silent post URL (key already connected)
-5. **Meta** — system-user token
+1. ~~**Close admin key**~~ — DONE (July 5): read + write live, webhook subscribed.
+2. **GHL** — install the Marketplace app on both sub-accounts (Marketing + Repair
+   Fulfillment). App is configured; needs the per-sub-account authorize.
+3. **Stripe** — webhook + restricted key (handler built, awaiting the key).
+4. **NMI** — set the Silent Post URL in the portal (key already connected, ~606 imported).
+5. **Meta** — system-user token, or the Make/automation daily push discussed July 2.
+6. **Monday** — one-time history import (reports, deals, NAFA); needs the connector built.
+7. **Dub** — UTM setup (Miro) + read key for click volume.
