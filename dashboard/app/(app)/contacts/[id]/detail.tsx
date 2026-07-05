@@ -146,14 +146,16 @@ export async function ContactBody({ id }: { id: string }) {
             <div className="flex flex-wrap items-center gap-3">
               <Badge tone={tone(o.stage)}>{label(o.stage)}</Badge>
               <span className="text-xs" style={{ color: "var(--muted)" }}>Opened {shortDate(o.opened_at, tz)}{o.closed_at ? ` · Closed ${shortDate(o.closed_at, tz)}` : ""}</span>
+              <Link href={`/opportunities/${o.id}`} className="ml-auto text-xs font-medium" style={{ color: "var(--accent)" }}>Open &rarr;</Link>
             </div>
             {oc.map((c: any) => (
               <div key={c.id} className="mt-3 border-t pt-2" style={{ borderColor: "var(--line)" }}>
-                <div className="flex items-center gap-2">
+                <Link href={`/calls/${c.id}`} className="flex items-center gap-2 rounded px-1 py-0.5 hover:bg-white/5">
                   <Badge tone="neutral">{label(c.type)}</Badge>
                   {c.disposition && <Badge tone={tone(c.disposition)}>{label(c.disposition)}</Badge>}
                   <span className="text-[11px]" style={{ color: "var(--muted)" }}>{(slotsByCall.get(String(c.id)) ?? []).length} slot(s)</span>
-                </div>
+                  <span className="ml-auto text-xs" style={{ color: "var(--accent)" }}>Open &rarr;</span>
+                </Link>
               </div>
             ))}
           </Card>
@@ -166,7 +168,7 @@ export async function ContactBody({ id }: { id: string }) {
     <Card>
       <div className="overflow-x-auto">
         <table>
-          <thead><tr><th>Scheduled for</th><th>Attempt</th><th>Status</th><th>Reason</th><th>Moved by</th></tr></thead>
+          <thead><tr><th>Scheduled for</th><th>Attempt</th><th>Status</th><th>Reason</th><th>Moved by</th><th></th></tr></thead>
           <tbody>
             {appointments.map((a: any) => (
               <tr key={a.id}>
@@ -175,6 +177,7 @@ export async function ContactBody({ id }: { id: string }) {
                 <td><Badge tone={tone(a.status)}>{label(a.status)}</Badge></td>
                 <td style={{ color: "var(--muted)" }}>{a.reason ?? "—"}</td>
                 <td className="capitalize" style={{ color: "var(--muted)" }}>{label(a.moved_by)}</td>
+                <td className="text-right"><Link href={`/appointments/${a.id}`} className="text-xs" style={{ color: "var(--accent)" }}>Open &rarr;</Link></td>
               </tr>
             ))}
           </tbody>
@@ -198,6 +201,7 @@ export async function ContactBody({ id }: { id: string }) {
               <Badge tone="accent">{label(d.plan_type_snapshot)}</Badge>
               <Badge tone={tone(d.status)}>{label(d.status)}</Badge>
               <span className="text-xs" style={{ color: "var(--muted)" }}>Closed {shortDate(d.deal_close_date, tz)}</span>
+              <Link href={`/deals/${d.id}`} className="ml-auto text-xs font-medium" style={{ color: "var(--accent)" }}>Open deal &rarr;</Link>
             </div>
 
             {/* payment plan */}
@@ -206,7 +210,7 @@ export async function ContactBody({ id }: { id: string }) {
                 <div className="mb-1 text-[11px] uppercase tracking-wide" style={{ color: "var(--muted)" }}>Payment plan</div>
                 {dp.map((p: any) => (
                   <div key={p.id} className="flex flex-wrap items-center gap-2 text-sm">
-                    <span className="font-medium">Version {p.version}</span>
+                    <Link href={`/plans/${p.id}`} className="font-medium" style={{ color: "var(--accent)" }}>Version {p.version}</Link>
                     <Badge tone={p.is_current ? "good" : "neutral"}>{p.is_current ? "current" : "superseded"}</Badge>
                     <span className="text-xs" style={{ color: "var(--muted)" }}>{label(p.plan_type)}{p.total_minor != null ? ` · ${money(p.total_minor)}` : ""}</span>
                   </div>
@@ -226,7 +230,7 @@ export async function ContactBody({ id }: { id: string }) {
                     <thead><tr><th>#</th><th>Due</th><th className="text-right">Amount</th><th>Status</th></tr></thead>
                     <tbody>
                       {dRec.map((r: any) => (
-                        <tr key={r.id}><td>#{r.installment_no}</td><td>{shortDate(r.due_date, tz)}</td><td className="text-right">{money(r.amount_minor)}</td><td><Badge tone={tone(r.status)}>{label(r.status)}</Badge></td></tr>
+                        <tr key={r.id}><td><Link href={`/receivables/${r.id}`} style={{ color: "var(--accent)" }}>#{r.installment_no}</Link></td><td>{shortDate(r.due_date, tz)}</td><td className="text-right">{money(r.amount_minor)}</td><td><Badge tone={tone(r.status)}>{label(r.status)}</Badge></td></tr>
                       ))}
                     </tbody>
                   </table>
@@ -260,15 +264,16 @@ export async function ContactBody({ id }: { id: string }) {
     <Card>
       <div className="overflow-x-auto">
         <table>
-          <thead><tr><th>Agreement</th><th>Status</th><th className="text-right">Amount</th><th>Sent</th><th>Signed</th></tr></thead>
+          <thead><tr><th>Agreement</th><th>Status</th><th className="text-right">Amount</th><th>Sent</th><th>Signed</th><th></th></tr></thead>
           <tbody>
             {agreements.map((a: any) => (
               <tr key={a.id}>
-                <td>{a.document_url ? <a href={a.document_url} target="_blank" rel="noreferrer" style={{ color: "var(--accent)" }}>{a.title}</a> : a.title}</td>
+                <td><Link href={`/agreements/${a.id}`} style={{ color: "var(--accent)" }}>{a.title}</Link></td>
                 <td><Badge tone={tone(a.status)}>{label(a.status)}</Badge></td>
                 <td className="text-right">{a.amount_minor ? money(a.amount_minor) : "—"}</td>
                 <td style={{ color: "var(--muted)" }}>{a.sent_at ? shortDate(a.sent_at, tz) : "—"}</td>
                 <td style={{ color: "var(--muted)" }}>{a.signed_at ? shortDate(a.signed_at, tz) : "—"}</td>
+                <td className="text-right"><Link href={`/agreements/${a.id}`} className="text-xs" style={{ color: "var(--accent)" }}>Open &rarr;</Link></td>
               </tr>
             ))}
           </tbody>

@@ -126,7 +126,7 @@ export default async function Receivables({ searchParams }: { searchParams: Prom
                   )}
                 </td>
                 <td className="uppercase">{label(r.plan_type)}</td>
-                <td>#{r.installment_no}</td>
+                <td><Link href={`/receivables/${r.id}`} style={{ color: "var(--accent)" }}>#{r.installment_no}</Link></td>
                 <td className="text-right">{money(r.amount_minor)}</td>
                 <td><Badge tone={STATUS_TONE[r.status] ?? "neutral"}>{label(r.status)}</Badge></td>
               </tr>

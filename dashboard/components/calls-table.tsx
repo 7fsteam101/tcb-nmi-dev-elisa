@@ -17,7 +17,7 @@ const PENDING_HELP = "Pending = the slot's time passed with no attendance marked
 
 type ColKey =
   | "created" | "event_date" | "lead" | "email" | "phone" | "closer"
-  | "attempt" | "stage" | "source" | "status" | "cancellation" | "actions";
+  | "attempt" | "stage" | "source" | "status" | "cancellation" | "actions" | "open";
 
 type Column = {
   key: ColKey;
@@ -104,10 +104,15 @@ const COLUMNS: Column[] = [
         ? <MarkButtons appointmentId={r.appointment_id} />
         : <span style={{ color: "var(--muted)" }}>—</span>,
   },
+  {
+    key: "open",
+    name: "",
+    cell: (r) => <Link href={`/appointments/${r.appointment_id}`} className="text-xs" style={{ color: "var(--accent)" }}>Open &rarr;</Link>,
+  },
 ];
 
 const ALL_KEYS = COLUMNS.map((c) => c.key);
-const DEFAULT_KEYS: ColKey[] = ["event_date", "lead", "closer", "attempt", "status", "actions"];
+const DEFAULT_KEYS: ColKey[] = ["event_date", "lead", "closer", "attempt", "status", "actions", "open"];
 
 // Keep only recognized keys, preserve canonical column order, never empty.
 function normalize(keys: string[]): ColKey[] {

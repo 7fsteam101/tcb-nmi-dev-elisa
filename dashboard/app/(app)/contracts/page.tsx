@@ -175,7 +175,7 @@ export default async function Contracts({
                       <span style={{ color: "var(--muted)" }}>{r.contact_name ?? "—"}</span>
                     )}
                   </td>
-                  <td>{r.title ?? "—"}</td>
+                  <td><Link href={`/agreements/${r.id}`} style={{ color: "var(--accent)" }}>{r.title ?? "Agreement"}</Link></td>
                   <td>
                     <Badge tone={AGREEMENT_TONE[r.status] ?? "neutral"}>{label(r.status)}</Badge>
                   </td>
