@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db";
 import { checkCronSecret } from "@/lib/webhook";
+import { chargeDueCustomInstallments } from "@/lib/nmi-links";
 
 export const maxDuration = 60;
 
-// Daily receivable aging: scheduled → late when past due; late → delinquent at 14+ days.
+// Daily: charge due custom-plan installments, then age receivables
+// (scheduled -> late when past due; late -> delinquent at 14+ days).
 export async function GET(req: NextRequest) {
   const denied = checkCronSecret(req);
   if (denied) return denied;
+  const custom = await chargeDueCustomInstallments();
   const late = await sql`
     update finance.receivable set status = 'late'
     where status = 'scheduled' and due_date < current_date and not is_demo
@@ -16,5 +19,5 @@ export async function GET(req: NextRequest) {
     update finance.receivable set status = 'delinquent'
     where status = 'late' and due_date <= current_date - 14 and not is_demo
     returning id`;
-  return NextResponse.json({ ok: true, marked_late: late.length, marked_delinquent: delinquent.length });
+  return NextResponse.json({ ok: true, custom_installments_charged: custom.charged, custom_installments_failed: custom.failed, marked_late: late.length, marked_delinquent: delinquent.length });
 }

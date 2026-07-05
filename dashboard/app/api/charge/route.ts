@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db";
-import { getPaymentLinkByToken, computeSchedule, recordNmiPayment } from "@/lib/nmi-links";
+import { getPaymentLinkByToken, scheduleFor, recordNmiPayment } from "@/lib/nmi-links";
 import { saleAndVault, addSubscription, ok } from "@/lib/nmi";
 
 export const dynamic = "force-dynamic";
@@ -22,7 +22,8 @@ export async function POST(req: NextRequest) {
   const total = link.amount_minor as number;
   const n = (link.installments as number) || 1;
   const isPlan = n > 1;
-  const schedule = computeSchedule(total, n, link.frequency);
+  const isCustom = Array.isArray(link.custom_schedule) && link.custom_schedule.length > 1;
+  const schedule = scheduleFor(link);
   const firstAmount = isPlan ? schedule[0].amountMinor : total;
   const productType: "high_ticket" | "low_ticket" = total <= 5000 ? "low_ticket" : "high_ticket";
 
@@ -57,7 +58,14 @@ export async function POST(req: NextRequest) {
 
   // 2. schedule the remaining installments against the vaulted card (does not charge today)
   let scheduleMsg = "";
-  if (isPlan && vaultId) {
+  if (isPlan && vaultId && isCustom) {
+    // custom amounts/dates cannot be a fixed subscription: mark #1 paid in the
+    // stored schedule; the receivables cron charges each remaining one on its date.
+    const updated = (link.custom_schedule as any[]).map((s, i) =>
+      i === 0 ? { ...s, status: "paid", txnId: sale.transactionid } : s);
+    await sql`update finance.payment_link set custom_schedule = ${sql.json(updated as never)} where id = ${link.id}`;
+    scheduleMsg = ` The remaining ${n - 1} payments will charge on their scheduled dates.`;
+  } else if (isPlan && vaultId) {
     const startDate = schedule[1].dueDate.replace(/-/g, ""); // installment #2, YYYYMMDD
     const sub = await addSubscription({
       vaultId,
@@ -72,8 +80,7 @@ export async function POST(req: NextRequest) {
       await sql`update finance.payment_link set nmi_subscription_id = ${sub.subscription_id} where id = ${link.id}`;
       scheduleMsg = ` The remaining ${n - 1} payments are scheduled.`;
     } else {
-      // #1 charged but scheduling failed — flag it, do not silently drop
-      await sql`update finance.payment_link set status = 'paid', description = coalesce(description,'') where id = ${link.id}`;
+      await sql`update finance.payment_link set status = 'paid' where id = ${link.id}`;
       scheduleMsg = ` (First payment received. Scheduling the rest needs a quick follow-up.)`;
       console.error("NMI add_subscription failed for link", link.id, sub.responsetext);
     }

@@ -1,4 +1,4 @@
-import { getPaymentLinkByToken, computeSchedule } from "@/lib/nmi-links";
+import { getPaymentLinkByToken, scheduleFor } from "@/lib/nmi-links";
 import { nmiTestMode } from "@/lib/nmi";
 import { Checkout } from "./checkout";
 
@@ -30,7 +30,7 @@ export default async function PayPage({ params }: { params: Promise<{ token: str
   const total = link.amount_minor as number;
   const n = (link.installments as number) || 1;
   const isPlan = n > 1;
-  const schedule = isPlan ? computeSchedule(total, n, link.frequency) : [];
+  const schedule = isPlan ? scheduleFor(link) : [];
   const firstAmount = isPlan ? schedule[0].amountMinor : total;
 
   return shell(

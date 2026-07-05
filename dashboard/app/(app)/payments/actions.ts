@@ -29,6 +29,14 @@ export async function createPaymentLinkAction(_prev: unknown, formData: FormData
   const freqRaw = String(formData.get("frequency") ?? "");
   const frequency = isPlan && FREQS.includes(freqRaw) ? freqRaw : null;
   const installments = isPlan ? Math.max(2, parseInt(String(formData.get("installments"))) || 2) : null;
+  let customSchedule: { no: number; dueDate: string; amountMinor: number }[] | undefined;
+  const csRaw = formData.get("customSchedule");
+  if (isPlan && frequency === "custom" && csRaw) {
+    try {
+      const parsed = JSON.parse(String(csRaw));
+      if (Array.isArray(parsed) && parsed.length > 1) customSchedule = parsed;
+    } catch { /* ignore malformed schedule */ }
+  }
 
   // Resolve the picked contact's name + email from core.contact so we copy the
   // real values onto the payment_link row (the picker only sends the id).
@@ -76,6 +84,7 @@ export async function createPaymentLinkAction(_prev: unknown, formData: FormData
     productId: productId ?? undefined,
     frequency: frequency ?? undefined,
     installments: installments ?? undefined,
+    customSchedule,
   }, user.id);
   revalidatePath("/payments");
   return result;

@@ -16,6 +16,8 @@ const FREQS = [
   { key: "custom", label: "Custom" },
 ];
 const money = (minor: number) => `$${(minor / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const dayLabel = (iso: string) => iso ? new Date(iso + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—";
+type Row = { amountStr: string; date: string };
 
 export function LinkGenerator({
   contacts, products, canPickStripe,
@@ -35,8 +37,8 @@ export function LinkGenerator({
   const [plan, setPlan] = useState(false);
   const [frequency, setFrequency] = useState<string>("monthly");
   const [installments, setInstallments] = useState<number>(4);
+  const [customRows, setCustomRows] = useState<Row[]>([]);
 
-  // when a product is chosen, seed amount + plan defaults
   useEffect(() => {
     if (!product) return;
     setAmountStr((product.amount_minor / 100).toString());
@@ -51,17 +53,41 @@ export function LinkGenerator({
     return () => document.removeEventListener("mousedown", onClick);
   }, [open]);
 
+  const totalMinor = Math.round((parseFloat(amountStr) || 0) * 100);
+  const canPlan = !!product?.allow_plan;
+  const usePlan = canPlan && plan;
+  const isCustom = usePlan && frequency === "custom";
+
+  // seed the custom schedule the first time Custom is chosen: N rows, evenly
+  // split, one month apart starting today. After that it is the user's to edit.
+  useEffect(() => {
+    if (!isCustom) return;
+    setCustomRows((prev) => {
+      if (prev.length) return prev;
+      const n = Math.max(2, installments);
+      const per = totalMinor > 0 ? Math.floor(totalMinor / n) : 0;
+      return Array.from({ length: n }, (_, i) => {
+        const d = new Date(); d.setMonth(d.getMonth() + i);
+        return { amountStr: ((i === n - 1 ? totalMinor - per * (n - 1) : per) / 100).toFixed(2), date: d.toISOString().slice(0, 10) };
+      });
+    });
+  }, [isCustom]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const customSchedule = customRows.map((r, i) => ({ no: i + 1, dueDate: r.date, amountMinor: Math.round((parseFloat(r.amountStr) || 0) * 100) }));
+  const customSum = customSchedule.reduce((s, r) => s + r.amountMinor, 0);
+  const setRow = (i: number, patch: Partial<Row>) => setCustomRows((rows) => rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+  const addRow = () => setCustomRows((rows) => { const last = rows[rows.length - 1]; const d = last ? new Date(last.date + "T00:00:00") : new Date(); d.setMonth(d.getMonth() + 1); return [...rows, { amountStr: "0.00", date: d.toISOString().slice(0, 10) }]; });
+  const removeRow = (i: number) => setCustomRows((rows) => rows.filter((_, j) => j !== i));
+
+  const effInstallments = isCustom ? customRows.length : installments;
+  const perInstallment = usePlan && effInstallments > 0 ? Math.round(totalMinor / effInstallments) : totalMinor;
+  const freqLabel = FREQS.find((f) => f.key === frequency)?.label ?? "Monthly";
+
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return contacts.slice(0, 30);
     return contacts.filter((c) => c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q)).slice(0, 30);
   }, [contacts, query]);
-
-  const totalMinor = Math.round((parseFloat(amountStr) || 0) * 100);
-  const canPlan = !!product?.allow_plan;
-  const usePlan = canPlan && plan;
-  const perInstallment = usePlan && installments > 0 ? Math.round(totalMinor / installments) : totalMinor;
-  const freqLabel = FREQS.find((f) => f.key === frequency)?.label ?? "Monthly";
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_320px]">
@@ -73,7 +99,8 @@ export function LinkGenerator({
         <input type="hidden" name="description" value={product?.name ?? ""} />
         <input type="hidden" name="planType" value={usePlan ? "plan" : "onetime"} />
         <input type="hidden" name="frequency" value={usePlan ? frequency : ""} />
-        <input type="hidden" name="installments" value={usePlan ? String(installments) : ""} />
+        <input type="hidden" name="installments" value={usePlan ? String(effInstallments) : ""} />
+        <input type="hidden" name="customSchedule" value={isCustom ? JSON.stringify(customSchedule) : ""} />
 
         {/* contact */}
         <div ref={ref} className="relative">
@@ -112,7 +139,7 @@ export function LinkGenerator({
           {products.length === 0 && <p className="mt-1 text-[11px]" style={{ color: "var(--warn)" }}>No products yet. Add them in Admin, Products.</p>}
         </div>
 
-        {/* amount (editable, seeded from product) */}
+        {/* amount + charge-as */}
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="mb-1 block text-xs" style={{ color: "var(--muted)" }}>Total amount ($)</label>
@@ -136,17 +163,50 @@ export function LinkGenerator({
 
         {/* plan details */}
         {usePlan && (
-          <div className="grid grid-cols-2 gap-3 rounded-lg border p-3" style={{ borderColor: "var(--line)", background: "color-mix(in srgb, var(--accent) 6%, transparent)" }}>
-            <div>
-              <label className="mb-1 block text-xs" style={{ color: "var(--muted)" }}>Frequency</label>
-              <select value={frequency} onChange={(e) => setFrequency(e.target.value)}>
-                {FREQS.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
-              </select>
+          <div className="space-y-3 rounded-lg border p-3" style={{ borderColor: "var(--line)", background: "color-mix(in srgb, var(--accent) 6%, transparent)" }}>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-xs" style={{ color: "var(--muted)" }}>Frequency</label>
+                <select value={frequency} onChange={(e) => setFrequency(e.target.value)}>
+                  {FREQS.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
+                </select>
+              </div>
+              {!isCustom && (
+                <div>
+                  <label className="mb-1 block text-xs" style={{ color: "var(--muted)" }}>Installments</label>
+                  <input type="number" min="2" max="60" value={installments} onChange={(e) => setInstallments(Math.max(2, parseInt(e.target.value) || 2))} />
+                </div>
+              )}
             </div>
-            <div>
-              <label className="mb-1 block text-xs" style={{ color: "var(--muted)" }}>Installments</label>
-              <input type="number" min="2" max="60" value={installments} onChange={(e) => setInstallments(Math.max(2, parseInt(e.target.value) || 2))} />
-            </div>
+
+            {isCustom && (
+              <div>
+                <div className="mb-1 flex items-center justify-between">
+                  <label className="text-xs" style={{ color: "var(--muted)" }}>Custom installments (set each amount and date)</label>
+                  <span className="text-[11px]" style={{ color: customSum === totalMinor ? "var(--muted)" : "var(--warn)" }}>
+                    {money(customSum)} of {money(totalMinor)}
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {customRows.map((r, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <span className="w-5 text-[12px]" style={{ color: "var(--muted)" }}>#{i + 1}</span>
+                      <div className="relative flex-1">
+                        <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-[12px]" style={{ color: "var(--muted)" }}>$</span>
+                        <input type="number" step="0.01" min="0" value={r.amountStr} onChange={(e) => setRow(i, { amountStr: e.target.value })} className="pl-5" placeholder="0.00" />
+                      </div>
+                      <input type="date" value={r.date} onChange={(e) => setRow(i, { date: e.target.value })} className="flex-1" />
+                      <button type="button" onClick={() => removeRow(i)} disabled={customRows.length <= 2}
+                        className="btn-ghost btn px-2 py-1 text-[12px]" title="Remove">&times;</button>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-2 flex items-center gap-3">
+                  <button type="button" onClick={addRow} className="btn-ghost btn px-2 py-1 text-[12px]">+ Add installment</button>
+                  {customSum !== totalMinor && <span className="text-[11px]" style={{ color: "var(--warn)" }}>Installments should sum to the total.</span>}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -169,20 +229,29 @@ export function LinkGenerator({
         <button type="submit" disabled={pending || !selected || !productId || totalMinor <= 0} className="btn">
           {pending ? "Creating..." : usePlan ? "Create payment plan link" : "Create payment link"}
         </button>
-        {(!selected || !productId) && <p className="text-[11px]" style={{ color: "var(--muted)" }}>Pick a contact and product to enable.</p>}
-        {state && <div className="rounded-lg border p-3 text-sm" style={{ borderColor: state.ok ? "var(--good)" : "var(--bad)" }}>{state.message}</div>}
+        {(!selected || !productId) && <p className="text-[11px]" style={{ color: "var(--muted)" }}>Pick a contact and product to enable. No email is sent, you get a link to share.</p>}
+        {state && <div className="rounded-lg border p-3 text-sm" style={{ borderColor: state.ok ? "var(--good)" : "var(--bad)" }}>
+          {state.message}
+          {state.ok && state.url && (
+            <div className="mt-2 flex items-center gap-2">
+              <input readOnly value={state.url} className="flex-1 text-[12px]" onFocus={(e) => e.currentTarget.select()} />
+            </div>
+          )}
+        </div>}
       </form>
 
       {/* pro-forma invoice preview */}
       <ProForma contact={selected} product={product} totalMinor={totalMinor} usePlan={usePlan}
-        installments={installments} perInstallment={perInstallment} freqLabel={freqLabel} money={money} />
+        installments={effInstallments} perInstallment={perInstallment} freqLabel={freqLabel}
+        isCustom={isCustom} customSchedule={isCustom ? customSchedule : null} />
     </div>
   );
 }
 
-function ProForma({ contact, product, totalMinor, usePlan, installments, perInstallment, freqLabel, money }: {
+function ProForma({ contact, product, totalMinor, usePlan, installments, perInstallment, freqLabel, isCustom, customSchedule }: {
   contact: ContactOption | null; product: ProductOption | null; totalMinor: number;
-  usePlan: boolean; installments: number; perInstallment: number; freqLabel: string; money: (m: number) => string;
+  usePlan: boolean; installments: number; perInstallment: number; freqLabel: string;
+  isCustom: boolean; customSchedule: { no: number; dueDate: string; amountMinor: number }[] | null;
 }) {
   return (
     <div className="rounded-xl border p-5 text-sm" style={{ borderColor: "var(--line)", background: "var(--panel)", height: "fit-content" }}>
@@ -208,11 +277,26 @@ function ProForma({ contact, product, totalMinor, usePlan, installments, perInst
         <span style={{ color: "var(--muted)" }}>Total</span>
         <span className="text-lg font-semibold" style={{ color: "var(--text)" }}>{money(totalMinor)}</span>
       </div>
-      <div className="mt-3 rounded-lg p-3 text-[12px]" style={{ background: "var(--panel-2)", color: "var(--muted)" }}>
-        {usePlan
-          ? <>Payment plan: <span style={{ color: "var(--text)" }}>{installments} payments of {money(perInstallment)}</span>, {freqLabel.toLowerCase()}.</>
-          : <>One-time charge of <span style={{ color: "var(--text)" }}>{money(totalMinor)}</span>.</>}
-      </div>
+
+      {usePlan && isCustom && customSchedule ? (
+        <div className="mt-3 rounded-lg p-3 text-[12px]" style={{ background: "var(--panel-2)" }}>
+          <div className="mb-1.5" style={{ color: "var(--muted)" }}>Custom payment plan, {customSchedule.length} payments:</div>
+          <div className="space-y-1">
+            {customSchedule.map((s) => (
+              <div key={s.no} className="flex items-center justify-between">
+                <span style={{ color: "var(--muted)" }}>#{s.no} &middot; {dayLabel(s.dueDate)}{s.no === 1 ? " (today)" : ""}</span>
+                <span style={{ color: "var(--text)" }}>{money(s.amountMinor)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="mt-3 rounded-lg p-3 text-[12px]" style={{ background: "var(--panel-2)", color: "var(--muted)" }}>
+          {usePlan
+            ? <>Payment plan: <span style={{ color: "var(--text)" }}>{installments} payments of {money(perInstallment)}</span>, {freqLabel.toLowerCase()}.</>
+            : <>One-time charge of <span style={{ color: "var(--text)" }}>{money(totalMinor)}</span>.</>}
+        </div>
+      )}
     </div>
   );
 }
