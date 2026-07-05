@@ -4,7 +4,7 @@ import { jwtVerify } from "jose";
 // Auth gate (Next 16 "proxy", formerly middleware) for everything except
 // login, webhooks (secret-checked in-route), crons (secret-checked in-route)
 // and static assets.
-const PUBLIC = [/^\/login/, /^\/api\/login/, /^\/api\/webhooks\//, /^\/api\/cron\//, /^\/api\/connect\//, /^\/_next\//, /^\/favicon/];
+const PUBLIC = [/^\/login/, /^\/api\/login/, /^\/api\/webhooks\//, /^\/api\/cron\//, /^\/api\/connect\//, /^\/pay\//, /^\/api\/charge/, /^\/_next\//, /^\/favicon/];
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;

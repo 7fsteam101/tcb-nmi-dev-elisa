@@ -1,5 +1,33 @@
 # NMI Payment Page: build scope and developer spec
 
+## BUILD STATUS (2026-07-05): BUILT AND TESTED IN NMI TEST MODE
+
+The checkout is built and working end to end against the NMI sandbox (public test
+key). Verified live: link generation, the branded pay page rendering the schedule,
+first-installment charge + card vaulting, the subscription that schedules the
+remaining installments, the signed + idempotent installment webhook, and the
+card-on-file update. Card, and Apple Pay / Google Pay buttons, are wired via
+Collect.js.
+
+What was built (all deployed):
+- `lib/nmi.ts` (gateway client: sale+vault, charge vault, add_subscription, update card, webhook signature verify), `lib/nmi-links.ts` (token + branded URL + schedule + payment recording).
+- `app/pay/[token]` (public pay page + Collect.js checkout with wallets + a test-card form for test mode), `app/pay/[token]/card` (card-on-file update).
+- `app/api/charge` (sale + vault + schedule), `app/api/webhooks/nmi-events` (per-installment confirmation), `app/api/update-card`.
+- Migration `0034_nmi_checkout.sql` (token, vault/subscription ids, status states). Test mode is on via env `NMI_SECURITY_KEY` = the sandbox key.
+
+BLOCKERS to switch from test to live production (each is a config step, not code):
+1. **NMI public tokenization key** for Collect.js. Set `NEXT_PUBLIC_NMI_TOKENIZATION_KEY` (from the NMI Merchant Portal). Until then the pay page uses a raw test-card form and the Apple/Google Pay buttons do not render. This is required for real cards (PCI SAQ A) and for wallets.
+2. **Live gateway key.** Remove the `NMI_SECURITY_KEY` env (it then reads the live key already in Vault) or set it to the live value. The TEST MODE badge disappears automatically.
+3. **Event Webhook subscription + signing key.** In the NMI portal, subscribe `https://pay.thecreditbrothers.com/api/webhooks/nmi-events` to the transaction + recurring + chargeback events, and set `NMI_WEBHOOK_SIGNING_KEY` so signatures are verified (currently unverified, which is only acceptable in test mode).
+4. **Apple Pay domain verification.** Enable Apple Pay in the portal and host the `apple-developer-merchantid-domain-association` file at `pay.thecreditbrothers.com/.well-known/`.
+5. **DNS.** Point `pay.thecreditbrothers.com` at this Vercel app, and set `NEXT_PUBLIC_PAY_BASE_URL` to it (links currently use tcb-sales-system.vercel.app).
+6. **Processor confirmation on wallets + installments** (decision #2 below). Confirm the processor allows a wallet-vaulted card for later installment charges, or restrict wallets to pay-in-full.
+7. **Zero-down plans** are not special-cased yet (a `zero_down` plan would attempt a $0 first charge). Needs the vault-only-then-schedule-all path when that pricing launches.
+
+The rest of this doc is the original scope, kept for reference.
+
+
+
 A self-contained spec for the dev picking this up. It defines exactly what to
 build, the logic, the data it touches, the error handling, and the decisions that
 must be settled first. Deep NMI API detail lives in `NMI-PAYMENT-LINKS.md`; this
