@@ -21,7 +21,9 @@ export async function listConnections() {
 export async function getConnection(provider: Provider, externalAccountId?: string) {
   const rows = externalAccountId
     ? await sql`select * from sync.connections where provider = ${provider} and external_account_id = ${externalAccountId} limit 1`
-    : await sql`select * from sync.connections where provider = ${provider} and status = 'connected' order by created_at limit 1`;
+    : await sql`select * from sync.connections where provider = ${provider} and status = 'connected'
+                order by (token_secret_ref is not null) desc, created_at
+                limit 1`;
   return rows[0] ?? null;
 }
 
