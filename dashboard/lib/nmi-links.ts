@@ -76,7 +76,8 @@ export async function getPaymentLinkByToken(token: string) {
 export async function listPaymentLinks() {
   return sql`
     select pl.id, pl.amount_minor, pl.description, pl.customer_name, pl.customer_email,
-           pl.processor, pl.status, pl.url, pl.token, pl.external_id, pl.frequency, pl.installments, pl.created_at, u.full_name as creator
+           pl.processor, pl.status, pl.url, pl.token, pl.external_id, pl.frequency, pl.installments, pl.created_at,
+           pl.contact_id, pl.nmi_customer_vault_id, u.full_name as creator
     from finance.payment_link pl
     left join core.app_user u on u.id = pl.created_by_user_id
     order by pl.created_at desc limit 50`;
@@ -122,6 +123,7 @@ export async function chargeDueCustomInstallments(): Promise<{ charged: number; 
 export async function recordNmiPayment(input: {
   linkId: string; contactId: string | null; amountMinor: number; nmiTxnId: string;
   productType?: "high_ticket" | "low_ticket"; markLinkPaid?: boolean; paymentLinkForVault?: boolean;
+  type?: "installment" | "manual"; chargedByUserId?: string | null;
 }): Promise<string> {
   // resolve a deal for attribution (the contact's most recent won deal), best-effort
   const dealRows = input.contactId
@@ -130,9 +132,9 @@ export async function recordNmiPayment(input: {
   const dealId = dealRows[0]?.id ?? null;
   const [pay] = await sql`
     insert into finance.successful_payment (deal_id, contact_id, processor, type, amount_minor, occurred_at,
-                                            nmi_transaction_id, product_type)
-    values (${dealId}, ${input.contactId}, 'nmi', 'installment', ${input.amountMinor}, now(),
-            ${input.nmiTxnId}, ${input.productType ?? "high_ticket"}::public.product_tier)
+                                            nmi_transaction_id, product_type, charged_by_user_id)
+    values (${dealId}, ${input.contactId}, 'nmi', ${input.type ?? "installment"}::public.payment_type, ${input.amountMinor}, now(),
+            ${input.nmiTxnId}, ${input.productType ?? "high_ticket"}::public.product_tier, ${input.chargedByUserId ?? null})
     on conflict do nothing
     returning id`;
   const paymentId = pay?.id ?? (await sql`select id from finance.successful_payment where nmi_transaction_id = ${input.nmiTxnId} limit 1`)[0]?.id;

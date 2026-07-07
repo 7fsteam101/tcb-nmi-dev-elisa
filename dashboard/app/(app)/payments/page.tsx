@@ -8,6 +8,7 @@ import { Card, Badge, STATUS_TONE, label } from "@/components/ui";
 import { LinkGenerator, type ContactOption, type ProductOption } from "./generator";
 import { StripeToggle } from "./stripe-toggle";
 import { PaymentsTabs } from "./tabs";
+import { ChargeNow } from "./charge-now";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -35,7 +36,7 @@ export default async function Payments() {
     <Card>
       <div className="overflow-x-auto">
         <table>
-          <thead><tr><th>Created</th><th>Customer</th><th>Product</th><th>Plan</th><th>Processor</th><th className="text-right">Amount</th><th>Status</th></tr></thead>
+          <thead><tr><th>Created</th><th>Customer</th><th>Product</th><th>Plan</th><th>Processor</th><th className="text-right">Amount</th><th>Status</th>{isAdmin && <th className="text-right">Charge now</th>}</tr></thead>
           <tbody>
             {links.map((l: any) => (
               <tr key={l.id}>
@@ -48,9 +49,16 @@ export default async function Payments() {
                 <td><Badge tone="neutral">{label(l.processor)}</Badge></td>
                 <td className="text-right">{money(l.amount_minor)}</td>
                 <td><Badge tone={STATUS_TONE[l.status] ?? "neutral"}>{label(l.status)}</Badge></td>
+                {isAdmin && (
+                  <td className="text-right">
+                    {l.nmi_customer_vault_id
+                      ? <ChargeNow linkId={l.id} defaultAmountMinor={l.amount_minor} customerLabel={l.customer_name ?? l.customer_email ?? "this client"} />
+                      : <span className="text-[11px]" style={{ color: "var(--muted)" }}>No card on file</span>}
+                  </td>
+                )}
               </tr>
             ))}
-            {links.length === 0 && <tr><td colSpan={7} style={{ color: "var(--muted)" }}>No links generated yet</td></tr>}
+            {links.length === 0 && <tr><td colSpan={isAdmin ? 8 : 7} style={{ color: "var(--muted)" }}>No links generated yet</td></tr>}
           </tbody>
         </table>
       </div>

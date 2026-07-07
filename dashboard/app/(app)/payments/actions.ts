@@ -4,7 +4,12 @@ import { revalidatePath } from "next/cache";
 import { sql } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
 import { getSetting, setSetting } from "@/lib/settings";
-import { createPaymentLink } from "@/lib/nmi-links";
+import { createPaymentLink, recordNmiPayment } from "@/lib/nmi-links";
+import { chargeVault, ok } from "@/lib/nmi";
+
+// Sane ceiling for a manual admin charge, a guard against a fat-fingered amount
+// moving an absurd sum. Raise here if a legitimate charge ever exceeds it.
+const MAX_MANUAL_CHARGE_MINOR = 10_000_00; // $10,000
 
 // Whether the Stripe processor may be offered at all. Two independent gates,
 // both re-checked server-side: the app_setting flag AND the caller being an
@@ -88,6 +93,51 @@ export async function createPaymentLinkAction(_prev: unknown, formData: FormData
   }, user.id);
   revalidatePath("/payments");
   return result;
+}
+
+// Admin-only "Charge Now": charge a client's saved card (the NMI Customer Vault
+// token on a payment link) on demand. Uses the same chargeVault + recordNmiPayment
+// primitives as the receivables cron, but tags the payment type 'manual' and
+// records the acting admin. Guarded three ways: admin role, a max cap, and a 60s
+// same-amount dedupe so a double-submit cannot double-charge a real card.
+export async function chargeNowAction(_prev: unknown, formData: FormData) {
+  const user = await requireSession();
+  if (user.role !== "admin") return { ok: false, message: "Admins only." };
+
+  const linkId = String(formData.get("linkId") ?? "");
+  const amount = formData.get("amount") ? Math.round(parseFloat(String(formData.get("amount"))) * 100) : 0;
+  if (!linkId) return { ok: false, message: "Missing payment link." };
+  if (!amount || amount <= 0) return { ok: false, message: "Enter an amount greater than zero." };
+  if (amount > MAX_MANUAL_CHARGE_MINOR) return { ok: false, message: "Amount exceeds the manual-charge limit." };
+
+  const [link] = await sql`
+    select id, token, contact_id, nmi_customer_vault_id, customer_name
+    from finance.payment_link where id = ${linkId} limit 1`;
+  if (!link) return { ok: false, message: "Payment link not found." };
+  if (!link.nmi_customer_vault_id) return { ok: false, message: "No saved card on file for this link." };
+
+  // Idempotency: refuse an identical manual charge (same contact + amount) made
+  // in the last 60s. successful_payment has no link/vault column, so contact+amount
+  // is the tightest available key; the DB's unique nmi_transaction_id only dedupes
+  // the *recording*, not a second real NMI sale from a double-click.
+  const [recent] = await sql`
+    select sp.id from finance.successful_payment sp
+    where sp.type = 'manual' and sp.amount_minor = ${amount}
+      and sp.contact_id is not distinct from ${link.contact_id ?? null}
+      and sp.occurred_at > now() - interval '60 seconds'
+    limit 1`;
+  if (recent) return { ok: false, message: "An identical charge was just made. Wait a minute before retrying." };
+
+  const res = await chargeVault({ amountMinor: amount, vaultId: link.nmi_customer_vault_id, planId: link.token, orderId: link.id });
+  if (!ok(res)) return { ok: false, message: res.responsetext || "The card was declined." };
+
+  await recordNmiPayment({
+    linkId: link.id, contactId: link.contact_id ?? null, amountMinor: amount,
+    nmiTxnId: res.transactionid, type: "manual", chargedByUserId: user.id, markLinkPaid: false,
+  });
+  revalidatePath("/payments");
+  const usd = (amount / 100).toLocaleString("en-US", { style: "currency", currency: "USD" });
+  return { ok: true, message: `Charged ${usd} to the saved card.` };
 }
 
 // Admin-only toggle for whether Stripe is offered on the payment-links form.
