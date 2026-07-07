@@ -76,7 +76,7 @@ Go-live blockers (config, not code; each is in NMI-PAGE-BUILD-SCOPE.md):
 
 ## Access you will need
 
-- The GitHub repo `github.com/katiebani/tcb-sales-system` (Katie adds you as a
+- The GitHub repo `github.com/7fsDev/tcb-sales-system` (Katie adds you as a
   collaborator). Work on a branch (e.g. `nmi-prod`) and open a PR, do not push
   straight to main.
 - A Supabase connection string for local dev (Katie provides).
