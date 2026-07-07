@@ -1,11 +1,8 @@
 import Link from "next/link";
 import { callLogRows, callLogSummary, closerOptions } from "@/lib/kpi-calllog";
-import { recentCallOutcomes } from "@/lib/kpi";
-import { dqRates, dqReasons } from "@/lib/kpi-quality";
 import { isDemoMode, reportTimezone } from "@/lib/settings";
-import { dateTime, money, num, pct } from "@/lib/format";
-import { Card, Stat, SectionTitle, Badge, STATUS_TONE, label, InfoTip } from "@/components/ui";
-import { HBarList } from "@/components/charts";
+import { num } from "@/lib/format";
+import { Card, SectionTitle, InfoTip } from "@/components/ui";
 import { DateRangeBar } from "@/components/date-range";
 import { CallsTable } from "@/components/calls-table";
 import { requireAccess } from "@/lib/access";
@@ -13,19 +10,7 @@ import { requireAccess } from "@/lib/access";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const PENDING_HELP = "Pending = the slot's time passed with no attendance marked.";
-
-// Shape of lib/kpi.ts recentCallOutcomes rows (that file stays untyped).
-type OutcomeRow = {
-  id: string;
-  occurred_at: string | Date;
-  disposition: string | null;
-  contact_id: string;
-  contact_name: string;
-  closer: string | null;
-  total_contract_value_minor: number | null;
-  plan_type_snapshot: string | null;
-};
+const PENDING_HELP = "Pending means the slot's time has passed but attendance has not been marked yet (taken or no-show).";
 
 const STATUS_OPTIONS = [
   { value: "pending", label: "Pending attendance" },
@@ -51,28 +36,11 @@ export default async function Calls({
   const closer = sp.closer ?? "";
   const status = sp.status ?? "";
 
-  const [summary, rows, closers, outcomes] = await Promise.all([
+  const [summary, rows, closers] = await Promise.all([
     callLogSummary({ demo, days }),
     callLogRows({ demo, days, q, closerId: closer, status }),
     closerOptions(demo),
-    recentCallOutcomes(demo),
   ]);
-  // Separate batch so the page never exceeds 4 concurrent queries.
-  const [dq, dqReasonRows] = await Promise.all([
-    dqRates({ demo, days }),
-    dqReasons({ demo, days }),
-  ]);
-
-  const closingDqRate = dq.taken > 0 ? dq.closingDqd / dq.taken : null;
-  const settingDqRate = dq.totalOpps > 0 ? dq.settingDqd / dq.totalOpps : null;
-  const settingReasons = dqReasonRows
-    .filter((r) => r.stage === "setting")
-    .map((r) => ({ label: r.reason, value: Number(r.n) }))
-    .slice(0, 6);
-  const closingReasons = dqReasonRows
-    .filter((r) => r.stage === "closing")
-    .map((r) => ({ label: r.reason, value: Number(r.n) }))
-    .slice(0, 6);
 
   // Chip/banner links keep the current search + closer + range, swap the status.
   const href = (nextStatus: string) => {
@@ -117,7 +85,7 @@ export default async function Calls({
             </div>
             <p className="mt-0.5 text-sm" style={{ color: "var(--muted)" }}>
               {num(pending)} call{pending === 1 ? " needs" : "s need"} attendance marking. Show up files a minimal
-              taken report and syncs Close/GHL — the closer should still file the full Sales Call Report after.
+              taken report and syncs Close/GHL. The closer should still file the full Sales Call Report after.
             </p>
           </div>
           <Link href={href("pending")} className="btn">Review pending</Link>
@@ -143,40 +111,6 @@ export default async function Calls({
         })}
       </div>
 
-      <SectionTitle>Disqualifications</SectionTitle>
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-        <Card>
-          <Stat
-            label="DQ Rate at Setting"
-            value={settingDqRate != null ? pct(settingDqRate) : "—"}
-            sub={`${num(dq.settingDqd)} of ${num(dq.totalOpps)} opportunities in the last ${days} days`}
-            tone={settingDqRate != null && settingDqRate > 0.4 ? "warn" : undefined}
-            help="Opportunities disqualified before a strategy call (dq_stage = setting), over all opportunities opened in range."
-          />
-          <div className="mt-3 text-xs font-medium" style={{ color: "var(--muted)" }}>Top reasons at setting</div>
-          <div className="mt-1.5">
-            {settingReasons.length > 0
-              ? <HBarList data={settingReasons} format={(v) => num(v)} />
-              : <div className="py-4 text-center text-xs" style={{ color: "var(--muted)" }}>No setting disqualifications in range</div>}
-          </div>
-        </Card>
-        <Card>
-          <Stat
-            label="DQ Rate at Closing"
-            value={closingDqRate != null ? pct(closingDqRate) : "—"}
-            sub={`${num(dq.closingDqd)} of ${num(dq.taken)} taken calls in the last ${days} days`}
-            tone={closingDqRate != null && closingDqRate > 0.2 ? "warn" : undefined}
-            help="Taken strategy calls disqualified on the call (disposition = dq_on_call), over all taken strategy calls in range."
-          />
-          <div className="mt-3 text-xs font-medium" style={{ color: "var(--muted)" }}>Top reasons at closing</div>
-          <div className="mt-1.5">
-            {closingReasons.length > 0
-              ? <HBarList data={closingReasons} format={(v) => num(v)} />
-              : <div className="py-4 text-center text-xs" style={{ color: "var(--muted)" }}>No closing disqualifications in range</div>}
-          </div>
-        </Card>
-      </div>
-
       <SectionTitle>Call log</SectionTitle>
       <form method="get" action="/calls" className="mb-4 flex flex-wrap items-center gap-2">
         <input type="hidden" name="days" value={days} />
@@ -196,29 +130,6 @@ export default async function Calls({
 
       <Card>
         <CallsTable rows={rows} tz={tz} />
-      </Card>
-
-      <SectionTitle>Recent outcomes</SectionTitle>
-      <Card>
-        <div className="overflow-x-auto">
-          <table>
-            <thead>
-              <tr><th>Taken</th><th>Contact</th><th>Closer</th><th>Disposition</th><th>Deal</th></tr>
-            </thead>
-            <tbody>
-              {(outcomes as unknown as OutcomeRow[]).map((c) => (
-                <tr key={c.id}>
-                  <td>{dateTime(c.occurred_at, tz)}</td>
-                  <td><Link href={`/contacts/${c.contact_id}`} style={{ color: "var(--accent)" }}>{c.contact_name}</Link></td>
-                  <td>{c.closer ?? "—"}</td>
-                  <td><Badge tone={STATUS_TONE[c.disposition ?? ""] ?? "neutral"}>{label(c.disposition)}</Badge></td>
-                  <td>{c.total_contract_value_minor ? `${money(c.total_contract_value_minor)} (${label(c.plan_type_snapshot)})` : "—"}</td>
-                </tr>
-              ))}
-              {outcomes.length === 0 && <tr><td colSpan={5} style={{ color: "var(--muted)" }}>No taken calls yet</td></tr>}
-            </tbody>
-          </table>
-        </div>
       </Card>
     </div>
   );

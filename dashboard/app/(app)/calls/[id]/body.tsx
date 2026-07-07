@@ -41,7 +41,7 @@ export async function CallBody({ id }: { id: string }) {
     select c.id, c.opportunity_id, c.type, c.disposition, c.scheduled_at,
            c.current_scheduled_at, c.occurred_at, c.is_booking, c.is_primary,
            c.booking_source_channel, rep.full_name as rep_name,
-           o.contact_id, ct.full_name as contact_name
+           o.stage, o.contact_id, ct.full_name as contact_name
     from sales.call c
     left join sales.rep rep on rep.id = c.rep_id
     left join sales.opportunity o on o.id = c.opportunity_id
@@ -71,6 +71,7 @@ export async function CallBody({ id }: { id: string }) {
       badges={<>
         <Badge tone="neutral">{label(call.type)}</Badge>
         {call.disposition && <Badge tone={tone(call.disposition)}>{label(call.disposition)}</Badge>}
+        {call.stage && <Badge tone={STATUS_TONE[call.stage] ?? "neutral"}>{label(call.stage)}</Badge>}
       </>}
     >
       <SectionTitle>Details</SectionTitle>

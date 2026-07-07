@@ -178,40 +178,60 @@ export function ProgressRing({ value, label, size = 90 }: { value: number; label
 // Each bar = one period. Optional `compare` renders a faint "previous" bar
 // behind each, and `target` draws a goal line. `pct` formats values as %.
 export function BarChart({
-  data, height = 180, target, format, color = "#4f8ef7", highlightLast = true,
+  data, height = 180, target, format, color = "#4f8ef7", highlightLast = true, yTicks = 4,
 }: {
   data: { label: string; value: number; compare?: number }[];
-  height?: number; target?: number; color?: string; highlightLast?: boolean;
+  height?: number; target?: number; color?: string; highlightLast?: boolean; yTicks?: number;
   format?: (v: number) => string;
 }) {
   if (!data.length) return emptyNote();
   const fmt = format ?? ((v: number) => String(v));
   const max = Math.max(...data.map((d) => Math.max(d.value, d.compare ?? 0)), target ?? 0, 1);
-  const barH = (v: number) => (v / max) * (height - 24);
+  const plotH = height; // plot area height (x labels sit below)
+  const barH = (v: number) => (v / max) * plotH;
+  // y-axis ticks from max down to 0
+  const ticks = Array.from({ length: yTicks + 1 }, (_, i) => (max * (yTicks - i)) / yTicks);
   return (
-    <div>
-      <div className="relative flex items-end justify-between gap-2" style={{ height }}>
-        {target != null && target > 0 && (
-          <div className="absolute inset-x-0 flex items-center" style={{ bottom: barH(target) + 20 }}>
-            <div className="h-px flex-1" style={{ background: "var(--warn)", opacity: 0.6 }} />
-            <span className="ml-1 text-[10px]" style={{ color: "var(--warn)" }}>goal {fmt(target)}</span>
+    <div className="flex gap-2">
+      {/* Y axis */}
+      <div className="flex shrink-0 flex-col justify-between text-right text-[9px] tabular-nums" style={{ height: plotH, color: "var(--muted)", minWidth: 22 }}>
+        {ticks.map((t, i) => <div key={i} style={{ lineHeight: 1, transform: i === 0 ? "translateY(-2px)" : i === ticks.length - 1 ? "translateY(2px)" : "none" }}>{fmt(Math.round(t))}</div>)}
+      </div>
+      {/* plot */}
+      <div className="min-w-0 flex-1">
+        <div className="relative" style={{ height: plotH }}>
+          {/* gridlines */}
+          <div className="absolute inset-0 flex flex-col justify-between">
+            {ticks.map((_, i) => <div key={i} className="w-full" style={{ height: 1, background: "var(--line)", opacity: 0.35 }} />)}
           </div>
-        )}
-        {data.map((d, i) => {
-          const isLast = highlightLast && i === data.length - 1;
-          return (
-            <div key={i} className="flex flex-1 flex-col items-center justify-end gap-1" style={{ height }}>
-              <div className="text-[10px] tabular-nums" style={{ color: "var(--muted)" }}>{fmt(d.value)}</div>
-              <div className="relative flex w-full items-end justify-center" style={{ height: height - 24 }}>
-                {d.compare != null && (
-                  <div className="absolute bottom-0 w-full rounded-t" style={{ height: barH(d.compare), background: "var(--line)", opacity: 0.7, maxWidth: 34 }} />
-                )}
-                <div className="w-full rounded-t" style={{ height: Math.max(barH(d.value), 2), background: color, opacity: isLast ? 1 : 0.75, maxWidth: 34, position: "relative", zIndex: 1 }} />
-              </div>
-              <div className="truncate text-center text-[10px]" style={{ color: "var(--muted)", maxWidth: 60 }}>{d.label}</div>
+          {/* target line */}
+          {target != null && target > 0 && (
+            <div className="absolute inset-x-0 flex items-center" style={{ bottom: barH(target) }}>
+              <div className="h-px flex-1" style={{ background: "var(--warn)", opacity: 0.7 }} />
+              <span className="ml-1 text-[9px]" style={{ color: "var(--warn)" }}>goal {fmt(target)}</span>
             </div>
-          );
-        })}
+          )}
+          {/* bars */}
+          <div className="relative flex h-full items-end justify-between gap-2">
+            {data.map((d, i) => {
+              const isLast = highlightLast && i === data.length - 1;
+              return (
+                <div key={i} className="relative flex h-full flex-1 items-end justify-center">
+                  {d.compare != null && (
+                    <div className="absolute bottom-0 w-full rounded-t" style={{ height: barH(d.compare), background: "var(--line)", opacity: 0.7, maxWidth: 30 }} />
+                  )}
+                  <div className="relative w-full rounded-t" style={{ height: Math.max(barH(d.value), 2), background: color, opacity: isLast ? 1 : 0.8, maxWidth: 30, zIndex: 1 }}>
+                    <div className="absolute -top-4 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] font-medium tabular-nums" style={{ color: "var(--text)" }}>{fmt(d.value)}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        {/* x-axis labels */}
+        <div className="mt-1.5 flex justify-between gap-2 border-t pt-1" style={{ borderColor: "var(--line)" }}>
+          {data.map((d, i) => <div key={i} className="flex-1 truncate text-center text-[10px]" style={{ color: "var(--muted)" }}>{d.label}</div>)}
+        </div>
       </div>
     </div>
   );

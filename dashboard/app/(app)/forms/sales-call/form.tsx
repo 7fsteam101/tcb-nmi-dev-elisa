@@ -34,7 +34,7 @@ function plusDays(n: number) {
   return d.toISOString().slice(0, 10);
 }
 
-export function SalesCallForm({ options }: { options: FormOptions }) {
+export function SalesCallForm({ options, defaultAppointmentId = "" }: { options: FormOptions; defaultAppointmentId?: string }) {
   const [state, action, pending] = useActionState(submitSalesCallAction, null as any);
   const [outcome, setOutcome] = useState("");
   const [offerMade, setOfferMade] = useState(true);
@@ -92,7 +92,7 @@ export function SalesCallForm({ options }: { options: FormOptions }) {
           <form action={action} className="space-y-5">
             <Section step={1} title="Call and closer" hint="Pick the call being reported and who is submitting it.">
               <Field label="Call" hint="This is the call date the report is tied to.">
-                <select name="appointmentId" required defaultValue="">
+                <select name="appointmentId" required defaultValue={defaultAppointmentId}>
                   <option value="" disabled>Pick the call</option>
                   {options.appointments.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}
                 </select>

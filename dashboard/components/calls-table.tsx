@@ -13,7 +13,7 @@ import { MarkButtons } from "@/app/(app)/calls/mark-buttons";
 // fixed-column table; only which columns show is now user-controlled.
 
 const STORAGE_KEY = "tcb_call_columns";
-const PENDING_HELP = "Pending = the slot's time passed with no attendance marked.";
+const PENDING_HELP = "Pending means the slot's time has passed but attendance has not been marked yet (taken or no-show).";
 
 type ColKey =
   | "created" | "event_date" | "lead" | "email" | "phone" | "closer"
@@ -36,7 +36,7 @@ const COLUMNS: Column[] = [
   },
   {
     key: "event_date",
-    name: "Event date",
+    name: "Scheduled for",
     cell: (r, tz) => dateTime(r.scheduled_for, tz),
   },
   {
@@ -67,13 +67,13 @@ const COLUMNS: Column[] = [
   {
     key: "attempt",
     name: "Attempt",
-    help: "Slot number for this booking — #2 and up means it was rescheduled.",
+    help: "Booking attempt number. #2 or higher means the call was rescheduled.",
     cell: (r) => (r.seq > 1 ? <Badge tone="warn">{`#${r.seq}`}</Badge> : "#1"),
   },
   {
     key: "stage",
-    name: "Opportunity stage",
-    cell: (r) => (r.stage ? label(r.stage) : "—"),
+    name: "Opportunity",
+    cell: (r) => (r.stage ? <Badge tone={STATUS_TONE[r.stage] ?? "neutral"}>{label(r.stage)}</Badge> : "—"),
   },
   {
     key: "source",
@@ -86,7 +86,7 @@ const COLUMNS: Column[] = [
     help: PENDING_HELP,
     cell: (r) => (
       <Badge tone={r.needs_attendance ? "warn" : (STATUS_TONE[r.status] ?? "neutral")}>
-        {r.needs_attendance ? "pending" : label(r.status)}
+        {r.needs_attendance ? label("pending") : label(r.status)}
       </Badge>
     ),
   },
@@ -112,7 +112,7 @@ const COLUMNS: Column[] = [
 ];
 
 const ALL_KEYS = COLUMNS.map((c) => c.key);
-const DEFAULT_KEYS: ColKey[] = ["event_date", "lead", "closer", "attempt", "status", "actions", "open"];
+const DEFAULT_KEYS: ColKey[] = ["event_date", "lead", "closer", "attempt", "stage", "status", "actions", "open"];
 
 // Keep only recognized keys, preserve canonical column order, never empty.
 function normalize(keys: string[]): ColKey[] {

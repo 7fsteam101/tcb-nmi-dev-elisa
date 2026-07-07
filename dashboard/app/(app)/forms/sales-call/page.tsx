@@ -5,8 +5,9 @@ import { requireAccess } from "@/lib/access";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-export default async function SalesCallPage() {
+export default async function SalesCallPage({ searchParams }: { searchParams: Promise<{ appointmentId?: string }> }) {
   await requireAccess("forms");
   const options = await formOptions();
-  return <SalesCallForm options={options} />;
+  const sp = await searchParams;
+  return <SalesCallForm options={options} defaultAppointmentId={sp.appointmentId ?? ""} />;
 }

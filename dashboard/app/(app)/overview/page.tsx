@@ -2,16 +2,36 @@ import { overviewKpis, dailySeries, leakage, leadershipCloseRate } from "@/lib/k
 import { overviewComparison, deltaPct } from "@/lib/kpi-series";
 import { isDemoMode, reportTimezone } from "@/lib/settings";
 import { money, num, pct } from "@/lib/format";
-import { Card, SectionTitle, MiniBars } from "@/components/ui";
-import { StatSpark } from "@/components/stat-spark";
+import { Card, Stat, SectionTitle, InfoTip } from "@/components/ui";
 import { DateRangeBar } from "@/components/date-range";
-import { LineChart, ProgressRing } from "@/components/charts";
+import { BarChart, ProgressRing } from "@/components/charts";
 import { resolveRange, previousWindow } from "@/lib/range";
 import { requireAccess } from "@/lib/access";
 import { goalProgress, METRIC_LABEL, isMoneyMetric } from "@/lib/goals";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
+
+// Roll the day-grained series into ISO weeks (Mon-anchored) in JS so the weekly
+// bar charts need no extra query, so the pooler stays at <= 4 concurrent.
+function toWeeks(series: { day: string; booked: number; taken: number; cash_minor: number }[]) {
+  const buckets = new Map<string, { label: string; booked: number; taken: number; cash_minor: number }>();
+  for (const d of series) {
+    // d.day comes back from postgres as a Date (or an ISO string); parse either safely.
+    const dt = new Date(d.day);
+    if (Number.isNaN(dt.getTime())) continue;
+    const dow = (dt.getUTCDay() + 6) % 7; // 0 = Monday
+    const monday = new Date(dt.getTime() - dow * 86400000);
+    const key = monday.toISOString().slice(0, 10);
+    const label = monday.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+    const cur = buckets.get(key) ?? { label, booked: 0, taken: 0, cash_minor: 0 };
+    cur.booked += Number(d.booked ?? 0);
+    cur.taken += Number(d.taken ?? 0);
+    cur.cash_minor += Number(d.cash_minor ?? 0);
+    buckets.set(key, cur);
+  }
+  return [...buckets.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([, v]) => v);
+}
 
 export default async function Overview({ searchParams }: { searchParams: Promise<{ days?: string; from?: string; to?: string }> }) {
   await requireAccess("overview");
@@ -21,28 +41,60 @@ export default async function Overview({ searchParams }: { searchParams: Promise
   const days = range.days;
   const until = range.custom ? range.until : null;
   const pw = previousWindow(range);
-  const [k, prev, series, leak, lcr] = await Promise.all([
+  // 4 queries, run together, matching the free-tier pooler ceiling (max 4).
+  const [k, prev, series, leak] = await Promise.all([
     overviewKpis({ demo, days, tz, since: range.since, until }),
     overviewComparison({ demo, days, tz, prevSince: pw.since, prevUpto: pw.until }),
     dailySeries({ demo, days, tz, from: range.from, to: range.to }),
     leakage({ demo, days, since: range.since, until }),
-    leadershipCloseRate({ demo, days, since: range.since, until }),
   ]);
-  // Kept out of the Promise.all above to hold concurrency at 4 or fewer.
+  // Held out of the Promise.all above so concurrency stays at 4 or fewer.
+  const lcr = await leadershipCloseRate({ demo, days, since: range.since, until });
   const companyGoals = await goalProgress(demo, "company");
 
   const n = (v: unknown) => Number(v ?? 0);
-  const showRate = n(k.taken) + n(k.no_shows) > 0 ? n(k.taken) / (n(k.taken) + n(k.no_shows)) : 0;
+
+  // Core funnel counts (all sourced from lib/kpi.ts, no invented numbers).
+  const leads = n(k.leads);
+  const booked = n(k.booked);
+  const taken = n(k.taken);
+  const deals = n(k.deals_won);
+  const cash = n(k.cash_collected_minor);
+
+  // Rates (spec section 4.2 / 4.4).
+  const showRate = taken + n(k.no_shows) > 0 ? taken / (taken + n(k.no_shows)) : 0;
   const prevShowRate = n(prev.taken) + n(prev.no_shows) > 0 ? n(prev.taken) / (n(prev.taken) + n(prev.no_shows)) : 0;
-  const closeRate = n(k.taken) > 0 ? n(k.deals_won) / n(k.taken) : 0;
+  const closeRate = taken > 0 ? deals / taken : 0;
   const prevCloseRate = n(prev.taken) > 0 ? n(prev.deals_won) / n(prev.taken) : 0;
   const closeRateCalendar = n(lcr.booked) > 0 ? n(lcr.deals_won) / n(lcr.booked) : 0;
-  const bookedToTaken = n(leak.bookings) > 0 ? n(leak.taken) / n(leak.bookings) : 0;
-  const netCash = n(k.cash_collected_minor) - n(k.reversals_minor);
-  const prevNetCash = n(prev.cash_collected_minor) - n(prev.reversals_minor);
-  const roas = n(k.ad_spend_minor) > 0 ? netCash / n(k.ad_spend_minor) : 0;
-  const dayLabels = series.map((d: any) => new Date(d.day).toLocaleDateString("en-US", { month: "short", day: "numeric" }));
-  const s = (key: string) => series.map((d: any) => Number(d[key] ?? 0));
+  // Utilization = calls actually taken / calls booked. THE bottleneck (booked to taken).
+  const utilization = booked > 0 ? taken / booked : 0;
+  const prevUtilization = n(prev.booked) > 0 ? n(prev.taken) / n(prev.booked) : 0;
+
+  // Health tones for the rate stats.
+  const showTone = showRate >= 0.7 ? "good" : showRate >= 0.5 ? "warn" : "bad";
+  const closeTone = closeRate >= 0.25 ? "good" : closeRate >= 0.15 ? "warn" : "bad";
+  const utilTone = utilization >= 0.6 ? "good" : utilization >= 0.4 ? "warn" : "bad";
+
+  // Weekly rollups for the bar charts (no extra query).
+  const weeks = toWeeks(series as unknown as { day: string; booked: number; taken: number; cash_minor: number }[]);
+  const bookedTakenRows = weeks.map((w) => ({ label: w.label, value: w.booked, compare: w.taken }));
+  const cashRows = weeks.map((w) => ({ label: w.label, value: w.cash_minor }));
+
+  // Funnel visualization: each stage as a bar, so the drop-off is visible.
+  const funnelRows = [
+    { label: "Leads", value: leads },
+    { label: "Booked", value: booked },
+    { label: "Taken", value: taken },
+    { label: "Won", value: deals },
+  ];
+  // Step-to-step conversion, shown under the funnel.
+  const funnelSteps = [
+    { from: "Leads", to: "Booked", rate: leads > 0 ? booked / leads : 0 },
+    { from: "Booked", to: "Taken", rate: booked > 0 ? taken / booked : 0 },
+    { from: "Taken", to: "Won", rate: taken > 0 ? deals / taken : 0 },
+  ];
+
   const rq = range.custom ? `from=${range.from}&to=${range.to}` : `days=${days}`;
 
   return (
@@ -50,60 +102,111 @@ export default async function Overview({ searchParams }: { searchParams: Promise
       <h1 className="text-xl font-semibold">Overview</h1>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm" style={{ color: "var(--muted)" }}>
-          {range.label}, vs the {range.custom ? "prior period" : `${days} before`}
+          {range.label}, vs the {range.custom ? "prior period" : `${days} before`}. Times in {tz}.
         </p>
         <DateRangeBar />
       </div>
 
+      {/* Headline KPIs as colored Stat boxes, in funnel order left to right. */}
+      <SectionTitle>Headline metrics</SectionTitle>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatSpark label="Leads (unique opt-ins)" value={num(k.leads)} series={s("leads")}
-          deltaPct={deltaPct(n(k.leads), n(prev.leads))} href={`/explore/leads?${rq}`}
-          help="Unique lead-form submissions. A returning lead re-counts only after 30 days." />
-        <StatSpark label="Calls booked" value={num(k.booked)} series={s("booked")}
-          deltaPct={deltaPct(n(k.booked), n(prev.booked))} href={`/explore/booked?${rq}`}
-          help="Unique strategy-call bookings on booking calendars, counted once regardless of reschedules. The $25 payment match attaches as Stripe data lands." />
-        <StatSpark label="Calls taken" value={num(k.taken)} series={s("taken")}
-          deltaPct={deltaPct(n(k.taken), n(prev.taken))} href={`/explore/taken?${rq}`}
-          help="Appointment slots that actually happened, by event start date." />
-        <StatSpark label="Deals won" value={num(k.deals_won)} series={[]} tone="good"
-          deltaPct={deltaPct(n(k.deals_won), n(prev.deals_won))} href={`/explore/deals?${rq}`}
-          help="Deals recorded by the closer's Sales Call Report (the moment of record), by deal close date. Close mirrors the pipeline; the report creates the deal." />
-      </div>
-
-      <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-5">
-        <StatSpark label="Show rate" value={pct(showRate)} series={[]}
-          tone={showRate >= 0.7 ? "good" : showRate >= 0.5 ? "warn" : "bad"}
-          deltaPct={deltaPct(showRate, prevShowRate)} href={`/explore/no_shows?${rq}`}
-          help="Taken / (taken + no-shows), on slots that reached their time." />
-        <StatSpark label="Close rate (on taken)" value={pct(closeRate)} series={[]}
-          tone={closeRate >= 0.25 ? "good" : "warn"}
-          deltaPct={deltaPct(closeRate, prevCloseRate)} href={`/explore/deals?${rq}`}
-          help="Deals won / calls taken. The closer-facing variant." />
-        <StatSpark label="Close rate (on calendar)" value={pct(closeRateCalendar)} series={[]}
-          deltaPct={null} href={`/explore/deals?${rq}`}
-          help="Deals won / all bookings on the calendar including no-shows — the leadership variant; the closer variant divides by taken calls only." />
-        <StatSpark label="Booked-to-taken" value={pct(bookedToTaken)} series={[]}
-          tone={bookedToTaken >= 0.5 ? "good" : "bad"} deltaPct={null} href={`/explore/booked?${rq}`}
-          help="Of all bookings, how many have had their call actually happen. THE bottleneck metric." />
-        <StatSpark label="Reschedules" value={num(k.reschedules)} series={s("rescheduled")} tone="warn"
-          deltaPct={deltaPct(n(k.reschedules), n(prev.reschedules))} href={`/explore/reschedules?${rq}`}
-          help="Appointment slots moved to a new time (each move counts once)." />
+        <Stat label="Leads" value={num(leads)} tone="accent" href={`/explore/leads?${rq}`}
+          sub={deltaSub(deltaPct(leads, n(prev.leads)))}
+          help="Unique lead-form opt-ins. A returning lead re-counts only after 30 days." />
+        <Stat label="Calls booked" value={num(booked)} tone="accent" href={`/explore/booked?${rq}`}
+          sub={deltaSub(deltaPct(booked, n(prev.booked)))}
+          help="Unique paid strategy-call bookings, counted once regardless of reschedules." />
+        <Stat label="Calls taken" value={num(taken)} tone="accent" href={`/explore/taken?${rq}`}
+          sub={deltaSub(deltaPct(taken, n(prev.taken)))}
+          help="Strategy-call slots that actually happened, by event start date." />
+        <Stat label="Deals won" value={num(deals)} tone="good" href={`/explore/deals?${rq}`}
+          sub={deltaSub(deltaPct(deals, n(prev.deals_won)))}
+          help="Deals recorded by the closer's Sales Call Report, by deal close date. Refunded deals excluded." />
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatSpark label="Cash collected" value={money(k.cash_collected_minor)} series={s("cash_minor")}
-          deltaPct={deltaPct(n(k.cash_collected_minor), n(prev.cash_collected_minor))} href={`/explore/cash?${rq}`}
+        <Stat label="Show rate" value={pct(showRate, 0)} tone={showTone} href={`/explore/no_shows?${rq}`}
+          sub={deltaSub(deltaPct(showRate, prevShowRate))}
+          help="Taken / (taken + no-shows), on slots that reached their time." />
+        <Stat label="Utilization rate" value={pct(utilization, 0)} tone={utilTone} href={`/explore/booked?${rq}`}
+          sub={deltaSub(deltaPct(utilization, prevUtilization))}
+          help="Calls taken / calls booked. The share of bookings that actually happen as a call. THE bottleneck metric (booked to taken); good is 60% and up." />
+        <Stat label="Close rate" value={pct(closeRate, 0)} tone={closeTone} href={`/explore/deals?${rq}`}
+          sub={deltaSub(deltaPct(closeRate, prevCloseRate))}
+          help="Deals won / calls taken. The closer-facing variant." />
+        <Stat label="Cash collected" value={money(cash)} tone="good" href={`/explore/cash?${rq}`}
+          sub={deltaSub(deltaPct(cash, n(prev.cash_collected_minor)))}
           help="Gross program payments (NMI), excluding the $25 booking fees, before reversals." />
-        <StatSpark label="Net of reversals" value={money(netCash)} series={[]}
-          tone={n(k.reversals_minor) > 0 ? "warn" : "good"}
-          deltaPct={deltaPct(netCash, prevNetCash)} href={`/explore/reversals?${rq}`}
-          help="Cash collected minus refunds and chargebacks." />
-        <StatSpark label="Booked revenue" value={money(k.booked_revenue_minor)} series={[]}
-          deltaPct={deltaPct(n(k.booked_revenue_minor), n(prev.booked_revenue_minor))} href={`/explore/deals?${rq}`}
-          help="Total contract value of deals won (excludes refunded deals)." />
-        <StatSpark label="Ad spend / ROAS" value={`${money(k.ad_spend_minor)} / ${roas.toFixed(1)}x`} series={s("spend_minor")}
-          deltaPct={deltaPct(n(k.ad_spend_minor), n(prev.ad_spend_minor))} href={`/explore/adspend?${rq}`}
-          help="Meta spend, and net cash collected divided by spend." />
+      </div>
+
+      {/* Funnel visualization + step conversions. */}
+      <SectionTitle>Funnel</SectionTitle>
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+          <div className="mb-2 flex items-center gap-1.5 text-xs" style={{ color: "var(--muted)" }}>
+            Leads to Booked to Taken to Won, in the selected window
+            <InfoTip text="Each bar is one funnel stage's count. The narrowing bars show where volume is lost between stages." />
+          </div>
+          <BarChart data={funnelRows} height={200} color="#4f8ef7" highlightLast={false} />
+        </Card>
+        <Card>
+          <div className="mb-3 text-xs" style={{ color: "var(--muted)" }}>Step conversion</div>
+          <div className="space-y-3">
+            {funnelSteps.map((s) => (
+              <div key={s.from} className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-1.5 text-sm" style={{ color: "var(--text)" }}>
+                  {s.from} <span style={{ color: "var(--muted)" }}>&rarr;</span> {s.to}
+                </div>
+                <span className="text-sm font-semibold tabular-nums"
+                  style={{ color: s.rate >= 0.5 ? "var(--good)" : s.rate >= 0.3 ? "var(--warn)" : "var(--bad)" }}>
+                  {pct(s.rate, 0)}
+                </span>
+              </div>
+            ))}
+            <div className="flex items-center justify-between gap-3 border-t pt-3" style={{ borderColor: "var(--line)" }}>
+              <div className="flex items-center gap-1.5 text-sm font-medium" style={{ color: "var(--text)" }}>
+                Full funnel
+                <InfoTip text="Deals won / calls booked: the end-to-end conversion from a paid booking to a closed deal." />
+              </div>
+              <span className="text-sm font-semibold tabular-nums"
+                style={{ color: booked > 0 && deals / booked >= 0.07 ? "var(--good)" : "var(--warn)" }}>
+                {pct(booked > 0 ? deals / booked : 0, 0)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-1.5 text-sm" style={{ color: "var(--text)" }}>
+                Close rate (on calendar)
+                <InfoTip text="Deals won / all bookings on the calendar including no-shows: the leadership variant; the closer variant divides by taken calls only." />
+              </div>
+              <span className="text-sm font-semibold tabular-nums" style={{ color: "var(--muted)" }}>{pct(closeRateCalendar, 0)}</span>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      {/* Weekly trend bar charts. */}
+      <SectionTitle>Weekly trend</SectionTitle>
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        <Card href={`/explore/taken?${rq}`}>
+          <div className="mb-2 flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-xs" style={{ color: "var(--muted)" }}>
+              Booked vs taken by week
+              <InfoTip text="Solid bar = calls booked; the faint bar behind = calls taken. The gap is the booked-to-taken leak." />
+            </div>
+            <div className="flex gap-3 text-[10px]" style={{ color: "var(--muted)" }}>
+              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm" style={{ background: "#4f8ef7" }} />Booked</span>
+              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm" style={{ background: "var(--line)" }} />Taken</span>
+            </div>
+          </div>
+          <BarChart data={bookedTakenRows} height={190} color="#4f8ef7" />
+        </Card>
+        <Card href={`/explore/cash?${rq}`}>
+          <div className="mb-2 flex items-center gap-1.5 text-xs" style={{ color: "var(--muted)" }}>
+            Cash collected by week
+            <InfoTip text="Gross program payments (NMI) per week, excluding the $25 booking fees." />
+          </div>
+          <BarChart data={cashRows} height={190} color="#34d399" format={(v) => money(v)} />
+        </Card>
       </div>
 
       <SectionTitle>Company goals &amp; projections</SectionTitle>
@@ -143,23 +246,12 @@ export default async function Overview({ searchParams }: { searchParams: Promise
           })}
         </div>
       )}
-
-      <SectionTitle>Daily activity</SectionTitle>
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-        <Card href={`/explore/leads?${rq}`}>
-          <div className="mb-2 text-xs" style={{ color: "var(--muted)" }}>Leads per day</div>
-          <MiniBars data={s("leads")} labels={dayLabels} />
-        </Card>
-        <Card href={`/explore/taken?${rq}`}>
-          <div className="mb-2 text-xs" style={{ color: "var(--muted)" }}>Calls booked vs taken per day</div>
-          <LineChart height={96} area={false}
-            series={[{ label: "Booked", points: s("booked"), color: "#4f8ef7" }, { label: "Taken", points: s("taken"), color: "#34d399" }]} />
-        </Card>
-        <Card href={`/explore/cash?${rq}`}>
-          <div className="mb-2 text-xs" style={{ color: "var(--muted)" }}>Cash collected per day</div>
-          <MiniBars data={s("cash_minor")} labels={dayLabels} color="var(--good)" />
-        </Card>
-      </div>
     </div>
   );
+}
+
+// Compact "up/down X% vs prior" line for a Stat's sub slot. Null baseline = flat.
+function deltaSub(d: number | null): string {
+  if (d === null || d === 0) return "flat vs prior";
+  return `${d > 0 ? "▲" : "▼"} ${Math.abs(d).toFixed(0)}% vs prior`;
 }

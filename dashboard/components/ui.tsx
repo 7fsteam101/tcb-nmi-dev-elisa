@@ -1,28 +1,40 @@
 import Link from "next/link";
-import { ReactNode } from "react";
+import { ReactNode, CSSProperties } from "react";
 
 export function Card({ children, className = "", href }: { children: ReactNode; className?: string; href?: string }) {
   const body = <div className={`card p-4 ${href ? "card-hover" : ""} ${className}`}>{children}</div>;
   return href ? <Link href={href}>{body}</Link> : body;
 }
 
+// Airtable-style stat: a compact tinted box (the background is colored, not the
+// panel), a large bold number in the tone color, minimal chrome. Default tone is
+// accent (blue) so every metric reads as colored.
 export function Stat({
   label, value, sub, tone, help, href,
 }: {
   label: string; value: string; sub?: string;
-  tone?: "good" | "warn" | "bad"; help?: string; href?: string;
+  tone?: "good" | "warn" | "bad" | "accent" | "neutral"; help?: string; href?: string;
 }) {
-  const toneColor = tone === "good" ? "var(--good)" : tone === "warn" ? "var(--warn)" : tone === "bad" ? "var(--bad)" : "var(--text)";
-  return (
-    <Card href={href}>
-      <div className="flex items-center gap-1.5 text-xs" style={{ color: "var(--muted)" }}>
+  const c = tone === "good" ? "var(--good)" : tone === "warn" ? "var(--warn)" : tone === "bad" ? "var(--bad)"
+    : tone === "neutral" ? "var(--muted)" : "var(--accent)";
+  const inner = (
+    <>
+      <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide" style={{ color: "var(--muted)" }}>
         {label}
         {help && <InfoTip text={help} />}
       </div>
-      <div className="mt-1 text-2xl font-semibold tracking-tight" style={{ color: toneColor }}>{value}</div>
-      {sub && <div className="mt-0.5 text-xs" style={{ color: "var(--muted)" }}>{sub}</div>}
-    </Card>
+      <div className="mt-1.5 text-[26px] font-bold leading-none tracking-tight tabular-nums" style={{ color: c }}>{value}</div>
+      {sub && <div className="mt-1.5 text-[11px]" style={{ color: "var(--muted)" }}>{sub}</div>}
+    </>
   );
+  const style = {
+    background: `color-mix(in srgb, ${c} 14%, var(--panel))`,
+    borderColor: `color-mix(in srgb, ${c} 32%, transparent)`,
+  } as CSSProperties;
+  const cls = "block rounded-xl border px-3.5 py-3 transition-colors";
+  return href
+    ? <a href={href} className={cls + " hover:brightness-110"} style={style}>{inner}</a>
+    : <div className={cls} style={style}>{inner}</div>;
 }
 
 export function InfoTip({ text }: { text: string }) {

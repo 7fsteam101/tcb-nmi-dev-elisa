@@ -8,7 +8,7 @@ import {
   SubmitBar, ResultBanner, SummaryRail, RailRow, RailChip,
 } from "../form-kit";
 
-export function PostCallForm({ options }: { options: FormOptions }) {
+export function PostCallForm({ options, defaultCallId = "" }: { options: FormOptions; defaultCallId?: string }) {
   const [state, action, pending] = useActionState(submitPostCallAction, null as any);
   // Display-only: count how many objection boxes are ticked for the summary rail.
   // The checkboxes stay real form fields (name="objections"); this never changes
@@ -42,7 +42,7 @@ export function PostCallForm({ options }: { options: FormOptions }) {
           <form action={action} className="space-y-5">
             <Section step={1} title="Call and rep" hint="Pick the taken call and who is submitting the notes.">
               <Field label="Call">
-                <select name="callId" required defaultValue="">
+                <select name="callId" required defaultValue={defaultCallId}>
                   <option value="" disabled>Pick the taken call</option>
                   {options.takenCalls.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
                 </select>
