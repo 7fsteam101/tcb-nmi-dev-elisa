@@ -30,7 +30,7 @@ export default async function CardUpdatePage({ params }: { params: Promise<{ tok
       <h1 style={{ fontSize: 20, fontWeight: 700 }}>Update card on file</h1>
       <p style={{ color: "#8aa0bd", marginTop: 6, fontSize: 14 }}>Enter a new card. Your remaining scheduled payments will charge to it.</p>
       <Checkout token={token} firstAmountLabel="" defaultName={link.customer_name || ""} defaultEmail={link.customer_email || ""}
-        tokenizationKey={tokenizationKey} testMode={testMode} action="/api/update-card" payLabel="Update card" requireContact={false} />
+        tokenizationKey={tokenizationKey} testMode={testMode} action="/api/update-card" payLabel="Update card" requireContact={false} collectZip={false} />
     </>
   );
 }

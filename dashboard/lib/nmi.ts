@@ -54,6 +54,7 @@ export async function saleAndVault(input: {
   lastName?: string;
   email?: string;
   phone?: string;
+  zip?: string; // billing ZIP/postal, forwarded to NMI for AVS
   planId: string; // our payment_link token/id, stamped for webhook correlation
   orderId?: string;
 }): Promise<NmiResult> {
@@ -65,6 +66,7 @@ export async function saleAndVault(input: {
     last_name: input.lastName,
     email: input.email,
     phone: input.phone,
+    zip: input.zip,
     orderid: input.orderId,
     merchant_defined_field_1: input.planId,
     ...cardFields(input.source),

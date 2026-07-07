@@ -11,7 +11,7 @@ export const maxDuration = 60;
 export async function POST(req: NextRequest) {
   let body: any;
   try { body = await req.json(); } catch { return NextResponse.json({ ok: false, message: "Bad request" }, { status: 400 }); }
-  const { token, name, email, phone, paymentToken, card } = body ?? {};
+  const { token, name, email, phone, zip, paymentToken, card } = body ?? {};
   if (!token) return NextResponse.json({ ok: false, message: "Missing token" }, { status: 400 });
 
   const link: any = await getPaymentLinkByToken(token);
@@ -40,6 +40,7 @@ export async function POST(req: NextRequest) {
     lastName: rest.join(" ") || undefined,
     email: email || link.customer_email || undefined,
     phone: phone || undefined,
+    zip: zip || undefined,
     planId: token,
     orderId: link.id,
   });

@@ -10,13 +10,14 @@ const input: React.CSSProperties = {
 };
 const label: React.CSSProperties = { fontSize: 12, color: "#8aa0bd", marginTop: 12, display: "block" };
 
-export function Checkout({ token, firstAmountLabel, defaultName, defaultEmail, tokenizationKey, testMode, action = "/api/charge", payLabel, requireContact = true }: {
+export function Checkout({ token, firstAmountLabel, defaultName, defaultEmail, tokenizationKey, testMode, action = "/api/charge", payLabel, requireContact = true, collectZip = true }: {
   token: string; firstAmountLabel: string; defaultName: string; defaultEmail: string; tokenizationKey: string; testMode: boolean;
-  action?: string; payLabel?: string; requireContact?: boolean;
+  action?: string; payLabel?: string; requireContact?: boolean; collectZip?: boolean;
 }) {
   const [name, setName] = useState(defaultName);
   const [email, setEmail] = useState(defaultEmail);
   const [phone, setPhone] = useState("");
+  const [zip, setZip] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [message, setMessage] = useState("");
   const collectReady = useRef(false);
@@ -28,7 +29,7 @@ export function Checkout({ token, firstAmountLabel, defaultName, defaultEmail, t
     try {
       const res = await fetch(action, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, name, email, phone, ...payload }),
+        body: JSON.stringify({ token, name, email, phone, zip, ...payload }),
       });
       const body = await res.json();
       if (body.ok) { setStatus("done"); setMessage(body.message || "Payment successful."); }
@@ -77,7 +78,7 @@ export function Checkout({ token, firstAmountLabel, defaultName, defaultEmail, t
     );
   }
 
-  const disabled = status === "loading" || (requireContact && (!name || !email));
+  const disabled = status === "loading" || (requireContact && (!name || !email)) || (collectZip && !zip.trim());
   const btnLabel = payLabel ?? `Pay ${firstAmountLabel}`;
 
   return (
@@ -102,12 +103,18 @@ export function Checkout({ token, firstAmountLabel, defaultName, defaultEmail, t
             <div style={{ flex: 1 }}><label style={label}>Expiry</label><div id="ccexp" style={{ ...input, padding: 0, height: 44 }} /></div>
             <div style={{ flex: 1 }}><label style={label}>CVV</label><div id="cvv" style={{ ...input, padding: 0, height: 44 }} /></div>
           </div>
+          {collectZip && (
+            <>
+              <label style={label}>ZIP / Postal code</label>
+              <input style={input} value={zip} onChange={(e) => setZip(e.target.value)} inputMode="numeric" placeholder="ZIP" autoComplete="postal-code" />
+            </>
+          )}
           <button type="button" disabled={disabled} onClick={() => window.CollectJS?.startPaymentRequest()}
             style={payBtn(disabled)}>{status === "loading" ? "Processing..." : btnLabel}</button>
         </>
       ) : (
         <TestCardForm buttonLabel={btnLabel} loading={status === "loading"} disabled={disabled}
-          onPay={(card) => charge({ card })} />
+          collectZip={collectZip} zip={zip} setZip={setZip} onPay={(card) => charge({ card })} />
       )}
 
       {status === "error" && <div style={{ marginTop: 12, color: "#ff8a8a", fontSize: 13, textAlign: "center" }}>{message}</div>}
@@ -121,8 +128,10 @@ function payBtn(disabled: boolean): React.CSSProperties {
     background: disabled ? "#2a3a54" : "#3b82f6", color: "#fff", fontWeight: 700, fontSize: 15, cursor: disabled ? "not-allowed" : "pointer" };
 }
 
-function TestCardForm({ buttonLabel, loading, disabled, onPay }: {
-  buttonLabel: string; loading: boolean; disabled: boolean; onPay: (c: { ccnumber: string; ccexp: string; cvv: string }) => void;
+function TestCardForm({ buttonLabel, loading, disabled, collectZip, zip, setZip, onPay }: {
+  buttonLabel: string; loading: boolean; disabled: boolean;
+  collectZip: boolean; zip: string; setZip: (v: string) => void;
+  onPay: (c: { ccnumber: string; ccexp: string; cvv: string }) => void;
 }) {
   const [ccnumber, setCc] = useState("4111111111111111");
   const [ccexp, setExp] = useState("1027");
@@ -135,6 +144,12 @@ function TestCardForm({ buttonLabel, loading, disabled, onPay }: {
         <div style={{ flex: 1 }}><label style={label}>Expiry (MMYY)</label><input style={input} value={ccexp} onChange={(e) => setExp(e.target.value)} inputMode="numeric" /></div>
         <div style={{ flex: 1 }}><label style={label}>CVV</label><input style={input} value={cvv} onChange={(e) => setCvv(e.target.value)} inputMode="numeric" /></div>
       </div>
+      {collectZip && (
+        <>
+          <label style={label}>ZIP / Postal code</label>
+          <input style={input} value={zip} onChange={(e) => setZip(e.target.value)} inputMode="numeric" />
+        </>
+      )}
       <button type="button" disabled={disabled} onClick={() => onPay({ ccnumber, ccexp, cvv })} style={payBtn(disabled)}>
         {loading ? "Processing..." : buttonLabel}
       </button>
