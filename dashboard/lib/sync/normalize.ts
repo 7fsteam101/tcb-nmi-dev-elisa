@@ -9,7 +9,10 @@ import type { Provider } from "./providers";
 const slug = (s: string) => s.toLowerCase().replace(/['’]/g, "").replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
 
 const STAGE_ALIASES: Record<string, string> = {
-  // the redesigned 18-stage pipeline (spec)
+  // the redesigned 18-stage pipeline (spec) — live in Close as the "Sales"
+  // pipeline (pipe_5ZtGJ7zT6RjguZ6KPEebkC) since 2026-07-07. "Setter Booked" /
+  // "Self Booked" are the booked split (July 2 decision).
+  setter_booked: "setter_booked", self_booked: "self_booked",
   lead_opt_in: "lead_opt_in", strategy_call_booked: "strategy_call_booked",
   intake_form_submitted: "intake_form_submitted", audit_complete: "audit_complete",
   intake_form_needed: "intake_form_needed", call_confirmed: "call_confirmed",
@@ -195,7 +198,7 @@ async function normalizeGhl(eventType: string, payload: any): Promise<string> {
     await sql`
       insert into credit.intake_submission (opportunity_id, contact_id, submitted_at, provider, status)
       values (${oppId}, ${contactId}, now(), ${p.provider === "myscoreiq" ? "myscoreiq" : "identityiq"}, 'submitted')`;
-    await sql`update sales.opportunity set stage = 'intake_form_submitted' where id = ${oppId} and stage in ('lead_opt_in','strategy_call_booked','intake_form_needed')`;
+    await sql`update sales.opportunity set stage = 'intake_form_submitted' where id = ${oppId} and stage in ('lead_opt_in','strategy_call_booked','setter_booked','self_booked','intake_form_needed')`;
     return "intake recorded (no credentials over webhook — the credential pull stays in the existing worker)";
   }
 
@@ -218,8 +221,12 @@ async function normalizeGhl(eventType: string, payload: any): Promise<string> {
       if (calendar.type === "strategy" && calendar.isBooking) {
         // a rebook after a miss re-opens the pipeline: reopen from lead OR from a
         // prior missed/cancelled/warm state (a live call is booked again).
-        await sql`update sales.opportunity set stage = 'strategy_call_booked'
+        // A GHL calendar booking is the lead booking themselves -> 'self_booked'
+        // (the July 2 split); setter bookings arrive as Close stage moves and
+        // mirror in on their own. booked_by is stamped on the call for the % split.
+        await sql`update sales.opportunity set stage = 'self_booked'
           where id = ${oppId} and stage in ('lead_opt_in','no_show','call_canceled_by_lead','warm_list')`;
+        await sql`update sales.call set booked_by = coalesce(booked_by, 'self_book') where id = ${callId}`;
         await stampAttribution(oppId, p.source ?? null, "booking"); // the booking source = the converting touch
       }
       return `booking slot recorded (${calendar.type} calendar)`;

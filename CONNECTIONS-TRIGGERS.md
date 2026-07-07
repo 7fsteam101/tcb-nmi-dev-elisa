@@ -17,6 +17,19 @@ A daily cron reconciles each source as a safety net under the webhooks.
 **STATUS: LIVE as of July 5, 2026.** The admin key (the "TCB Repair Support" user,
 full read/write) is stored in Supabase Vault; read + write are active; the webhook
 below is subscribed. Historical leads/opportunities are backfilled (~794 leads).
+
+**NEW PIPELINE (July 7, 2026):** the redesigned pipeline is live in Close as
+**"Sales"** (`pipe_5ZtGJ7zT6RjguZ6KPEebkC`), 19 stages including the
+Setter Booked / Self Booked split. We added the missing **Won PIF** stage via the
+API (typed "won", ordered Deposit -> Won PIF -> Won PP) and mapped every stage in
+both directions (inbound STAGE_ALIASES + outbound slug match). GHL self-bookings
+stamp `self_booked` + `booked_by='self_book'`. The old "BDCR Sales" pipeline stays
+for history. TWO OPEN ITEMS FOR THE TEAM: (1) Josh must re-point the onboarding
+automation (Cloudflare worker) from the old pipeline's "Closed Won" to the new
+Won PIF / Won PP before deals close on the new pipeline, or onboarding will
+silently not fire; (2) migrating existing open opportunities old -> new should
+happen after (1), moving cards in bulk fires no automations on our side (we
+mirror), the risk is only their own Close/Zapier automations.
 Gotcha for future debugging: the app resolves the Close connection that HOLDS the
 key (a keyless placeholder connection can otherwise shadow it) — see the
 `token_secret_ref` preference in `getConnection`.

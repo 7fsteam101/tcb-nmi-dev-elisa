@@ -93,7 +93,8 @@ export async function pipelineByStage(demo: boolean) {
     where o.is_demo = ${demo}
     group by o.stage
     order by min(case o.stage
-      when 'lead_opt_in' then 1 when 'strategy_call_booked' then 2 when 'intake_form_submitted' then 3
+      when 'lead_opt_in' then 1 when 'strategy_call_booked' then 2
+      when 'setter_booked' then 2 when 'self_booked' then 2 when 'intake_form_submitted' then 3
       when 'audit_complete' then 4 when 'intake_form_needed' then 5 when 'call_confirmed' then 6
       when 'no_show' then 7 when 'call_canceled_by_lead' then 8 when 'follow_up_call_booked' then 9
       when 'warm_list' then 10 when 'contract_sent' then 11 when 'contract_signed' then 12
