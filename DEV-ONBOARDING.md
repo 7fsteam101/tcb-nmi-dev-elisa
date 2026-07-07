@@ -119,8 +119,13 @@ Each of these is spelled out in `NMI-PAGE-BUILD-SCOPE.md`.
 2. Clone it: `git clone https://github.com/7fsDev/tcb-sales-system.git`
 3. `cd tcb-sales-system/dashboard` and run `npm install`.
 4. Create `dashboard/.env.local`. For NMI development you mainly need:
-   - `DATABASE_URL` = the Supabase connection string (ask Katie for it, or use your
-     own Supabase project for dev).
+   - `DATABASE_URL` = the Supabase connection string. You share the Supabase login,
+     so get it yourself: open the project, click **Connect** at the top, pick
+     **Connection string, Transaction pooler** (port 6543), and copy it. The only
+     piece Supabase does not display is the database password (it is shown once at
+     project creation or on reset), so either use the saved password, or, cleanest
+     for dev, spin up your own free Supabase project and run the migrations in
+     `supabase/migrations` against it so you never touch production.
    - `NMI_SECURITY_KEY=6457Thfj624V5r7WUwc5v6a68Zsd6YEm` (the public NMI sandbox key;
      this is what puts the app in test mode, and it is safe to use).
    - `AUTH_DISABLED=true` for local dev so you are not stopped at a login screen.
@@ -140,7 +145,9 @@ Vercel and the live NMI keys, which Katie will provide.
 ## Access you will need from Katie
 
 - The repo: done (you have write access as `7fsteam101`).
-- A `DATABASE_URL` for local development.
+- Supabase: you share the login, so the connection string is self-serve (see step 4
+  above). The only thing that might need passing along is the database password, if
+  it is not already saved and you are not using your own dev project.
 - For the production launch only: the NMI Merchant Portal (tokenization key, webhook
   signing key, Apple Pay), and Vercel deploy access.
 
