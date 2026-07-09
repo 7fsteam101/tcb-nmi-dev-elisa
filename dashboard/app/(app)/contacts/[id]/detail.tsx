@@ -96,7 +96,13 @@ export async function ContactBody({ id }: { id: string }) {
   const booked = calls.filter((c: any) => c.type === "strategy").length;
   const taken = appointments.filter((a: any) => a.status === "taken").length;
   const contractedMinor = deals.filter((d: any) => d.status !== "refunded").reduce((s: number, d: any) => s + Number(d.total_contract_value_minor), 0);
-  const lastActivity = activity[0]?.when;
+  // last activity = the most recent PAST event; a future-dated booking is not
+  // "activity" yet, it surfaces as its own Next-appointment chip instead.
+  const now = Date.now();
+  const lastActivity = activity.find((e) => new Date(e.when).getTime() <= now)?.when;
+  const nextAppt = appointments
+    .filter((a: any) => a.is_current && ["scheduled", "confirmed"].includes(a.status) && new Date(a.scheduled_for).getTime() > now)
+    .sort((a: any, b: any) => new Date(a.scheduled_for).getTime() - new Date(b.scheduled_for).getTime())[0];
   const strip: [string, string][] = [
     ["Opt-ins", String(optIns.length)],
     ["Booked", String(booked)],
@@ -105,6 +111,7 @@ export async function ContactBody({ id }: { id: string }) {
     ["Cash collected", money(totalPaid)],
     ["Contracted", money(contractedMinor)],
     ["Last activity", lastActivity ? shortDate(lastActivity, tz) : "—"],
+    ...(nextAppt ? [["Next appointment", shortDate(nextAppt.scheduled_for, tz)] as [string, string]] : []),
   ];
 
   // ================= sections =================
