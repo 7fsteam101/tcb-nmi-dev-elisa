@@ -1,4 +1,3 @@
-import { createElement } from "react";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { getInvoiceData } from "@/lib/invoice";
 import { InvoiceDocument } from "@/lib/invoice-pdf";
@@ -13,7 +12,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ token: 
   const { token } = await params;
   const data = await getInvoiceData(token);
   if (!data) return new Response("Invoice not found", { status: 404 });
-  const buf = await renderToBuffer(createElement(InvoiceDocument, { data }));
+  const buf = await renderToBuffer(<InvoiceDocument data={data} />);
   return new Response(new Uint8Array(buf), {
     headers: {
       "Content-Type": "application/pdf",
