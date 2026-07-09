@@ -65,6 +65,7 @@ export default async function PayPage({ params }: { params: Promise<{ token: str
             defaultEmail={link.customer_email || ""}
             tokenizationKey={tokenizationKey}
             testMode={testMode}
+            price={(firstAmount / 100).toFixed(2)}
           />
 
           <p style={{ fontSize: 11, color: "#5f728c", marginTop: 14, textAlign: "center" }}>
