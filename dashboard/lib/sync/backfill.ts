@@ -76,7 +76,7 @@ export async function runCloseBackfill(budgetMs = 45_000) {
     while (leadsDone && Date.now() - started < budgetMs) {
       const page = await closeGet(key, `/opportunity/?_skip=${oppSkip}&_limit=100&_fields=id,lead_id,lead_name,status_label,value,date_created,date_won`);
       for (const opp of page.data ?? []) {
-        const stage = opp.status_label ? mapCloseStage(opp.status_label) : null;
+        const stage = opp.status_label ? await mapCloseStage(opp.status_label) : null;
         if (opp.status_label && !stage) {
           if (!unmappedStages.includes(opp.status_label)) unmappedStages.push(opp.status_label);
           continue;

@@ -32,7 +32,33 @@ const STAGE_ALIASES: Record<string, string> = {
   active_partner: "active_partner",
   not_a_fit: "not_a_fit",
 };
-export const mapCloseStage = (label: string): string | null => STAGE_ALIASES[slug(label)] ?? null;
+// DB-backed stage resolver (sync.stage_map): the admin-managed mapping wins;
+// unknown labels AUTO-REGISTER as unmapped and surface in Admin -> Stages
+// (counts-only-when-mapped, same pattern as calendars). The static alias table
+// stays as the fallback/seed so known labels keep working with no admin action.
+const stageCache = new Map<string, { v: string | null; at: number }>();
+export async function mapCloseStage(label: string): Promise<string | null> {
+  const hit = stageCache.get(label);
+  if (hit && Date.now() - hit.at < 60_000) return hit.v;
+  let v: string | null = null;
+  try {
+    const rows = await sql`select mapped_stage, active from sync.stage_map where platform = 'close' and external_label = ${label} limit 1`;
+    if (rows.length) {
+      v = rows[0].active ? ((rows[0].mapped_stage as string) ?? null) : null;
+    } else {
+      const fallback = STAGE_ALIASES[slug(label)] ?? null;
+      v = fallback;
+      await sql`
+        insert into sync.stage_map (platform, external_label, mapped_stage, active)
+        values ('close', ${label}, ${fallback}::public.opportunity_stage, ${fallback != null})
+        on conflict (platform, external_label) do nothing`;
+    }
+  } catch {
+    v = STAGE_ALIASES[slug(label)] ?? null; // table unavailable -> static fallback
+  }
+  stageCache.set(label, { v, at: Date.now() });
+  return v;
+}
 
 const WON = ["deposit", "won_pif", "won_pp", "closed_won", "active_partner"];
 const TERMINAL = [...WON, "lost", "dq_on_call", "call_canceled_by_team", "not_a_fit"];
@@ -54,8 +80,11 @@ async function normalizeClose(eventType: string, payload: any): Promise<string> 
   }
 
   if (objectType === "opportunity") {
-    const stage = data.status_label ? mapCloseStage(data.status_label) : null;
-    if (data.status_label && !stage) throw new Error(`Unmapped Close stage label: ${data.status_label}`);
+    const stage = data.status_label ? await mapCloseStage(data.status_label) : null;
+    // an unmapped label is NOT an error anymore: it auto-registered in
+    // sync.stage_map and surfaces in Admin -> Stages; the mirror proceeds
+    // without a stage change until an admin maps it.
+    const unmappedNote = data.status_label && !stage ? ` [stage "${data.status_label}" unmapped — assign it in Admin > Stages]` : "";
 
     // contact by lead close_id (stub if we have not seen the lead yet)
     const { id: contactId } = await upsertContact({ closeId: data.lead_id, fullName: data.lead_name, createdSource: "close_lead_sync" });
@@ -72,14 +101,14 @@ async function normalizeClose(eventType: string, payload: any): Promise<string> 
         const hasDeal = await sql`select 1 from sales.deal where opportunity_id = ${existing[0].id}`;
         if (hasDeal.length === 0) return "won in Close, no deal recorded yet — submit the Sales Call form to log terms";
       }
-      return `opportunity mirrored (${stage ?? "no stage change"})`;
+      return `opportunity mirrored (${stage ?? "no stage change"})${unmappedNote}`;
     }
     await sql`
       insert into sales.opportunity (contact_id, stage, opened_at, close_id, cohort_month, closed_at)
       values (${contactId}, ${stage ?? "lead_opt_in"}, coalesce(${data.date_created ?? null}, now()), ${data.id},
               date_trunc('month', now())::date,
               case when ${stage ?? "__none__"} in ${sql(TERMINAL)} then now() else null end)`;
-    return "opportunity created (mirror)";
+    return `opportunity created (mirror)${unmappedNote}`;
   }
   return `ignored object_type ${objectType ?? "unknown"}`;
 }
