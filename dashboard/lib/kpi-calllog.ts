@@ -31,6 +31,7 @@ export type CallLogRow = {
   closer: string | null;
   stage: string | null;
   booking_source: string | null;
+  paid_booking: boolean | null;
   cancellation_reason: string | null;
 };
 
@@ -73,6 +74,7 @@ export async function callLogRows({ demo, days, q, closerId, status }: {
            ct.primary_phone as contact_phone,
            rep.id as rep_id, rep.full_name as closer,
            o.stage as stage, c.booking_source_channel as booking_source,
+           c.is_paid_booking as paid_booking,
            cr.name as cancellation_reason
     from sales.appointment a
     join sales.call c on c.id = a.call_id

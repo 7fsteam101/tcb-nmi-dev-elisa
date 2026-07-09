@@ -1,5 +1,5 @@
 -- =====================================================================
--- 0041: stage map — the admin-managed mapping from platform stage labels to
+-- 0043 (renumbered from 0041, version collision): stage map — the admin-managed mapping from platform stage labels to
 -- our pipeline enum (the same counts-only-when-mapped pattern as calendars).
 -- Every stage label ever seen from Close lands here; unmapped labels surface
 -- in Admin -> Stages for a human to assign meaning. New stages the client
@@ -20,6 +20,7 @@ create table if not exists sync.stage_map (
 comment on table sync.stage_map is
   'Platform stage label -> our opportunity_stage. Unmapped rows (mapped_stage null / active false) surface in Admin, Stages; the mirror only applies ACTIVE mappings. New client-invented stages land here automatically.';
 
+drop trigger if exists set_updated_at on sync.stage_map;
 create trigger set_updated_at before update on sync.stage_map
   for each row execute function public.set_updated_at();
 

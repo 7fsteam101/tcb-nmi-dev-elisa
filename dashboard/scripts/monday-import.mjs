@@ -216,11 +216,28 @@ async function creditAudits() {
     if (!opp) [opp] = await sql`insert into sales.opportunity (contact_id, stage, opened_at) values (${who.id},'intake_form_submitted',now()) returning id`;
     const completed = day(val(m, "date")) ?? day(val(m, "date_1"));
     const viol = parseInt(val(m, "numbers") ?? "") || null;
+    // insert as NON-canonical: re-audits are 1:N per opportunity and only the
+    // newest may be canonical (uq_canonical_nafa). A post-pass elects it.
     await sql`
       insert into credit.nafa (opportunity_id, contact_id, pulled_at, provider, violation_opportunities, is_canonical, monday_credit_audit_item)
-      values (${opp.id}, ${who.id}, ${completed ?? new Date().toISOString().slice(0,10)}, 'identityiq', ${viol}, true, ${it.id})
+      values (${opp.id}, ${who.id}, ${completed ?? new Date().toISOString().slice(0,10)}, 'identityiq', ${viol}, false, ${it.id})
       on conflict (monday_credit_audit_item) where monday_credit_audit_item is not null do update set
         violation_opportunities = coalesce(excluded.violation_opportunities, credit.nafa.violation_opportunities)`;
+  }
+  if (RUN) {
+    // canonical election: newest audit per opportunity wins (scoped to opps that
+    // have monday-imported audits; existing canonical rows are respected first)
+    const elected = await sql`
+      update credit.nafa n set is_canonical = (n.id = x.newest)
+      from (
+        select opportunity_id, (array_agg(id order by pulled_at desc, created_at desc))[1] as newest
+        from credit.nafa
+        where opportunity_id in (select distinct opportunity_id from credit.nafa where monday_credit_audit_item is not null)
+        group by opportunity_id
+      ) x
+      where n.opportunity_id = x.opportunity_id
+      returning n.id`;
+    console.log(`canonical elected across ${elected.length} audit rows`);
   }
   console.log(`audits=${C.audits} (close_id=${C.byClose}, name=${C.byName}) unmatched=${C.unmatched}`);
   return C;

@@ -17,7 +17,7 @@ const PENDING_HELP = "Pending means the slot's time has passed but attendance ha
 
 type ColKey =
   | "created" | "event_date" | "lead" | "email" | "phone" | "closer"
-  | "attempt" | "stage" | "source" | "status" | "cancellation" | "actions" | "open";
+  | "attempt" | "stage" | "source" | "paid" | "status" | "cancellation" | "actions" | "open";
 
 type Column = {
   key: ColKey;
@@ -79,6 +79,15 @@ const COLUMNS: Column[] = [
     key: "source",
     name: "Source",
     cell: (r) => (r.booking_source ? label(r.booking_source) : "—"),
+  },
+  {
+    key: "paid",
+    name: "Paid",
+    help: "Whether the booking came through a paid (booking-fee) calendar. Attribute only; free bookings still count as tracked calls.",
+    cell: (r) =>
+      r.paid_booking === true ? <Badge tone="good">Paid</Badge>
+      : r.paid_booking === false ? <Badge tone="neutral">Free</Badge>
+      : <span style={{ color: "var(--muted)" }}>—</span>,
   },
   {
     key: "status",

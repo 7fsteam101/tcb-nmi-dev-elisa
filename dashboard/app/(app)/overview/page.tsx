@@ -115,7 +115,7 @@ export default async function Overview({ searchParams }: { searchParams: Promise
           help="Unique lead-form opt-ins. A returning lead re-counts only after 30 days." />
         <Stat label="Calls booked" value={num(booked)} tone="accent" href={`/explore/booked?${rq}`}
           sub={deltaSub(deltaPct(booked, n(prev.booked)))}
-          help="Unique paid strategy-call bookings, counted once regardless of reschedules." />
+          help="Unique strategy-call bookings on tracked calendars, free and paid alike, counted once regardless of reschedules. The drill-down shows which are paid." />
         <Stat label="Calls taken" value={num(taken)} tone="accent" href={`/explore/taken?${rq}`}
           sub={deltaSub(deltaPct(taken, n(prev.taken)))}
           help="Strategy-call slots that actually happened, by event start date." />

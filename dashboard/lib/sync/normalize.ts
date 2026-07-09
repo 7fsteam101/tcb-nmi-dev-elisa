@@ -131,15 +131,17 @@ async function resolveCallType(locationId: string, calendarId: string | null, ca
   const m = rows[0];
   return {
     type: (m?.active ? m.call_type : "strategy") as "readiness" | "strategy" | "follow_up",
-    // record-but-don't-count: only ACTIVE calendars whose is_booking flag is set
-    // count toward paid-booking KPIs; unknown/uncategorized calendars land as
-    // strategy calls with isBooking=false until an admin categorizes them.
-    isBooking: m?.active ? (m.is_booking ?? true) : false,
+    // POLICY (2026-07-09): tracking follows the admin mapping. A call counts as
+    // booked when its calendar is ACTIVE, free or paid alike; paid is a visible
+    // attribute (is_paid_booking), never a filter. Uncategorized calendars
+    // record with isBooking=false until an admin maps them.
+    isBooking: m?.active ?? false,
+    isPaid: (m?.active ? (m.is_booking ?? true) : null) as boolean | null,
     mapId: (m?.id as string) ?? null,
   };
 }
 
-async function findOrCreateCall(oppId: string, type: string, startTime: string | null, source?: string, isBooking = true, calendarMapId: string | null = null, ghlAppointmentId: string | null = null): Promise<string> {
+async function findOrCreateCall(oppId: string, type: string, startTime: string | null, source?: string, isBooking = true, calendarMapId: string | null = null, ghlAppointmentId: string | null = null, isPaid: boolean | null = null): Promise<string> {
   // LOCKED reschedule rule: the GHL appointment id is THE match key. If we have
   // seen this appointment before, it is the SAME booking — reuse the call so a
   // reschedule updates the existing slots instead of creating a second booking.
@@ -156,11 +158,12 @@ async function findOrCreateCall(oppId: string, type: string, startTime: string |
   if (rows.length) {
     if (calendarMapId) await sql`update sales.call set calendar_map_id = coalesce(calendar_map_id, ${calendarMapId}) where id = ${rows[0].id}`;
     if (ghlAppointmentId) await sql`update sales.call set ghl_appointment_id = coalesce(ghl_appointment_id, ${ghlAppointmentId}) where id = ${rows[0].id}`;
+    if (isPaid !== null) await sql`update sales.call set is_paid_booking = coalesce(is_paid_booking, ${isPaid}) where id = ${rows[0].id}`;
     return rows[0].id;
   }
   const created = await sql`
-    insert into sales.call (opportunity_id, type, scheduled_at, booking_source_channel, is_primary, is_booking, calendar_map_id, ghl_appointment_id)
-    values (${oppId}, ${type}, ${startTime ?? new Date().toISOString()}, ${source ?? null}, ${type === "strategy"}, ${isBooking}, ${calendarMapId}, ${ghlAppointmentId})
+    insert into sales.call (opportunity_id, type, scheduled_at, booking_source_channel, is_primary, is_booking, is_paid_booking, calendar_map_id, ghl_appointment_id)
+    values (${oppId}, ${type}, ${startTime ?? new Date().toISOString()}, ${source ?? null}, ${type === "strategy"}, ${isBooking}, ${isPaid}, ${calendarMapId}, ${ghlAppointmentId})
     returning id`;
   return created[0].id;
 }
@@ -213,7 +216,7 @@ async function normalizeGhl(eventType: string, payload: any): Promise<string> {
   );
   const ghlApptId = p.appointment?.id ?? p.appointment?.appointment_id ?? null;
   const oppId = await findOrCreateActiveOpportunity(contactId, p.source);
-  const callId = await findOrCreateCall(oppId, calendar.type, startTime, p.source, calendar.isBooking, calendar.mapId, ghlApptId);
+  const callId = await findOrCreateCall(oppId, calendar.type, startTime, p.source, calendar.isBooking, calendar.mapId, ghlApptId, calendar.isPaid);
   const slot = await currentSlot(callId);
 
   switch (event) {

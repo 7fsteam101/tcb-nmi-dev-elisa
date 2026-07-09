@@ -15,9 +15,24 @@ export async function setCalendarTypeAction(id: string, callType: string) {
   revalidatePath("/admin/calendars");
 }
 
+// Paid attribute: whether this calendar takes the booking fee. Syncs the
+// attribute onto the calendar's historical calls (display-only field).
 export async function toggleCalendarBookingAction(id: string) {
   await guard();
-  await sql`update sync.calendar_map set is_booking = not is_booking where id = ${id}`;
+  const [row] = await sql`update sync.calendar_map set is_booking = not is_booking where id = ${id} returning is_booking, active`;
+  if (row?.active) await sql`update sales.call set is_paid_booking = ${row.is_booking} where calendar_map_id = ${id}`;
+  revalidatePath("/admin/calendars");
+}
+
+// Tracked: the admin decision that makes a calendar's calls count in the funnel
+// (POLICY 2026-07-09: tracking follows the mapping; paid/free never filters).
+// Re-flags the calendar's historical calls so past data follows the decision.
+export async function toggleCalendarActiveAction(id: string) {
+  await guard();
+  const [row] = await sql`update sync.calendar_map set active = not active where id = ${id} returning active, is_booking`;
+  await sql`update sales.call set is_booking = ${row.active},
+    is_paid_booking = ${row.active ? row.is_booking : null}
+    where calendar_map_id = ${id}`;
   revalidatePath("/admin/calendars");
 }
 

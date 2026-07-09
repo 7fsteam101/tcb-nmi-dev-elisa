@@ -41,13 +41,14 @@ export const EXPLORE: Record<string, ExploreDef> = {
   },
   booked: {
     title: "Calls booked",
-    description: "Unique paid strategy-call bookings, counted once regardless of reschedules.",
+    description: "Unique strategy-call bookings on tracked calendars (free and paid alike), counted once regardless of reschedules. The Paid column marks the booking-fee variants.",
     page: "overview",
     columns: [
       { key: "scheduled_at", label: "Booked for", kind: "datetime" },
       ...contactCols,
       { key: "closer", label: "Closer" },
       { key: "booking_source_channel", label: "Source" },
+      { key: "paid", label: "Paid", kind: "label" },
       { key: "slots", label: "Slots (1 = never moved)" },
       { key: "current_status", label: "Current status", kind: "label" },
     ],
@@ -55,6 +56,7 @@ export const EXPLORE: Record<string, ExploreDef> = {
       select coalesce(c.current_scheduled_at, c.scheduled_at) as scheduled_at,
              ct.full_name as contact_name, ct.close_id, rep.full_name as closer,
              c.booking_source_channel,
+             case when c.is_paid_booking then 'paid' when c.is_paid_booking = false then 'free' else null end as paid,
              (select count(*) from sales.appointment a where a.call_id = c.id) as slots,
              (select a.status from sales.appointment a where a.call_id = c.id and a.is_current) as current_status
       from sales.call c
