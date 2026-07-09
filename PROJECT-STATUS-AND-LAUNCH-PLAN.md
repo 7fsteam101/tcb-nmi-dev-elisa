@@ -27,7 +27,7 @@ identifiers), all money in integer cents.
 | GHL (both sub-accounts) | LIVE, daily sync | 18,643 events: 289 opt-ins, 1,000+ appointments with reschedule history, 8,029 contacts (187 dupes merged), strict BDCR calendar whitelist, setter/self split stamped |
 | Stripe | LIVE, webhook + daily reconcile | 12,064 charges (2023 to today), 253 refunds as reversals, 102 disputes; old non-BDCR history recorded but excluded from sales KPIs |
 | NMI | Key live, history in | 606 program payments powering cash-collected and receivables; branded checkout (pay page) built and sandbox-tested, production cutover with the dev |
-| Monday | Token live, import staged | Core-four import (call reports, missed calls, payment schedule, credit audits) built, dry-run in progress; brings attendance truth + full deal history |
+| Monday | LIVE, core four imported (July 9) | 298 deals ($718k contracted, up from 44 / $103.5k), 898 receivables with real amounts + paid dates, 1,361 NAFA audits (newest-canonical), 330 report submissions; attendance truth applied (taken 26 -> 121). 5 ambiguous names on the review list. Open policy question: whether Monday-paid receivables should synthesize historical payment rows into cash-collected (currently cash stays NMI/Stripe-evidenced only) |
 | Commission engine | LIVE | July 2 comp plan: closer 10% of invoice gated at 25% collected, monthly statements, leaderboard, per-rep toggles, daily recompute |
 
 **Team setup:** repo in the 7fsDev org, the shared 7fsteam101 account onboarded
