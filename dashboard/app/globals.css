@@ -43,13 +43,35 @@ html, body {
 .card {
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 14px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
 }
 
-.card-hover:hover { border-color: var(--accent); transition: border-color 120ms; }
+/* hover elevation only for cards that are links (.card-hover) */
+.card-hover { transition: border-color 120ms, background 120ms, box-shadow 120ms; }
+.card-hover:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--panel) 97%, white);
+}
+[data-theme="light"] .card-hover:hover {
+  background: var(--panel);
+  box-shadow: 0 6px 16px rgba(15, 24, 38, 0.08);
+}
 
 h1 { letter-spacing: -0.01em; }
+
+/* numeric text: tabular mono figures for money/counts */
+.num {
+  font-family: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-feature-settings: "tnum" 1;
+  letter-spacing: -0.01em;
+}
+
+/* keyboard focus ring */
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 
 input, select, textarea {
   background: var(--panel-2);
@@ -83,9 +105,10 @@ input[type="checkbox"] { width: auto; }
 
 table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
 th { text-align: left; color: var(--muted); font-weight: 500; padding: 0.6rem 0.85rem; border-bottom: 1px solid var(--line); white-space: nowrap; }
-td { padding: 0.7rem 0.85rem; border-bottom: 1px solid color-mix(in srgb, var(--line) 50%, transparent); }
+thead th { font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.05em; }
+td { padding: 0.75rem 0.85rem; border-bottom: 1px solid color-mix(in srgb, var(--line) 50%, transparent); }
 tbody tr { transition: background 100ms; }
-tbody tr:hover { background: color-mix(in srgb, var(--panel-2) 55%, transparent); }
+tbody tr:hover { background: color-mix(in srgb, var(--panel-2) 60%, transparent); }
 tr:last-child td { border-bottom: none; }
 /* numeric columns read better right-aligned + tabular */
 td.text-right, th.text-right { font-variant-numeric: tabular-nums; }
