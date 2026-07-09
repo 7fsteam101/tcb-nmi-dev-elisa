@@ -2,7 +2,6 @@
 
 import { useTransition } from "react";
 import { Badge, SectionTitle } from "@/components/ui";
-import { money, pct } from "@/lib/format";
 import { setRuleEnabledAction } from "./actions";
 
 type Rule = {
@@ -11,10 +10,6 @@ type Rule = {
 };
 type Rep = { id: string; full_name: string };
 type Setting = { rep_id: string; rule_id: string; enabled: boolean };
-type Preview = {
-  rep_id: string; full_name: string; cash_minor: number; refunded_cash_minor: number;
-  close_rate_14d: number; effective_rate: number; tier_active: boolean; owed_minor: number;
-};
 
 const paramsText = (p: Rule["params"]) =>
   p && Object.keys(p).length
@@ -22,8 +17,8 @@ const paramsText = (p: Rule["params"]) =>
     : "no params";
 
 export function CommissionEditor({
-  rules, reps, settings, preview, demo,
-}: { rules: Rule[]; reps: Rep[]; settings: Setting[]; preview: Preview[]; demo: boolean }) {
+  rules, reps, settings, demo,
+}: { rules: Rule[]; reps: Rep[]; settings: Setting[]; demo: boolean }) {
   const [, start] = useTransition();
 
   // effective enabled = per-rep setting if present, else rule default
@@ -36,8 +31,8 @@ export function CommissionEditor({
   return (
     <div className="max-w-5xl space-y-4">
       <p className="text-sm" style={{ color: "var(--muted)" }}>
-        Toggle which commission rules apply to each rep. Off means the rule has no effect for that rep. The preview below
-        recomputes the estimate over the last 30 days so you can see the impact.{demo ? " Showing demo data." : ""}
+        Toggle which commission rules apply to each rep. Off means the rule has no effect for that rep. Changes take effect
+        on the next recompute; the leaderboard below shows the statements as last computed.{demo ? " Showing demo data." : ""}
       </p>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
@@ -87,37 +82,6 @@ export function CommissionEditor({
         </table>
       </div>
 
-      <SectionTitle>Commission preview (last 30 days, estimate)</SectionTitle>
-      <div className="card p-4">
-        <table>
-          <thead>
-            <tr>
-              <th>Rep</th>
-              <th className="text-right">Cash collected</th>
-              <th className="text-right">Effective rate</th>
-              <th>Tier</th>
-              <th className="text-right">Owed</th>
-            </tr>
-          </thead>
-          <tbody>
-            {preview.map((p) => (
-              <tr key={p.rep_id}>
-                <td className="font-medium">{p.full_name}</td>
-                <td className="text-right">{money(p.cash_minor)}</td>
-                <td className="text-right">{pct(p.effective_rate, 1)}</td>
-                <td><Badge tone={p.tier_active ? "good" : "neutral"}>{p.tier_active ? "active" : "off"}</Badge></td>
-                <td className="text-right">{money(p.owed_minor)}</td>
-              </tr>
-            ))}
-            {preview.length === 0 && (
-              <tr><td colSpan={5} style={{ color: "var(--muted)" }}>No reps to preview</td></tr>
-            )}
-          </tbody>
-        </table>
-        <p className="mt-3 text-xs" style={{ color: "var(--muted)" }}>
-          Estimate only. Payroll runs off validated reports.
-        </p>
-      </div>
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db";
 import { checkCronSecret } from "@/lib/webhook";
 import { chargeDueCustomInstallments } from "@/lib/nmi-links";
+import { recomputeCommissions } from "@/lib/commission";
 
 export const maxDuration = 60;
 
@@ -19,5 +20,6 @@ export async function GET(req: NextRequest) {
     update finance.receivable set status = 'delinquent'
     where status = 'late' and due_date <= current_date - 14 and not is_demo
     returning id`;
+  await recomputeCommissions(false); // refresh open commission statements daily
   return NextResponse.json({ ok: true, custom_installments_charged: custom.charged, custom_installments_failed: custom.failed, marked_late: late.length, marked_delinquent: delinquent.length });
 }

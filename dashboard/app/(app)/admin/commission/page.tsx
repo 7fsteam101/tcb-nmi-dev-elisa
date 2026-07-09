@@ -1,16 +1,28 @@
 import { sql } from "@/lib/db";
 import { isDemoMode } from "@/lib/settings";
-import { commissionForReps } from "@/lib/commission";
+import { commissionLeaderboard } from "@/lib/commission";
+import { money } from "@/lib/format";
+import { Badge, SectionTitle, label } from "@/components/ui";
 import { CommissionEditor } from "./editor";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
+const STATEMENT_TONE: Record<string, "good" | "warn" | "bad" | "neutral" | "accent"> = {
+  calculated: "warn", approved: "accent", paid: "good",
+};
+
+// "2026-07-01" -> "July 2026". Noon UTC so the calendar month never shifts.
+function monthLabel(periodStart: string): string {
+  return new Date(`${periodStart.slice(0, 7)}-01T12:00:00Z`).toLocaleDateString("en-US", {
+    month: "long", year: "numeric", timeZone: "UTC",
+  });
+}
+
 export default async function CommissionAdmin() {
   const demo = await isDemoMode();
-  // Two sequential batches: commissionForReps fans out its own 3 queries, so
-  // running it inside this Promise.all would spike concurrency past the
-  // free-tier pooler cap and stall. Fetch the grid data first, then the preview.
+  // One light batch for the toggle grid, then the engine leaderboard on its own,
+  // sequentially, to stay under the free-tier pooler cap.
   const [rules, reps, settings] = await Promise.all([
     sql`
       select id, key, name, description, params, default_enabled, sort_order
@@ -25,15 +37,50 @@ export default async function CommissionAdmin() {
       { rep_id: string; rule_id: string; enabled: boolean }[]
     >,
   ]);
-  const preview = await commissionForReps(demo, 30);
+  const board = await commissionLeaderboard(demo);
 
   return (
-    <CommissionEditor
-      rules={rules as never}
-      reps={reps as never}
-      settings={settings as never}
-      preview={preview as never}
-      demo={demo}
-    />
+    <>
+      <CommissionEditor
+        rules={rules as never}
+        reps={reps as never}
+        settings={settings as never}
+        demo={demo}
+      />
+      <div className="max-w-5xl">
+        <SectionTitle>Statement leaderboard</SectionTitle>
+        <div className="card p-4">
+          <table>
+            <thead>
+              <tr>
+                <th>Month</th>
+                <th>Rank</th>
+                <th>Rep</th>
+                <th className="text-right">Commission</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {board.map((r) => (
+                <tr key={`${r.rep_id}-${r.period_start}`}>
+                  <td>{monthLabel(r.period_start)}</td>
+                  <td className="tabular-nums">#{r.rank_in_period}</td>
+                  <td className="font-medium">{r.full_name}</td>
+                  <td className="text-right tabular-nums">{money(r.total_minor)}</td>
+                  <td><Badge tone={STATEMENT_TONE[r.status] ?? "neutral"}>{label(r.status)}</Badge></td>
+                </tr>
+              ))}
+              {board.length === 0 && (
+                <tr><td colSpan={5} style={{ color: "var(--muted)" }}>No statements computed yet</td></tr>
+              )}
+            </tbody>
+          </table>
+          <p className="mt-3 text-xs" style={{ color: "var(--muted)" }}>
+            Monthly statement totals from the commission engine. Rule toggles apply on the next
+            recompute; full statements live on the Commissions page.
+          </p>
+        </div>
+      </div>
+    </>
   );
 }

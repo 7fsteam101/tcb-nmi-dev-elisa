@@ -340,7 +340,10 @@ async function normalizeStripe(eventType: string, payload: any): Promise<string>
     return pay ? "refund recorded against the payment" : "refund recorded (no matching charge on file)";
   }
 
-  if (!["charge.succeeded", "payment_intent.succeeded", "checkout.session.completed"].includes(type))
+  // charge.succeeded is the single money truth: checkout.session.completed and
+  // payment_intent.succeeded always emit a charge too, so processing them here
+  // would double-count the same payment.
+  if (type !== "charge.succeeded")
     return `ignored stripe event ${type}`;
   const amount = obj.amount_received ?? obj.amount_total ?? obj.amount ?? 0;
   const email = obj.billing_details?.email ?? obj.customer_details?.email ?? obj.receipt_email ?? null;
@@ -366,9 +369,15 @@ async function normalizeStripe(eventType: string, payload: any): Promise<string>
     strategyCallId = rows[0]?.id ?? null;
     contactId = rows[0]?.contact_id ?? contactId;
   }
+  // occurred_at from the charge's real timestamp (backfill-safe); dedupe by
+  // charge id so a live webhook + a backfill of the same charge insert once.
+  const occurredAt = obj.created ? new Date(obj.created * 1000).toISOString() : new Date().toISOString();
+  const productType = amount <= 5000 ? "low_ticket" : "high_ticket";
+  const [dupe] = await sql`select id from finance.successful_payment where stripe_charge_id = ${chargeId} limit 1`;
+  if (dupe) return "charge already recorded";
   const [pay] = await sql`
-    insert into finance.successful_payment (strategy_call_id, contact_id, processor, type, amount_minor, occurred_at, stripe_charge_id)
-    values (${strategyCallId}, ${contactId ?? null}, 'stripe', 'booking_25', ${amount}, now(), ${chargeId})
+    insert into finance.successful_payment (strategy_call_id, contact_id, processor, type, amount_minor, occurred_at, stripe_charge_id, product_type)
+    values (${strategyCallId}, ${contactId ?? null}, 'stripe', 'booking_25', ${amount}, ${occurredAt}, ${chargeId}, ${productType}::public.product_tier)
     returning id`;
   if (strategyCallId) await sql`update sales.call set booking_payment_id = ${pay.id} where id = ${strategyCallId}`;
   return strategyCallId ? "booking fee linked to strategy call" : "booking fee stored (no matching call yet)";
