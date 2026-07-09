@@ -4,7 +4,7 @@ import { useActionState, useState, useTransition } from "react";
 import { PAGES, PAGE_LABELS, ROLE_DEFAULTS, effectivePages, type PageKey } from "@/lib/access-rules";
 import {
   addUserAction, toggleUserActiveAction, setUserRoleAction, setUserRepAction,
-  setPageOverrideAction, clearOverridesAction, resetPasswordAction,
+  setNotesVisibilityAction, setPageOverrideAction, clearOverridesAction, resetPasswordAction,
 } from "./actions";
 
 const ROLES = ["admin", "leadership", "closer", "setter", "csm"];
@@ -22,9 +22,10 @@ export function UsersEditor({ users, reps, meId }: { users: any[]; reps: any[]; 
         <p className="mb-3 text-xs" style={{ color: "var(--muted)" }}>
           The role sets the default pages; click a user to fine-tune page access with per-page toggles.
           Admins always see everything (plus Connections and this panel).
+          The Notes checkbox controls whether that user sees contact notes and their attachments.
         </p>
         <table>
-          <thead><tr><th></th><th>Name</th><th>Email</th><th>Role</th><th>Linked rep</th><th>Pages</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th></th><th>Name</th><th>Email</th><th>Role</th><th>Linked rep</th><th>Pages</th><th>Notes</th><th>Status</th><th></th></tr></thead>
           <tbody>
             {users.map((u) => {
               const pages = u.role === "admin" ? [...PAGES] : effectivePages(u.role, u.page_overrides);
@@ -95,6 +96,14 @@ function FragmentRow({ u, pages, overridden, reps, meId, expanded, onExpand, sta
         <td className="text-xs" style={{ color: "var(--muted)" }}>
           {u.role === "admin" ? "all" : `${pages.length}/${PAGES.length}${overridden ? " (custom)" : ""}`}
         </td>
+        <td>
+          {/* per-user notes visibility (core.app_user.can_view_notes): same
+              instant-save interaction as the role/rep controls */}
+          <input type="checkbox" checked={u.can_view_notes !== false}
+            aria-label={`${u.full_name} can see contact notes`}
+            title="Can this user see contact notes and their attachments?"
+            onChange={() => start(() => setNotesVisibilityAction(u.id, u.can_view_notes === false))} />
+        </td>
         <td>{u.active ? "active" : "disabled"}</td>
         <td className="text-right">
           <button className="btn-ghost btn px-2 py-0.5 text-[11px]" disabled={u.id === meId}
@@ -105,7 +114,7 @@ function FragmentRow({ u, pages, overridden, reps, meId, expanded, onExpand, sta
       </tr>
       {expanded && u.role !== "admin" && (
         <tr>
-          <td colSpan={8} style={{ background: "var(--panel-2)" }}>
+          <td colSpan={9} style={{ background: "var(--panel-2)" }}>
             <div className="flex flex-wrap items-center gap-3 p-2">
               {PAGES.map((p: PageKey) => {
                 const on = pages.includes(p);
@@ -129,7 +138,7 @@ function FragmentRow({ u, pages, overridden, reps, meId, expanded, onExpand, sta
         </tr>
       )}
       {expanded && u.role === "admin" && (
-        <tr><td colSpan={8} style={{ background: "var(--panel-2)" }}>
+        <tr><td colSpan={9} style={{ background: "var(--panel-2)" }}>
           <div className="p-2 text-sm" style={{ color: "var(--muted)" }}>Admins always have full access.</div>
         </td></tr>
       )}

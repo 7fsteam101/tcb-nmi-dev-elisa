@@ -14,11 +14,21 @@ const INLINE_SAFE = /^(image\/(png|jpeg|gif|webp|avif)|application\/pdf|text\/pl
 
 // Streams a note attachment (bytea) behind the same session auth the pages use
 // (requireSession redirects to /login when there is no session). Pooler rules:
-// one query, no prepared statements; postgres.js returns bytea as a Buffer.
+// sequential queries, no prepared statements; postgres.js returns bytea as a
+// Buffer.
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  await requireSession();
+  const session = await requireSession();
   const { id } = await params;
   if (!UUID.test(id)) return new NextResponse("Not found", { status: 404 });
+
+  // Attachments are note content, so the per-user can_view_notes flag gates
+  // this route too (same rule that hides the Notes tab). The flag is read
+  // FRESH from the DB (the 30-day session JWT does not carry it), so an
+  // admin toggle applies immediately. A session id with no matching row
+  // (e.g. the AUTH_DISABLED synthetic admin on the public demo) stays
+  // allowed, matching the column default of true.
+  const [viewer] = await sql`select can_view_notes from core.app_user where id = ${session.id}`;
+  if (viewer && viewer.can_view_notes === false) return new NextResponse("Forbidden", { status: 403 });
 
   const [att] = await sql`
     select filename, mime, size_bytes, data

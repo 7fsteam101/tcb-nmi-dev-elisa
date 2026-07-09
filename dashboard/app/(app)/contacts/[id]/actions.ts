@@ -15,6 +15,10 @@ const MAX_FILE_BYTES = 4 * 1024 * 1024;
 // one pooled connection, which is exactly what the transaction pooler expects).
 export async function addContactNoteAction(_prev: unknown, formData: FormData) {
   const user = await requireSession();
+  if (user?.id) {
+    const [row] = await sql`select can_view_notes from core.app_user where id = ${user.id}`;
+    if (row && row.can_view_notes === false) return { ok: false, message: "You do not have access to notes" };
+  }
   const contactId = String(formData.get("contactId") ?? "");
   const body = String(formData.get("body") ?? "").trim();
   if (!UUID.test(contactId)) return { ok: false, message: "Bad contact" };

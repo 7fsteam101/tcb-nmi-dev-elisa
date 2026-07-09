@@ -51,6 +51,13 @@ export async function setUserRepAction(id: string, repId: string) {
   revalidatePath("/admin/users");
 }
 
+/** Toggle whether a user can see contact notes + attachments (Notes tab, activity entries, /api/attachments). */
+export async function setNotesVisibilityAction(id: string, value: boolean) {
+  await guard();
+  await sql`update core.app_user set can_view_notes = ${value} where id = ${id}`;
+  revalidatePath("/admin/users");
+}
+
 /** Toggle one page for one user: allow -> deny -> (via clear) back to role default. */
 export async function setPageOverrideAction(id: string, page: string, value: boolean) {
   await guard();

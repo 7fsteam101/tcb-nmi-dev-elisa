@@ -2,11 +2,13 @@ import Link from "next/link";
 import { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { sql } from "@/lib/db";
+import { getSession } from "@/lib/auth";
 import { reportTimezone, getSetting } from "@/lib/settings";
 import { money, dateTime, shortDate } from "@/lib/format";
 import { Badge, STATUS_TONE, label } from "@/components/ui";
 import { SectionTabs, SectionGroup } from "@/components/section-nav";
 import { AppointmentCards, HashAlias, type ApptCardRow } from "@/components/appointment-cards";
+import { OpportunityCards, type OppCardRow } from "@/components/opportunity-cards";
 import { ExternalLinks } from "@/components/external-links";
 import { Icon } from "@/components/icons";
 import { NoteForm } from "./note-form";
@@ -58,10 +60,32 @@ export async function ContactBody({ id }: { id: string }) {
   const extIds = { closeId: contact.close_id, ghlMarketingId: contact.ghl_marketing_id, ghlRepairId: contact.ghl_repair_id, mondayId: contact.monday_lead_id };
   const tz = await reportTimezone();
 
+  // Per-user notes visibility (core.app_user.can_view_notes, Katie, July 10):
+  // resolved FRESH from the DB, not from the 30-day session JWT, so an admin
+  // toggle takes effect on the user's next request. No session, or a session
+  // id with no matching row (AUTH_DISABLED synthetic admin on the public
+  // demo), defaults to allowed, matching the column default of true.
+  const session = await getSession();
+  let canViewNotes = true;
+  if (session) {
+    const [viewer] = await sql`select can_view_notes from core.app_user where id = ${session.id}`;
+    if (viewer) canViewNotes = viewer.can_view_notes !== false;
+  }
+
   // pooler-safe: batches of <= 4 concurrent (never everything at once)
   const [identifiers, opportunities, calls, appointments] = await Promise.all([
     sql`select id, type, value, is_primary from core.contact_identifier where contact_id = ${id} order by type, is_primary desc, created_at`,
-    sql`select o.id, o.stage, o.opened_at, o.closed_at from sales.opportunity o where o.contact_id = ${id} order by o.opened_at desc nulls last, o.created_at desc`,
+    // one widened query (no extra round-trips): the Opportunities tab expands
+    // each record inline, so it needs the same fields /opportunities/[id]
+    // shows (cohort, the three attribution channels, and the DQ / lost
+    // reason names when set).
+    sql`select o.id, o.stage, o.opened_at, o.closed_at, o.cohort_month,
+               o.first_touch_channel, o.last_touch_channel, o.converting_touch_channel,
+               dqr.name as dq_reason, lr.name as lost_reason
+        from sales.opportunity o
+        left join core.dq_reason dqr on dqr.id = o.dq_reason_id
+        left join core.lost_reason lr on lr.id = o.lost_reason_id
+        where o.contact_id = ${id} order by o.opened_at desc nulls last, o.created_at desc`,
     sql`select c.id, c.opportunity_id, c.type, c.disposition, coalesce(c.scheduled_at, c.occurred_at, c.created_at) as happened_at from sales.call c where c.opportunity_id in (select o.id from sales.opportunity o where o.contact_id = ${id}) order by coalesce(c.scheduled_at, c.occurred_at, c.created_at)`,
     // slots + their parent-call context (calendar, booked by, source, paid) so
     // the Appointments tab can expand each record inline without navigating to
@@ -91,7 +115,13 @@ export async function ContactBody({ id }: { id: string }) {
     sql`select rs.id, rs.type, rs.submitted_at, rs.status, rs.on_time, rs.strategy_call_id, rep.full_name as rep
         from sales.report_submission rs left join sales.rep rep on rep.id = rs.rep_id
         where rs.strategy_call_id in (select c.id from sales.call c where c.opportunity_id in (select o.id from sales.opportunity o where o.contact_id = ${id})) order by rs.submitted_at desc`,
-    sql`select n.id, n.body, n.created_at, u.full_name as author from core.contact_note n left join core.app_user u on u.id = n.author_user_id where n.contact_id = ${id} order by n.created_at desc`,
+    // notes are permission-gated: when the viewer's can_view_notes is off,
+    // the rows are never even fetched, so the Notes tab, its count, the
+    // attachments query below, and the note entries in the Activity feed all
+    // disappear together (nothing to filter downstream).
+    canViewNotes
+      ? sql`select n.id, n.body, n.created_at, u.full_name as author from core.contact_note n left join core.app_user u on u.id = n.author_user_id where n.contact_id = ${id} order by n.created_at desc`
+      : Promise.resolve([] as any[]),
     sql`select a.id, a.title, a.status, a.amount_minor, a.sent_at, a.signed_at, a.document_url from sales.agreement a where a.contact_id = ${id} order by coalesce(a.signed_at, a.sent_at, a.created_at) desc`,
   ]);
   // Batches above are already full (4 each), so the remaining queries run as
@@ -225,32 +255,41 @@ export async function ContactBody({ id }: { id: string }) {
     </SectionGroup>
   );
 
-  // Opportunities tab (renamed from "Calls", Katie, July 10): opportunity
-  // cards only. The per-call rows duplicated the Appointments tab, so each
-  // card keeps a one-line call summary instead; slot-level detail lives in
-  // the Appointments tab's expandable records.
+  // Opportunities tab (renamed from "Calls", Katie, July 10): expandable
+  // records, same pattern as the Appointments tab (the old cards' only
+  // detail path was an "Open ->" link that navigated away). Collapsed keeps
+  // the stage / dates / calls summary; expanded shows the /opportunities/[id]
+  // field grid inline (attribution, cohort, DQ / lost reasons) plus the
+  // linked deal line. Per-call rows still live in the Appointments tab.
+  // Display strings are formatted HERE (server, report tz) so hydration
+  // re-renders identical text.
+  const oppRows: OppCardRow[] = opportunities.map((o: any) => {
+    const oc = callsByOpp.get(String(o.id)) ?? [];
+    const latest = oc[oc.length - 1]; // calls query is ordered oldest to newest
+    const deal = deals.find((d: any) => String(d.opportunity_id) === String(o.id));
+    return {
+      id: String(o.id),
+      stage: o.stage ?? null,
+      stageTone: tone(o.stage),
+      openedShort: shortDate(o.opened_at, tz),
+      closedShort: o.closed_at ? shortDate(o.closed_at, tz) : null,
+      openedFull: dateTime(o.opened_at, tz),
+      closedFull: o.closed_at ? dateTime(o.closed_at, tz) : null,
+      cohortDisplay: o.cohort_month ? shortDate(o.cohort_month, tz) : null,
+      firstTouch: o.first_touch_channel ?? null,
+      lastTouch: o.last_touch_channel ?? null,
+      convertingTouch: o.converting_touch_channel ?? null,
+      dqReason: o.dq_reason ?? null,
+      lostReason: o.lost_reason ?? null,
+      dealValue: deal ? money(deal.total_contract_value_minor) : null,
+      dealStatus: deal ? deal.status ?? null : null,
+      dealStatusTone: deal ? tone(deal.status) : null,
+      callsSummary: oc.length === 0 ? "No calls yet" : `${oc.length} call${oc.length === 1 ? "" : "s"}, latest ${shortDate(latest.happened_at, tz)}`,
+    };
+  });
   const opportunitiesPanel = (
     <SectionGroup title="Opportunities" tone="warn">
-      {opportunities.length === 0 ? <None>No opportunities</None> : (
-        <div className="space-y-3">
-          {opportunities.map((o: any) => {
-            const oc = callsByOpp.get(String(o.id)) ?? [];
-            const latest = oc[oc.length - 1]; // calls query is ordered oldest to newest
-            return (
-              <TCard key={o.id}>
-                <div className="flex flex-wrap items-center gap-3">
-                  <Badge tone={tone(o.stage)}>{label(o.stage)}</Badge>
-                  <span className="text-xs" style={{ color: "var(--muted)" }}>Opened {shortDate(o.opened_at, tz)}{o.closed_at ? ` · Closed ${shortDate(o.closed_at, tz)}` : ""}</span>
-                  <Link href={`/opportunities/${o.id}`} className="ml-auto text-xs font-medium" style={{ color: "var(--accent)" }}>Open &rarr;</Link>
-                </div>
-                <div className="mt-2 text-xs" style={{ color: "var(--muted)" }}>
-                  {oc.length === 0 ? "No calls yet" : `${oc.length} call${oc.length === 1 ? "" : "s"}, latest ${shortDate(latest.happened_at, tz)}`}
-                </div>
-              </TCard>
-            );
-          })}
-        </div>
-      )}
+      {oppRows.length === 0 ? <None>No opportunities</None> : <OpportunityCards rows={oppRows} />}
     </SectionGroup>
   );
 
@@ -297,7 +336,10 @@ export async function ContactBody({ id }: { id: string }) {
                   <Badge tone="accent">{label(d.plan_type_snapshot)}</Badge>
                   <Badge tone={tone(d.status)}>{label(d.status)}</Badge>
                   <span className="text-xs" style={{ color: "var(--muted)" }}>Closed {shortDate(d.deal_close_date, tz)}</span>
-                  <Link href={`/deals/${d.id}`} className="ml-auto text-xs font-medium" style={{ color: "var(--accent)" }}>Open deal &rarr;</Link>
+                  {/* the card already shows the deal inline; the full page is a
+                      secondary path, so the link is demoted to a muted Details
+                      (Katie, July 10: no accent Open-arrow as the primary action) */}
+                  <Link href={`/deals/${d.id}`} className="ml-auto text-xs" style={{ color: "var(--muted)" }}>Details</Link>
                 </div>
 
                 {/* payment plan */}
@@ -306,9 +348,10 @@ export async function ContactBody({ id }: { id: string }) {
                     <div className="mb-1 text-xs uppercase tracking-wide" style={{ color: "var(--muted)" }}>Payment plan</div>
                     {dp.map((p: any) => (
                       <div key={p.id} className="flex flex-wrap items-center gap-2 text-sm">
-                        <Link href={`/plans/${p.id}`} className="font-medium" style={{ color: "var(--accent)" }}>Version {p.version}</Link>
+                        <span className="font-medium">Version {p.version}</span>
                         <Badge tone={p.is_current ? "good" : "neutral"}>{p.is_current ? "current" : "superseded"}</Badge>
                         <span className="text-xs" style={{ color: "var(--muted)" }}>{label(p.plan_type)}{p.total_minor != null ? ` · ${money(p.total_minor)}` : ""}</span>
+                        <Link href={`/plans/${p.id}`} className="ml-auto text-xs" style={{ color: "var(--muted)" }}>Details</Link>
                       </div>
                     ))}
                   </div>
@@ -323,10 +366,10 @@ export async function ContactBody({ id }: { id: string }) {
                     </div>
                     <div className="overflow-x-auto">
                       <table>
-                        <thead><tr><th>#</th><th>Due</th><th className="text-right">Amount</th><th>Status</th></tr></thead>
+                        <thead><tr><th>#</th><th>Due</th><th className="text-right">Amount</th><th>Status</th><th></th></tr></thead>
                         <tbody>
                           {dRec.map((r: any) => (
-                            <tr key={r.id}><td><Link href={`/receivables/${r.id}`} style={{ color: "var(--accent)" }}>#{r.installment_no}</Link></td><td>{shortDate(r.due_date, tz)}</td><td className="text-right">{money(r.amount_minor)}</td><td><Badge tone={tone(r.status)}>{label(r.status)}</Badge></td></tr>
+                            <tr key={r.id}><td className="num">#{r.installment_no}</td><td>{shortDate(r.due_date, tz)}</td><td className="text-right">{money(r.amount_minor)}</td><td><Badge tone={tone(r.status)}>{label(r.status)}</Badge></td><td className="text-right"><Link href={`/receivables/${r.id}`} className="text-xs" style={{ color: "var(--muted)" }}>Details</Link></td></tr>
                           ))}
                         </tbody>
                       </table>
@@ -425,7 +468,10 @@ export async function ContactBody({ id }: { id: string }) {
                   <td>{r.on_time === false
                     ? <Badge tone="warn">Late</Badge>
                     : r.on_time === true ? <span className="text-xs" style={{ color: "var(--muted)" }}>On time</span> : "—"}</td>
-                  <td className="text-right">{r.strategy_call_id && <Link href={`/calls/${r.strategy_call_id}`} className="text-xs" style={{ color: "var(--accent)" }}>View call &rarr;</Link>}</td>
+                  {/* demoted (Katie, July 10): the row shows the report inline;
+                      this jumps to the RELATED call, so it keeps its honest
+                      label but drops the accent treatment */}
+                  <td className="text-right">{r.strategy_call_id && <Link href={`/calls/${r.strategy_call_id}`} className="text-xs" style={{ color: "var(--muted)" }}>View call</Link>}</td>
                 </tr>
               ))}
             </tbody>
@@ -444,12 +490,15 @@ export async function ContactBody({ id }: { id: string }) {
             <tbody>
               {agreements.map((a: any) => (
                 <tr key={a.id}>
-                  <td><Link href={`/agreements/${a.id}`} style={{ color: "var(--accent)" }}>{a.title}</Link></td>
+                  {/* row data is all inline, so the full page is demoted to one
+                      muted Details link (Katie, July 10); the title no longer
+                      doubles as an accent nav-away link */}
+                  <td>{a.title}</td>
                   <td><Badge tone={tone(a.status)}>{label(a.status)}</Badge></td>
                   <td className="text-right">{a.amount_minor ? money(a.amount_minor) : "—"}</td>
                   <td style={{ color: "var(--muted)" }}>{a.sent_at ? shortDate(a.sent_at, tz) : "—"}</td>
                   <td style={{ color: "var(--muted)" }}>{a.signed_at ? shortDate(a.signed_at, tz) : "—"}</td>
-                  <td className="text-right"><Link href={`/agreements/${a.id}`} className="text-xs" style={{ color: "var(--accent)" }}>Open &rarr;</Link></td>
+                  <td className="text-right"><Link href={`/agreements/${a.id}`} className="text-xs" style={{ color: "var(--muted)" }}>Details</Link></td>
                 </tr>
               ))}
             </tbody>
@@ -544,7 +593,9 @@ export async function ContactBody({ id }: { id: string }) {
         { id: "credit", label: "Credit", count: nafas.length + intakes.length, panel: creditPanel },
         { id: "reports", label: "Reports", count: reports.length, panel: reportsPanel },
         { id: "contracts", label: "Contracts", count: agreements.length, panel: contractsPanel },
-        { id: "notes", label: "Notes", count: notes.length, panel: notesPanel },
+        // can_view_notes off: the Notes tab vanishes entirely (pill, count,
+        // and panel together; the rows were never queried, see above)
+        ...(canViewNotes ? [{ id: "notes", label: "Notes", count: notes.length, panel: notesPanel }] : []),
         { id: "activity", label: "Activity", count: 0, panel: activityPanel },
       ]} />
     </div>
