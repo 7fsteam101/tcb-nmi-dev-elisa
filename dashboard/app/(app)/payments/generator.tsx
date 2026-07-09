@@ -239,15 +239,17 @@ export function LinkGenerator({
       {/* pro-forma invoice preview */}
       <ProForma contact={selected} product={product} totalMinor={totalMinor} usePlan={usePlan}
         installments={effInstallments} perInstallment={perInstallment} freqLabel={freqLabel}
-        isCustom={isCustom} customSchedule={isCustom ? customSchedule : null} />
+        isCustom={isCustom} customSchedule={isCustom ? customSchedule : null}
+        invoiceToken={state?.ok ? state.token : null} />
     </div>
   );
 }
 
-function ProForma({ contact, product, totalMinor, usePlan, installments, perInstallment, freqLabel, isCustom, customSchedule }: {
+function ProForma({ contact, product, totalMinor, usePlan, installments, perInstallment, freqLabel, isCustom, customSchedule, invoiceToken }: {
   contact: ContactOption | null; product: ProductOption | null; totalMinor: number;
   usePlan: boolean; installments: number; perInstallment: number; freqLabel: string;
   isCustom: boolean; customSchedule: { no: number; dueDate: string; amountMinor: number }[] | null;
+  invoiceToken: string | null;
 }) {
   return (
     <div className="rounded-xl border p-5 text-sm" style={{ borderColor: "var(--line)", background: "var(--panel)", height: "fit-content" }}>
@@ -292,6 +294,15 @@ function ProForma({ contact, product, totalMinor, usePlan, installments, perInst
             ? <>Payment plan: <span style={{ color: "var(--text)" }}>{installments} payments of {money(perInstallment)}</span>, {freqLabel.toLowerCase()}.</>
             : <>One-time charge of <span style={{ color: "var(--text)" }}>{money(totalMinor)}</span>.</>}
         </div>
+      )}
+
+      {invoiceToken && (
+        <a href={`/api/invoice/${invoiceToken}`} target="_blank" rel="noopener noreferrer"
+           className="mt-4 flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold"
+           style={{ background: "var(--good)", color: "#fff" }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+          Download PDF invoice
+        </a>
       )}
     </div>
   );

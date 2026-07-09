@@ -62,6 +62,7 @@ export function InvoiceDocument({ data }: { data: InvoiceData }) {
           <Text style={st.smallLabel}>Bill to</Text>
           <Text>{data.billToName}</Text>
           {!!data.billToEmail && <Text style={{ color: C.muted, marginTop: 1 }}>{data.billToEmail}</Text>}
+          {!!data.billToPhone && <Text style={{ color: C.muted, marginTop: 1 }}>{data.billToPhone}</Text>}
         </View>
 
         {/* item table */}

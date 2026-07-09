@@ -8,6 +8,7 @@ export type InvoiceData = {
   dueDate: string;     // ISO yyyy-mm-dd (first installment)
   billToName: string;
   billToEmail: string;
+  billToPhone: string;
   itemDescription: string;
   totalMinor: number;
   paidMinor: number;
@@ -27,9 +28,12 @@ export type InvoiceData = {
  */
 export async function getInvoiceData(token: string): Promise<InvoiceData | null> {
   const [link]: any = await sql`
-    select id, amount_minor, description, customer_name, customer_email,
-           frequency, installments, custom_schedule, status, token, url, created_at
-    from finance.payment_link where token = ${token} limit 1`;
+    select pl.id, pl.amount_minor, pl.description, pl.customer_name, pl.customer_email,
+           pl.frequency, pl.installments, pl.custom_schedule, pl.status, pl.token, pl.url, pl.created_at,
+           c.full_name as contact_name, c.primary_email as contact_email, c.primary_phone as contact_phone
+    from finance.payment_link pl
+    left join core.contact c on c.id = pl.contact_id
+    where pl.token = ${token} limit 1`;
   if (!link) return null;
 
   const sched = scheduleFor(link); // [{ no, dueDate, amountMinor }]
@@ -49,8 +53,9 @@ export async function getInvoiceData(token: string): Promise<InvoiceData | null>
     invoiceNumber: `INV-${year}-${String(link.token).slice(0, 8).toUpperCase()}`,
     issueDate: new Date(link.created_at).toISOString().slice(0, 10),
     dueDate: schedule[0]?.dueDate ?? new Date(link.created_at).toISOString().slice(0, 10),
-    billToName: link.customer_name ?? "—",
-    billToEmail: link.customer_email ?? "",
+    billToName: link.contact_name ?? link.customer_name ?? "—",
+    billToEmail: link.contact_email ?? link.customer_email ?? "",
+    billToPhone: link.contact_phone ?? "",
     itemDescription: link.description ?? "Payment",
     totalMinor,
     paidMinor,
