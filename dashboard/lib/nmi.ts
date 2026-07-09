@@ -14,6 +14,7 @@ import { getProviderToken } from "./sync/providers";
 // payment token is only chargeable on the host that minted it).
 const NMI_HOST = process.env.NMI_HOST || "secure.nmi.com";
 const TRANSACT = `https://${NMI_HOST}/api/transact.php`;
+const QUERY = `https://${NMI_HOST}/api/query.php`;
 // Sandbox accounts reject a sale that would email a receipt to any address other
 // than the account's own ("Sandbox accounts can only send emails to their own
 // email address"). Drop the customer email on sandbox sales so test charges go
@@ -133,6 +134,50 @@ export async function addSubscription(input: {
 /** Replace the stored card on a vault record (card-on-file update). */
 export async function updateVaultCard(input: { vaultId: string; source: CardOrToken }): Promise<NmiResult> {
   return post({ customer_vault: "update_customer", customer_vault_id: input.vaultId, ...cardFields(input.source) });
+}
+
+export type VaultCard = { brand: string; last4: string; exp: string };
+
+// Query API (query.php) returns XML, not the name/value pairs transact.php uses.
+const xmlTag = (xml: string, tag: string): string =>
+  xml.match(new RegExp(`<${tag}>([^<]*)</${tag}>`))?.[1] ?? "";
+
+/**
+ * Masked card stored on an NMI customer vault (Query API). Returns null if the
+ * vault has no card or the lookup fails — the caller shows "card on file" without
+ * details rather than erroring the page.
+ */
+export async function queryVaultCard(vaultId: string): Promise<VaultCard | null> {
+  try {
+    const key = await nmiKey();
+    const url = `${QUERY}?security_key=${encodeURIComponent(key)}&report_type=customer_vault&customer_vault_id=${encodeURIComponent(vaultId)}`;
+    // Cap the lookup so a slow query.php degrades to "card on file" (null) rather
+    // than stalling the admin page toward the gateway timeout.
+    const xml = await (await fetch(url, { signal: AbortSignal.timeout(6000) })).text();
+    const ccNumber = xmlTag(xml, "cc_number");
+    if (!ccNumber) return null;
+    const last4 = ccNumber.replace(/\D/g, "").slice(-4);
+    const raw = xmlTag(xml, "cc_exp"); // MMYY
+    const exp = raw.length === 4 ? `${raw.slice(0, 2)}/${raw.slice(2)}` : raw;
+    return { brand: xmlTag(xml, "cc_type") || "Card", last4, exp };
+  } catch {
+    return null;
+  }
+}
+
+// Short in-memory cache so the payments page does not fire one query.php per
+// vaulted row on every render. Keyed by vault id, 5-min TTL, on globalThis so it
+// survives dev HMR and warm-instance reuse (same pattern as lib/db.ts).
+const CARD_TTL_MS = 5 * 60 * 1000;
+const cardCacheStore = globalThis as unknown as { nmiCardCache?: Map<string, { card: VaultCard | null; at: number }> };
+const cardCache = (cardCacheStore.nmiCardCache ??= new Map());
+
+export async function getVaultCardCached(vaultId: string): Promise<VaultCard | null> {
+  const hit = cardCache.get(vaultId);
+  if (hit && Date.now() - hit.at < CARD_TTL_MS) return hit.card;
+  const card = await queryVaultCard(vaultId);
+  cardCache.set(vaultId, { card, at: Date.now() });
+  return card;
 }
 
 /**

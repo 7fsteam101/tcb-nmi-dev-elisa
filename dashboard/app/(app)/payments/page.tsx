@@ -3,6 +3,7 @@ import { requireSession } from "@/lib/auth";
 import { sql } from "@/lib/db";
 import { getSetting } from "@/lib/settings";
 import { listPaymentLinks } from "@/lib/nmi-links";
+import { getVaultCardCached } from "@/lib/nmi";
 import { money, dateTime } from "@/lib/format";
 import { Card, Badge, STATUS_TONE, label } from "@/components/ui";
 import { LinkGenerator, type ContactOption, type ProductOption } from "./generator";
@@ -33,6 +34,19 @@ export default async function Payments() {
   const stripeEnabled = stripeFlag === "true";
   const canPickStripe = isAdmin && stripeEnabled;
 
+  // Masked saved-card details for the admin table. Cached (5-min TTL) so a normal
+  // refresh does not re-hit NMI; external HTTP, so parallel is fine here.
+  const cardByVault = new Map<string, string>();
+  if (isAdmin) {
+    const vaultIds = [...new Set(
+      links.filter((l: any) => l.nmi_customer_vault_id).map((l: any) => l.nmi_customer_vault_id as string),
+    )];
+    await Promise.all(vaultIds.map(async (vid) => {
+      const c = await getVaultCardCached(vid);
+      if (c) cardByVault.set(vid, `${c.brand} •••• ${c.last4}${c.exp ? ` · exp ${c.exp}` : ""}`);
+    }));
+  }
+
   const recent = (
     <Card>
       <div className="overflow-x-auto">
@@ -55,9 +69,16 @@ export default async function Payments() {
                 <td><Badge tone={STATUS_TONE[l.status] ?? "neutral"}>{label(l.status)}</Badge></td>
                 {isAdmin && (
                   <td className="text-right" data-row-noclick>
-                    {l.nmi_customer_vault_id
-                      ? <ChargeNow linkId={l.id} defaultAmountMinor={l.amount_minor} customerLabel={l.customer_name ?? l.customer_email ?? "this client"} />
-                      : <span className="text-[11px]" style={{ color: "var(--muted)" }}>No card on file</span>}
+                    {l.nmi_customer_vault_id ? (
+                      <div className="flex flex-col items-end gap-1">
+                        {cardByVault.get(l.nmi_customer_vault_id) && (
+                          <span className="text-[11px]" style={{ color: "var(--muted)" }}>{cardByVault.get(l.nmi_customer_vault_id)}</span>
+                        )}
+                        <ChargeNow linkId={l.id} defaultAmountMinor={l.amount_minor} customerLabel={l.customer_name ?? l.customer_email ?? "this client"} />
+                      </div>
+                    ) : (
+                      <span className="text-[11px]" style={{ color: "var(--muted)" }}>No card on file</span>
+                    )}
                   </td>
                 )}
               </RecentLinkRow>
