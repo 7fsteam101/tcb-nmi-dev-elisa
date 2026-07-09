@@ -231,12 +231,8 @@ export function LinkGenerator({
         </button>
         {(!selected || !productId) && <p className="text-[11px]" style={{ color: "var(--muted)" }}>Pick a contact and product to enable. No email is sent, you get a link to share.</p>}
         {state && <div className="rounded-lg border p-3 text-sm" style={{ borderColor: state.ok ? "var(--good)" : "var(--bad)" }}>
-          {state.message}
-          {state.ok && state.url && (
-            <div className="mt-2 flex items-center gap-2">
-              <input readOnly value={state.url} className="flex-1 text-[12px]" onFocus={(e) => e.currentTarget.select()} />
-            </div>
-          )}
+          <div style={{ color: state.ok ? "var(--text)" : "var(--bad)" }}>{state.message}</div>
+          {state.ok && state.url && <CopyLink url={state.url} />}
         </div>}
       </form>
 
@@ -297,6 +293,34 @@ function ProForma({ contact, product, totalMinor, usePlan, installments, perInst
             : <>One-time charge of <span style={{ color: "var(--text)" }}>{money(totalMinor)}</span>.</>}
         </div>
       )}
+    </div>
+  );
+}
+
+// The generated pay link with a one-click copy. URL is monospace/muted/truncated
+// (NMI links are long); the copy button flips to a green check for ~1.2s.
+function CopyLink({ url }: { url: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    } catch { /* clipboard needs a secure context (https / localhost) — both hold here */ }
+  };
+  return (
+    <div className="mt-1.5 flex items-center gap-2 rounded-lg border px-2.5 py-1.5"
+         style={{ borderColor: "var(--line)", background: "var(--panel-2)" }}>
+      <span className="min-w-0 flex-1 truncate font-mono text-[12px]" style={{ color: "var(--muted)" }} title={url}>{url}</span>
+      <button type="button" onClick={copy} title="Copy link" aria-live="polite"
+        className="inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium hover:bg-white/5"
+        style={{ color: copied ? "var(--good)" : "var(--bad)" }}>
+        {copied ? (
+          <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>Copied!</>
+        ) : (
+          <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>Copy</>
+        )}
+      </button>
     </div>
   );
 }
