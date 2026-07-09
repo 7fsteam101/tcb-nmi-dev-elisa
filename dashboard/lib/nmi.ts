@@ -5,7 +5,20 @@ import { getProviderToken } from "./sync/providers";
 // Test mode: set NMI_SECURITY_KEY to the sandbox key (the public NMI test key
 // 6457Thfj624V5r7WUwc5v6a68Zsd6YEm). Production: leave NMI_SECURITY_KEY unset and
 // the live key is read from Supabase Vault (the "NMI - TCB gateway" connection).
-const TRANSACT = "https://secure.nmi.com/api/transact.php";
+//
+// Host: real sandbox merchant accounts (as opposed to the public demo key) MUST
+// transact against sandbox.nmi.com — secure.nmi.com rejects them ("Sandbox
+// accounts must use sandbox.nmi.com"). Set NMI_HOST=sandbox.nmi.com in that case.
+// Defaults to production so live behavior is unchanged. NEXT_PUBLIC_NMI_HOST must
+// match on the client (checkout.tsx loads Collect.js from the same host, since a
+// payment token is only chargeable on the host that minted it).
+const NMI_HOST = process.env.NMI_HOST || "secure.nmi.com";
+const TRANSACT = `https://${NMI_HOST}/api/transact.php`;
+// Sandbox accounts reject a sale that would email a receipt to any address other
+// than the account's own ("Sandbox accounts can only send emails to their own
+// email address"). Drop the customer email on sandbox sales so test charges go
+// through; production keeps it (real receipts).
+const IS_SANDBOX = NMI_HOST !== "secure.nmi.com";
 const SANDBOX_KEY = "6457Thfj624V5r7WUwc5v6a68Zsd6YEm";
 
 export async function nmiKey(): Promise<string> {
@@ -64,7 +77,7 @@ export async function saleAndVault(input: {
     customer_vault: "add_customer",
     first_name: input.firstName,
     last_name: input.lastName,
-    email: input.email,
+    email: IS_SANDBOX ? undefined : input.email,
     phone: input.phone,
     zip: input.zip,
     orderid: input.orderId,

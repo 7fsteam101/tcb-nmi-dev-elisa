@@ -43,7 +43,10 @@ export function Checkout({ token, firstAmountLabel, defaultName, defaultEmail, t
   useEffect(() => {
     if (!useCollect || collectReady.current) return;
     const s = document.createElement("script");
-    s.src = "https://secure.nmi.com/token/Collect.js";
+    // Must match the transact host in lib/nmi.ts — a Collect.js token is only
+    // chargeable on the host that minted it. sandbox.nmi.com for sandbox accounts.
+    const nmiHost = process.env.NEXT_PUBLIC_NMI_HOST || "secure.nmi.com";
+    s.src = `https://${nmiHost}/token/Collect.js`;
     s.async = true;
     s.setAttribute("data-tokenization-key", tokenizationKey);
     s.onload = () => {
