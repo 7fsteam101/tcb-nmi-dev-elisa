@@ -29,11 +29,14 @@ const stats = { txns:0, payments:0, reversals:0, existing:0 };
 let from = new Date("2023-01-01T00:00:00Z");
 while (from.getTime() < Date.now()) {
   const to = new Date(Math.min(from.getTime() + 183*864e5, Date.now()));
+  let windowOk = false;
+  for (let attempt = 1; attempt <= 3 && !windowOk; attempt++) {
+  try {
   const start = from.toISOString().slice(0,10).replace(/-/g,"") + "000000";
   const end = to.toISOString().slice(0,10).replace(/-/g,"") + "235959";
   const res = await fetch(`https://secure.networkmerchants.com/api/query.php?security_key=${KEY}&start_date=${start}&end_date=${end}`);
   const xml = await res.text();
-  if (xml.includes("error_response")) { console.log("window error:", xml.slice(0,150)); from = to; continue; }
+  if (xml.includes("error_response")) { console.log("window error:", xml.slice(0,150)); windowOk = true; continue; }
   for (const block of xml.split("<transaction>").slice(1)) {
     const txn = block.split("</transaction>")[0];
     stats.txns++;
@@ -75,7 +78,10 @@ while (from.getTime() < Date.now()) {
       }
     }
   }
-  console.log(`window done through ${to.toISOString().slice(0,10)}:`, JSON.stringify(stats));
+    windowOk = true;
+    console.log(`window done through ${to.toISOString().slice(0,10)}:`, JSON.stringify(stats));
+  } catch (e) { console.log(`window retry ${attempt}: ${String(e).slice(0,80)}`); await new Promise(r=>setTimeout(r,3000*attempt)); }
+  }
   from = to;
 }
 console.log("NMI HISTORY COMPLETE:", JSON.stringify(stats));

@@ -4,6 +4,7 @@ import { dispatchPending } from "@/lib/sync/writeback";
 import { processPending } from "@/lib/sync/ingest";
 import { syncAllGhl } from "@/lib/sync/ghl";
 import { pullNmiRecent } from "@/lib/sync/nmi-pull";
+import { mergeNameTwins } from "@/lib/sync/merge-twins";
 import { reconcileStripe } from "@/lib/sync/stripe-reconcile";
 
 export const maxDuration = 60;
@@ -19,6 +20,8 @@ export async function GET(req: NextRequest) {
   const inbound = await processPending();
   let ghl: unknown = "no ghl connections";
   try { ghl = await syncAllGhl({ sinceDays: 2 }); } catch (err) { ghl = String(err); }
+  let twins: unknown;
+  try { twins = await mergeNameTwins(); } catch (err) { twins = String(err); }
   let nmi: unknown;
   try { nmi = await pullNmiRecent(3); } catch (err) { nmi = String(err); } // freshness until Silent Post is on
   let stripe: unknown;

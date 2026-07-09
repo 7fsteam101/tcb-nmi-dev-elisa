@@ -470,8 +470,12 @@ export async function ContactBody({ id }: { id: string }) {
             : <div key={s.l}>{inner}</div>;
         })}
       </div>
-      {/* jump nav: anchor links (same visual language as the old tab bar) */}
-      <div className="mt-1 flex flex-wrap gap-1 border-b" style={{ borderColor: "var(--line)" }}>
+      {/* jump nav: anchor links (same visual language as the old tab bar).
+          Sticky so section links stay reachable while scrolled deep; opaque
+          --bg so sections slide under it cleanly. zIndex stays below the
+          drawer's own sticky bar (z-10) so it tucks under it there. */}
+      <div className="sticky top-0 mt-1 flex flex-wrap gap-1 border-b"
+        style={{ borderColor: "var(--line)", background: "var(--bg)", zIndex: 5 }}>
         {([
           ["overview", "Overview", 0],
           ["opt-ins", "Opt-ins", optIns.length],

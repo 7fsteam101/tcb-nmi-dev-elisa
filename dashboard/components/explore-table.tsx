@@ -246,7 +246,7 @@ function renderCell(value: Cell, col: ExploreColumn, tz: string, row: ExploreRow
         <a href={`https://app.close.com/lead/${value}/`} target="_blank" rel="noreferrer"
           className="inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-xs"
           style={{ color: "var(--accent)", borderColor: `color-mix(in srgb, var(--accent) 35%, transparent)` }}>
-          Close &nearr;
+          Close {"↗"}
         </a>
       );
     default: {
