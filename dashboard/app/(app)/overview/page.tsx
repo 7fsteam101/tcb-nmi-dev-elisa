@@ -7,6 +7,9 @@ import { DateRangeBar } from "@/components/date-range";
 import { BarChart, ProgressRing } from "@/components/charts";
 import { resolveRange, previousWindow } from "@/lib/range";
 import { requireAccess } from "@/lib/access";
+import { getSession } from "@/lib/auth";
+import { needsAttention } from "@/lib/attention";
+import { AttentionBanner } from "@/components/attention-banner";
 import { goalProgress, METRIC_LABEL, isMoneyMetric } from "@/lib/goals";
 
 export const dynamic = "force-dynamic";
@@ -51,6 +54,8 @@ export default async function Overview({ searchParams }: { searchParams: Promise
   // Held out of the Promise.all above so concurrency stays at 4 or fewer.
   const lcr = await leadershipCloseRate({ demo, days, since: range.since, until });
   const companyGoals = await goalProgress(demo, "company");
+  const session = await getSession();
+  const attention = session && ["admin", "leadership"].includes(session.role) ? await needsAttention() : null;
 
   const n = (v: unknown) => Number(v ?? 0);
 
@@ -100,6 +105,7 @@ export default async function Overview({ searchParams }: { searchParams: Promise
   return (
     <div>
       <h1 className="text-xl font-semibold">Overview</h1>
+      {attention && <AttentionBanner a={attention} />}
       <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm" style={{ color: "var(--muted)" }}>
           {range.label}, vs the {range.custom ? "prior period" : `${days} before`}. Times in {tz}.

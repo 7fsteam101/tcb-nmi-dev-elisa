@@ -11,7 +11,7 @@ async function guard() {
 
 export async function setCalendarTypeAction(id: string, callType: string) {
   await guard();
-  await sql`update sync.calendar_map set call_type = ${callType} where id = ${id}`;
+  await sql`update sync.calendar_map set call_type = ${callType}, reviewed_at = now() where id = ${id}`;
   revalidatePath("/admin/calendars");
 }
 
@@ -19,7 +19,7 @@ export async function setCalendarTypeAction(id: string, callType: string) {
 // attribute onto the calendar's historical calls (display-only field).
 export async function toggleCalendarBookingAction(id: string) {
   await guard();
-  const [row] = await sql`update sync.calendar_map set is_booking = not is_booking where id = ${id} returning is_booking, active`;
+  const [row] = await sql`update sync.calendar_map set is_booking = not is_booking, reviewed_at = now() where id = ${id} returning is_booking, active`;
   if (row?.active) await sql`update sales.call set is_paid_booking = ${row.is_booking} where calendar_map_id = ${id}`;
   revalidatePath("/admin/calendars");
 }
@@ -29,7 +29,7 @@ export async function toggleCalendarBookingAction(id: string) {
 // Re-flags the calendar's historical calls so past data follows the decision.
 export async function toggleCalendarActiveAction(id: string) {
   await guard();
-  const [row] = await sql`update sync.calendar_map set active = not active where id = ${id} returning active, is_booking`;
+  const [row] = await sql`update sync.calendar_map set active = not active, reviewed_at = now() where id = ${id} returning active, is_booking`;
   await sql`update sales.call set is_booking = ${row.active},
     is_paid_booking = ${row.active ? row.is_booking : null}
     where calendar_map_id = ${id}`;
@@ -38,7 +38,7 @@ export async function toggleCalendarActiveAction(id: string) {
 
 export async function renameCalendarAction(id: string, name: string) {
   await guard();
-  await sql`update sync.calendar_map set calendar_name = ${name.trim() || null} where id = ${id}`;
+  await sql`update sync.calendar_map set calendar_name = ${name.trim() || null}, reviewed_at = now() where id = ${id}`;
   revalidatePath("/admin/calendars");
 }
 

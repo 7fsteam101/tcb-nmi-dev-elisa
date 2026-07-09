@@ -6,6 +6,8 @@ import { listConnections } from "@/lib/sync/providers";
 import { Card, SectionTitle, Badge, STATUS_TONE, label } from "@/components/ui";
 import { dateTime } from "@/lib/format";
 import { KeyForm } from "./key-form";
+import { needsAttention } from "@/lib/attention";
+import { AttentionBanner } from "@/components/attention-banner";
 import { BackfillButton } from "./backfill-button";
 import { GhlControls } from "./ghl-controls";
 import { GhlLocations } from "./ghl-locations";
@@ -24,6 +26,7 @@ export default async function Connections() {
   ]);
   const ghlMarketingLoc = await getSetting<string>("ghl_marketing_location_id", "");
   const ghlRepairLoc = await getSetting<string>("ghl_repair_location_id", "");
+  const attention = await needsAttention();
   const h = await headers();
   const base = `https://${h.get("host") ?? "your-app.vercel.app"}`;
   const hook = (p: string) => `${base}/api/webhooks/${p}?secret=<WEBHOOK_SECRET>`;
@@ -31,6 +34,7 @@ export default async function Connections() {
   return (
     <div>
       <h1 className="text-xl font-semibold">Connections</h1>
+      <AttentionBanner a={attention} />
       <p className="mb-6 text-sm" style={{ color: "var(--muted)" }}>
         One row per connected account. Adding an account later is just another connection — no code changes.
       </p>
