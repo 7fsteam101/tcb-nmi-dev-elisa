@@ -214,16 +214,30 @@ async function normalizeGhl(eventType: string, payload: any): Promise<string> {
 
   if (event === "form_submitted") {
     const source = p.form?.source ?? "meta_ads";
+    const formId = p.form?.id ?? p.form?.form_id ?? null;
+    // form registry (counts-only-when-mapped, July 9 policy): unknown forms
+    // auto-register unreviewed + not counted; the opt-in still RECORDS either
+    // way, and Admin > Forms decides whether it counts as a lead.
+    let counted = true;
+    if (formId) {
+      const [fm] = await sql`
+        insert into sync.form_map (location_id, form_id)
+        values (${p.location_id ?? "default"}, ${formId})
+        on conflict (location_id, form_id) do update set form_id = excluded.form_id
+        returning counts_as_lead`;
+      counted = fm?.counts_as_lead ?? false;
+    }
     const oppId = await findOrCreateActiveOpportunity(contactId, source);
     await sql`
       insert into sales.opt_in (contact_id, opportunity_id, submitted_at, goal, credit_score_range, blocker,
-                                source_channel, source_campaign, utm, dub_link_id, form_id, ghl_marketing_id, counts_as_unique)
+                                source_channel, source_campaign, utm, dub_link_id, form_id, ghl_marketing_id, counts_as_unique, counted)
       values (${contactId}, ${oppId}, now(), ${p.form?.goal ?? "other"}, ${p.form?.credit_score_range ?? null},
               ${p.form?.blocker ?? null}, ${source}, ${p.form?.campaign ?? p.form?.utm_campaign ?? null}, ${p.form?.utm ?? null},
-              ${p.form?.dub_id ?? p.form?.dub_link_id ?? null}, ${p.form?.id ?? p.form?.form_id ?? null}, ${pc.id ?? null},
-              not exists (select 1 from sales.opt_in where contact_id = ${contactId} and submitted_at > now() - interval '30 days'))`;
+              ${p.form?.dub_id ?? p.form?.dub_link_id ?? null}, ${formId}, ${pc.id ?? null},
+              not exists (select 1 from sales.opt_in where contact_id = ${contactId} and submitted_at > now() - interval '30 days'),
+              ${counted})`;
     await stampAttribution(oppId, source, "touch");
-    return "opt-in recorded";
+    return counted ? "opt-in recorded" : "opt-in recorded (form not marked counts-as-lead yet — decide in Admin > Forms)";
   }
 
   if (event === "contact_upserted") return "contact enriched"; // identity-only event (backfill/pull)

@@ -13,7 +13,7 @@ export async function overviewKpis({ demo, days, since, until }: Params) {
                           ${until ?? null}::timestamptz as until)
     select
       (select count(*) from sales.opt_in o, range r
-        where o.is_demo = ${demo} and o.submitted_at >= r.since and (r.until is null or o.submitted_at < r.until) and o.counts_as_unique) as leads,
+        where o.is_demo = ${demo} and o.submitted_at >= r.since and (r.until is null or o.submitted_at < r.until) and o.counts_as_unique and o.counted) as leads,
       (select count(*) from sales.call c, range r
         where c.is_demo = ${demo} and c.type = 'strategy' and c.is_primary and c.is_booking
           and not coalesce(c.is_duplicate, false)
@@ -70,7 +70,7 @@ export async function dailySeries({ demo, days, tz, from, to }: Params & { from?
         interval '1 day')::date as day
     )
     select d.day,
-      (select count(*) from sales.opt_in o where o.is_demo = ${demo} and o.counts_as_unique
+      (select count(*) from sales.opt_in o where o.is_demo = ${demo} and o.counts_as_unique and o.counted
         and (o.submitted_at at time zone ${tz})::date = d.day) as leads,
       (select count(*) from sales.call c where c.is_demo = ${demo} and c.type = 'strategy' and c.is_primary
         and c.is_booking and not coalesce(c.is_duplicate, false)

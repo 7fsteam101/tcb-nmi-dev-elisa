@@ -22,7 +22,7 @@ const contactCols: ExploreColumn[] = [
 export const EXPLORE: Record<string, ExploreDef> = {
   leads: {
     title: "Leads (unique opt-ins)",
-    description: "Every lead-form submission in range. Unique = first submission, or a return after 30+ days.",
+    description: "Lead-form submissions from forms marked counts-as-lead (Admin > Forms). Unique = first submission, or a return after 30+ days.",
     page: "overview",
     columns: [
       { key: "submitted_at", label: "Submitted", kind: "datetime" },
@@ -36,7 +36,7 @@ export const EXPLORE: Record<string, ExploreDef> = {
       select o.submitted_at, ct.full_name as contact_name, ct.close_id, o.source_channel,
              o.source_campaign, o.goal, case when o.counts_as_unique then 'yes' else 'repeat' end as counts_as_unique
       from sales.opt_in o join core.contact ct on ct.id = o.contact_id
-      where o.is_demo = ${demo} and o.submitted_at >= now() - make_interval(days => ${days})
+      where o.is_demo = ${demo} and o.counted and o.submitted_at >= now() - make_interval(days => ${days})
       order by o.submitted_at desc limit 500`,
   },
   booked: {

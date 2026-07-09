@@ -24,6 +24,21 @@ export function AttentionBanner({ a }: { a: NeedsAttention }) {
         awaiting mapping
       </span>,
     );
+  if (a.newForms > 0)
+    items.push(
+      <span key="fm">
+        <Link href="/admin/forms" className="font-medium underline" style={{ color: "var(--warn)" }}>
+          {a.newForms} new form{a.newForms === 1 ? "" : "s"}
+        </Link>{" "}
+        recording but not counting as leads
+      </span>,
+    );
+  for (const s of a.staleSources)
+    items.push(
+      <span key={s}>
+        <Link href="/connections" className="font-medium underline" style={{ color: "var(--warn)" }}>{s}</Link>
+      </span>,
+    );
   if (!items.length) return null;
   return (
     <div className="mb-4 rounded-xl border px-4 py-2.5 text-sm"

@@ -43,7 +43,7 @@ export async function leadsBySource(
   return sql`
     select coalesce(nullif(trim(o.source_channel), ''), '(unattributed)') as source, count(*)::int as leads
     from sales.opt_in o
-    where o.is_demo = ${demo} and o.counts_as_unique
+    where o.is_demo = ${demo} and o.counts_as_unique and o.counted
       and o.submitted_at >= ${since}::timestamptz
       and (${until}::timestamptz is null or o.submitted_at < ${until}::timestamptz)
     group by 1
@@ -97,7 +97,7 @@ export async function campaignFunnel({ demo, since, until }: { demo: boolean; da
     leads as (
       select coalesce(nullif(trim(o.source_campaign), ''), '(unattributed)') as campaign, count(*) as leads
       from sales.opt_in o
-      where o.is_demo = ${demo} and o.counts_as_unique
+      where o.is_demo = ${demo} and o.counts_as_unique and o.counted
         and o.submitted_at >= ${since}::timestamptz
         and (${until}::timestamptz is null or o.submitted_at < ${until}::timestamptz)
       group by 1
