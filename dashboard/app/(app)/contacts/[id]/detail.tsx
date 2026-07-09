@@ -1,15 +1,16 @@
 import Link from "next/link";
-import { ReactNode } from "react";
+import { ReactNode, CSSProperties } from "react";
 import { redirect } from "next/navigation";
 import { sql } from "@/lib/db";
 import { reportTimezone, getSetting } from "@/lib/settings";
 import { money, dateTime, shortDate } from "@/lib/format";
-import { Card, SectionTitle, Badge, STATUS_TONE, label } from "@/components/ui";
+import { SectionTitle, Badge, STATUS_TONE, label } from "@/components/ui";
+import { SectionNav } from "@/components/section-nav";
 import { ExternalLinks } from "@/components/external-links";
 import { Icon } from "@/components/icons";
 import { NoteForm } from "./note-form";
 
-// Shared contact-profile body — rendered by both the full page and the drawer.
+// Shared contact-profile body, rendered by both the full page and the drawer.
 // One flat page of anchored sections (Overview / Opt-ins / Calls / Appointments /
 // Payments / Credit / Reports / Contracts / Notes / Activity) with a jump nav,
 // a notes composer and a merged activity feed. Flat (not tabbed) on purpose:
@@ -25,6 +26,7 @@ const EXTRA_TONE: Record<string, "good" | "warn" | "bad" | "neutral" | "accent">
   signed: "good", sent: "warn", declined: "bad", voided: "bad", draft: "neutral",
 };
 const tone = (s: string | null | undefined) => STATUS_TONE[s ?? ""] ?? EXTRA_TONE[s ?? ""] ?? "neutral";
+const TONE_COLOR: Record<string, string> = { good: "var(--good)", warn: "var(--warn)", bad: "var(--bad)", accent: "var(--accent)", neutral: "var(--muted)" };
 const gb = (rows: any[], key: string) => {
   const m = new Map<string, any[]>();
   for (const r of rows) { const k = String(r[key]); (m.get(k) ?? m.set(k, []).get(k)!).push(r); }
@@ -122,28 +124,30 @@ export async function ContactBody({ id }: { id: string }) {
   const nextAppt = appointments
     .filter((a: any) => a.is_current && ["scheduled", "confirmed"].includes(a.status) && new Date(a.scheduled_for).getTime() > now)
     .sort((a: any, b: any) => new Date(a.scheduled_for).getTime() - new Date(b.scheduled_for).getTime())[0];
-  const strip: { l: string; v: string; href?: string }[] = [
-    { l: "Opt-ins", v: String(optIns.length), href: "#opt-ins" },
-    { l: "Booked", v: String(booked) },
-    { l: "Taken", v: String(taken) },
-    { l: "Opportunities", v: String(opportunities.length) },
-    { l: "Cash collected", v: money(totalPaid) },
-    { l: "Contracted", v: money(contractedMinor) },
-    { l: "Last activity", v: lastActivity ? shortDate(lastActivity, tz) : "—" },
-    ...(nextAppt ? [{ l: "Next appointment", v: shortDate(nextAppt.scheduled_for, tz) }] : []),
+  // tn = semantic tone for the VALUE (labels stay muted): counts accent,
+  // show-up + money good, recency muted, upcoming warn.
+  const strip: { l: string; v: string; tn: string; href?: string }[] = [
+    { l: "Opt-ins", v: String(optIns.length), tn: "accent", href: "#opt-ins" },
+    { l: "Booked", v: String(booked), tn: "accent" },
+    { l: "Taken", v: String(taken), tn: "good" },
+    { l: "Opportunities", v: String(opportunities.length), tn: "accent" },
+    { l: "Cash collected", v: money(totalPaid), tn: "good" },
+    { l: "Contracted", v: money(contractedMinor), tn: "good" },
+    { l: "Last activity", v: lastActivity ? shortDate(lastActivity, tz) : "—", tn: "neutral" },
+    ...(nextAppt ? [{ l: "Next appointment", v: shortDate(nextAppt.scheduled_for, tz), tn: "warn" }] : []),
   ];
 
   // ================= sections =================
   const overview = (
     <div>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Mini label="Lifecycle" value={label(contact.lifecycle_status)} tn={tone(contact.lifecycle_status)} />
-        <Mini label="Opportunities" value={String(opportunities.length)} />
+        <Mini label="Lifecycle" value={label(contact.lifecycle_status)} tn="accent" />
+        <Mini label="Opportunities" value={String(opportunities.length)} tn="accent" />
         <Mini label="Cash collected" value={money(totalPaid)} tn={totalPaid > 0 ? "good" : "neutral"} />
         <Mini label="Won deal" value={wonDeal ? money(wonDeal.total_contract_value_minor) : "None"} tn={wonDeal ? "good" : "neutral"} />
       </div>
       <SectionTitle>Contact details</SectionTitle>
-      <Card>
+      <TCard>
         <div className="grid grid-cols-1 gap-x-8 gap-y-2 sm:grid-cols-2">
           <Detail label="Email" value={contact.primary_email} />
           <Detail label="Phone" value={contact.primary_phone} />
@@ -159,7 +163,7 @@ export async function ContactBody({ id }: { id: string }) {
             <ExternalLinks ids={extIds} loc={ghlLoc} variant="urls" />
           </div>
         )}
-      </Card>
+      </TCard>
     </div>
   );
 
@@ -168,7 +172,7 @@ export async function ContactBody({ id }: { id: string }) {
   const optInsSection = optIns.length === 0 ? <None>No opt-ins</None> : (
     <div className="space-y-2">
       {optIns.map((o: any) => (
-        <Card key={o.id}>
+        <TCard key={o.id}>
           <div className="flex flex-wrap items-center gap-2">
             {o.form_name
               ? <span className="text-sm font-medium">{o.form_name}</span>
@@ -186,7 +190,7 @@ export async function ContactBody({ id }: { id: string }) {
             <Detail label="UTM" value={o.utm} />
             {o.dub_link_id && <Detail label="Dub link" value={o.dub_link_id} />}
           </div>
-        </Card>
+        </TCard>
       ))}
     </div>
   );
@@ -196,7 +200,7 @@ export async function ContactBody({ id }: { id: string }) {
       {opportunities.map((o: any) => {
         const oc = callsByOpp.get(String(o.id)) ?? [];
         return (
-          <Card key={o.id}>
+          <TCard key={o.id}>
             <div className="flex flex-wrap items-center gap-3">
               <Badge tone={tone(o.stage)}>{label(o.stage)}</Badge>
               <span className="text-xs" style={{ color: "var(--muted)" }}>Opened {shortDate(o.opened_at, tz)}{o.closed_at ? ` · Closed ${shortDate(o.closed_at, tz)}` : ""}</span>
@@ -212,14 +216,14 @@ export async function ContactBody({ id }: { id: string }) {
                 </Link>
               </div>
             ))}
-          </Card>
+          </TCard>
         );
       })}
     </div>
   );
 
   const apptsSection = appointments.length === 0 ? <None>No appointments</None> : (
-    <Card>
+    <TCard>
       <div className="overflow-x-auto">
         <table>
           <thead><tr><th>Scheduled for</th><th>Attempt</th><th>Status</th><th>Reason</th><th>Moved by</th><th></th></tr></thead>
@@ -237,7 +241,7 @@ export async function ContactBody({ id }: { id: string }) {
           </tbody>
         </table>
       </div>
-    </Card>
+    </TCard>
   );
 
   const dealsSection = deals.length === 0 ? <None>No deals</None> : (
@@ -249,7 +253,7 @@ export async function ContactBody({ id }: { id: string }) {
         const paidMinor = pay.reduce((s: number, p: any) => s + Number(p.amount_minor), 0);
         const scheduledMinor = dRec.filter((r: any) => r.status !== "paid").reduce((s: number, r: any) => s + Number(r.amount_minor), 0);
         return (
-          <Card key={d.id}>
+          <TCard key={d.id}>
             <div className="flex flex-wrap items-center gap-3">
               <span className="text-lg font-semibold">{money(d.total_contract_value_minor)}</span>
               <Badge tone="accent">{label(d.plan_type_snapshot)}</Badge>
@@ -308,14 +312,14 @@ export async function ContactBody({ id }: { id: string }) {
                 </div>
               </div>
             )}
-          </Card>
+          </TCard>
         );
       })}
     </div>
   );
 
   const agreementsSection = agreements.length === 0 ? <None>No contracts</None> : (
-    <Card>
+    <TCard>
       <div className="overflow-x-auto">
         <table>
           <thead><tr><th>Agreement</th><th>Status</th><th className="text-right">Amount</th><th>Sent</th><th>Signed</th><th></th></tr></thead>
@@ -333,7 +337,7 @@ export async function ContactBody({ id }: { id: string }) {
           </tbody>
         </table>
       </div>
-    </Card>
+    </TCard>
   );
 
   // NAFA audits + intake submissions. Intake rows show ONLY date / provider /
@@ -344,7 +348,7 @@ export async function ContactBody({ id }: { id: string }) {
       {nafas.length === 0 ? <None>No NAFA audits</None> : (
         <div className="space-y-2">
           {nafas.map((n: any) => (
-            <Card key={n.id}>
+            <TCard key={n.id}>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm font-medium">{dateTime(n.pulled_at, tz)}</span>
                 <span className="text-xs" style={{ color: "var(--muted)" }}>{label(n.provider)}</span>
@@ -361,13 +365,13 @@ export async function ContactBody({ id }: { id: string }) {
                 <Detail label="Credit score" value={n.credit_score == null ? null : String(n.credit_score)} />
                 <Detail label="Utilization" value={n.utilization_pct == null ? null : `${Number(n.utilization_pct)}%`} />
               </div>
-            </Card>
+            </TCard>
           ))}
         </div>
       )}
       <div className="mb-2 mt-5 text-[11px] uppercase tracking-wide" style={{ color: "var(--muted)" }}>Intake submissions</div>
       {intakes.length === 0 ? <None>No intake submissions</None> : (
-        <Card>
+        <TCard>
           <div className="overflow-x-auto">
             <table>
               <thead><tr><th>Submitted</th><th>Provider</th><th>Status</th></tr></thead>
@@ -382,13 +386,13 @@ export async function ContactBody({ id }: { id: string }) {
               </tbody>
             </table>
           </div>
-        </Card>
+        </TCard>
       )}
     </div>
   );
 
   const reportsSection = reports.length === 0 ? <None>No reports filed</None> : (
-    <Card>
+    <TCard>
       <div className="overflow-x-auto">
         <table>
           <thead><tr><th>Type</th><th>Submitted</th><th>Rep</th><th>Status</th><th>On time</th><th></th></tr></thead>
@@ -408,7 +412,7 @@ export async function ContactBody({ id }: { id: string }) {
           </tbody>
         </table>
       </div>
-    </Card>
+    </TCard>
   );
 
   const notesSection = (
@@ -417,17 +421,16 @@ export async function ContactBody({ id }: { id: string }) {
       {notes.length === 0 ? <None>No notes yet</None> : (
         <div className="space-y-2">
           {notes.map((n: any) => (
-            <Card key={n.id}>
+            <TCard key={n.id}>
               <div className="whitespace-pre-wrap text-sm" style={{ color: "var(--text)" }}>{n.body}</div>
               <div className="mt-1 text-[11px]" style={{ color: "var(--muted)" }}>{n.author ?? "Team"} · {dateTime(n.created_at, tz)}</div>
-            </Card>
+            </TCard>
           ))}
         </div>
       )}
     </div>
   );
 
-  const TONE_COLOR: Record<string, string> = { good: "var(--good)", warn: "var(--warn)", bad: "var(--bad)", accent: "var(--accent)", neutral: "var(--muted)" };
   const activitySection = activity.length === 0 ? <None>No activity yet</None> : (
     <div className="relative ml-1 border-l pl-4" style={{ borderColor: "var(--line)" }}>
       {activity.map((e, i) => (
@@ -447,22 +450,28 @@ export async function ContactBody({ id }: { id: string }) {
 
   return (
     <div>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-xl font-semibold">{contact.full_name}</h1>
-          <Badge tone={tone(contact.lifecycle_status)}>{label(contact.lifecycle_status)}</Badge>
+      {/* header block: a very soft accent gradient anchors the identity area.
+          Negative margins cancel the inner padding, so text stays aligned with
+          the column and the tint bleeds slightly into the page padding. */}
+      <header className="-mx-3 -mt-2 rounded-xl px-3 pb-1 pt-2"
+        style={{ background: "linear-gradient(180deg, color-mix(in srgb, var(--accent) 7%, transparent), transparent 70%)" }}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-xl font-semibold">{contact.full_name}</h1>
+            <Badge tone={tone(contact.lifecycle_status)}>{label(contact.lifecycle_status)}</Badge>
+          </div>
+          <ExternalLinks ids={extIds} loc={ghlLoc} variant="buttons" />
         </div>
-        <ExternalLinks ids={extIds} loc={ghlLoc} variant="buttons" />
-      </div>
-      <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
-        {contact.primary_email ?? "—"} &middot; {contact.primary_phone ?? "—"} &middot; Owner: {contact.owner ?? "—"}
-      </p>
-      <div className="mt-3 flex flex-wrap gap-x-6 gap-y-2 border-y py-2.5" style={{ borderColor: "var(--line)" }}>
+        <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
+          {contact.primary_email ?? "—"} &middot; {contact.primary_phone ?? "—"} &middot; Owner: {contact.owner ?? "—"}
+        </p>
+      </header>
+      <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2 border-y py-2.5" style={{ borderColor: "var(--line)" }}>
         {strip.map((s) => {
           const inner = (
             <>
               <div className="text-[10px] uppercase tracking-wide" style={{ color: "var(--muted)" }}>{s.l}</div>
-              <div className="text-sm font-semibold tabular-nums" style={{ color: "var(--text)" }}>{s.v}</div>
+              <div className="num text-sm font-semibold" style={{ color: TONE_COLOR[s.tn] ?? "var(--text)" }}>{s.v}</div>
             </>
           );
           return s.href
@@ -470,54 +479,64 @@ export async function ContactBody({ id }: { id: string }) {
             : <div key={s.l}>{inner}</div>;
         })}
       </div>
-      {/* jump nav: anchor links (same visual language as the old tab bar).
-          Sticky so section links stay reachable while scrolled deep; opaque
-          --bg so sections slide under it cleanly. zIndex stays below the
-          drawer's own sticky bar (z-10) so it tucks under it there. */}
-      <div className="sticky top-0 mt-1 flex flex-wrap gap-1 border-b"
-        style={{ borderColor: "var(--line)", background: "var(--bg)", zIndex: 5 }}>
-        {([
-          ["overview", "Overview", 0],
-          ["opt-ins", "Opt-ins", optIns.length],
-          ["calls", "Calls", opportunities.length],
-          ["appointments", "Appointments", appointments.length],
-          ["payments", "Payments", deals.length],
-          ["credit", "Credit", nafas.length + intakes.length],
-          ["reports", "Reports", reports.length],
-          ["contracts", "Contracts", agreements.length],
-          ["notes", "Notes", notes.length],
-          ["activity", "Activity", 0],
-        ] as [string, string, number][]).map(([anchor, name, count]) => (
-          <a key={anchor} href={`#${anchor}`}
-            className="flex items-center gap-1.5 px-3 py-2 text-[13px] font-medium hover:bg-white/5"
-            style={{ color: "var(--muted)" }}>
-            {name}
-            {count > 0 && <span className="rounded-full px-1.5 text-[10px]" style={{ background: "var(--panel-2)", color: "var(--muted)" }}>{count}</span>}
-          </a>
-        ))}
-      </div>
-      <Section id="overview" title="Overview">{overview}</Section>
-      <Section id="opt-ins" title="Opt-ins">{optInsSection}</Section>
-      <Section id="calls" title="Opportunities and calls">{oppsSection}</Section>
-      <Section id="appointments" title="Appointments">{apptsSection}</Section>
-      <Section id="payments" title="Deals and payments">{dealsSection}</Section>
-      <Section id="credit" title="Credit">{creditSection}</Section>
-      <Section id="reports" title="Reports">{reportsSection}</Section>
-      <Section id="contracts" title="Contracts">{agreementsSection}</Section>
-      <Section id="notes" title="Notes">{notesSection}</Section>
-      <Section id="activity" title="Activity">{activitySection}</Section>
+      {/* jump nav: segmented pills with scroll-spy (see components/section-nav).
+          Same anchors and counts as before; the sticky/opaque/zIndex-5 wrapper
+          behavior lives inside SectionNav now. */}
+      <SectionNav sections={[
+        { id: "overview", label: "Overview", count: 0 },
+        { id: "opt-ins", label: "Opt-ins", count: optIns.length },
+        { id: "calls", label: "Calls", count: opportunities.length },
+        { id: "appointments", label: "Appointments", count: appointments.length },
+        { id: "payments", label: "Payments", count: deals.length },
+        { id: "credit", label: "Credit", count: nafas.length + intakes.length },
+        { id: "reports", label: "Reports", count: reports.length },
+        { id: "contracts", label: "Contracts", count: agreements.length },
+        { id: "notes", label: "Notes", count: notes.length },
+        { id: "activity", label: "Activity", count: 0 },
+      ]} />
+      <Section id="overview" title="Overview" tone="accent">{overview}</Section>
+      <Section id="opt-ins" title="Opt-ins" tone="accent">{optInsSection}</Section>
+      <Section id="calls" title="Opportunities and calls" tone="warn">{oppsSection}</Section>
+      <Section id="appointments" title="Appointments" tone="warn">{apptsSection}</Section>
+      <Section id="payments" title="Deals and payments" tone="good">{dealsSection}</Section>
+      <Section id="credit" title="Credit" tone="warn">{creditSection}</Section>
+      <Section id="reports" title="Reports" tone="neutral">{reportsSection}</Section>
+      <Section id="contracts" title="Contracts" tone="accent">{agreementsSection}</Section>
+      <Section id="notes" title="Notes" tone="neutral">{notesSection}</Section>
+      <Section id="activity" title="Activity" tone="neutral">{activitySection}</Section>
     </div>
   );
 }
 
 // Anchored section wrapper: the id is the deep-link target (#opt-ins etc.);
 // scrollMarginTop keeps the heading clear of the sticky app header on jump.
-function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
+// Each section carries a semantic tone from the existing palette (accent /
+// warn / good / neutral): a 3px rounded bar + soft dot flank the title, and
+// --sect cascades the tone color down so the section's cards (TCard) pick up
+// a faint tinted border. Color only; content and anchors are unchanged.
+function Section({ id, title, tone: tn, children }: { id: string; title: string; tone: string; children: ReactNode }) {
+  const c = TONE_COLOR[tn] ?? "var(--accent)";
   return (
-    <section id={id} className="mt-8" style={{ scrollMarginTop: 80 }}>
-      <SectionTitle>{title}</SectionTitle>
+    <section id={id} className="mt-8" style={{ scrollMarginTop: 80, "--sect": c } as CSSProperties}>
+      <div className="mb-3 flex items-center gap-2">
+        <span aria-hidden className="shrink-0 rounded-full"
+          style={{ width: 3, height: 14, background: `color-mix(in srgb, ${c} 80%, var(--panel))` }} />
+        <h2 className="text-[13px] font-semibold uppercase tracking-wider" style={{ color: "var(--muted)" }}>{title}</h2>
+        <span aria-hidden className="shrink-0 rounded-full"
+          style={{ width: 6, height: 6, background: `color-mix(in srgb, ${c} 45%, var(--panel))` }} />
+      </div>
       {children}
     </section>
+  );
+}
+
+// Section-tinted card: same .card base as components/ui Card, but the border
+// color mixes in the surrounding section's tone (--sect, set by Section).
+function TCard({ children }: { children: ReactNode }) {
+  return (
+    <div className="card p-4" style={{ borderColor: "color-mix(in srgb, var(--sect, var(--muted)) 22%, var(--line))" }}>
+      {children}
+    </div>
   );
 }
 
@@ -541,12 +560,15 @@ function Detail({ label: l, value }: { label: string; value: string | null | und
   );
 }
 
+// Overview mini-stat: the tinted-Stat treatment the main dashboard uses, i.e.
+// tone-tinted background, tone-mixed border, value in the tone color (.num).
 function Mini({ label: l, value, tn }: { label: string; value: string; tn?: string }) {
-  const c: Record<string, string> = { good: "var(--good)", warn: "var(--warn)", bad: "var(--bad)", accent: "var(--accent)", neutral: "var(--text)" };
+  const c = TONE_COLOR[tn ?? "accent"] ?? "var(--accent)";
   return (
-    <div className="rounded-lg border p-2.5" style={{ borderColor: "var(--line)", background: "var(--panel)" }}>
-      <div className="text-[11px]" style={{ color: "var(--muted)" }}>{l}</div>
-      <div className="mt-0.5 text-sm font-semibold" style={{ color: c[tn ?? "neutral"] }}>{value}</div>
+    <div className="rounded-lg border p-2.5"
+      style={{ borderColor: `color-mix(in srgb, ${c} 30%, transparent)`, background: `color-mix(in srgb, ${c} 12%, var(--panel))` }}>
+      <div className="text-[11px] font-medium uppercase tracking-wide" style={{ color: "var(--muted)" }}>{l}</div>
+      <div className="num mt-0.5 text-sm font-semibold" style={{ color: c }}>{value}</div>
     </div>
   );
 }
