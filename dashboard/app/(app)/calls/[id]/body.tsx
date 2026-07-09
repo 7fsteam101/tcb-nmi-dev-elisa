@@ -14,6 +14,7 @@ const EXTRA_TONE: Record<string, "good" | "warn" | "bad" | "neutral" | "accent">
   closed: "good", follow_up: "warn", dq_on_call: "bad", no_decision: "neutral",
   taken: "good", confirmed: "accent", scheduled: "neutral", rescheduled: "warn",
   no_show: "bad", cancelled_by_lead: "bad", cancelled_by_team: "warn",
+  submitted: "neutral", validated: "good", superseded: "neutral", rejected: "bad",
 };
 const tone = (s: string | null | undefined) => STATUS_TONE[s ?? ""] ?? EXTRA_TONE[s ?? ""] ?? "neutral";
 
@@ -40,17 +41,19 @@ export async function CallBody({ id }: { id: string }) {
   const [call] = await sql`
     select c.id, c.opportunity_id, c.type, c.disposition, c.scheduled_at,
            c.current_scheduled_at, c.occurred_at, c.is_booking, c.is_primary,
-           c.booking_source_channel, rep.full_name as rep_name,
+           c.booking_source_channel, c.booked_by, c.is_paid_booking,
+           cm.calendar_name, rep.full_name as rep_name,
            o.stage, o.contact_id, ct.full_name as contact_name
     from sales.call c
     left join sales.rep rep on rep.id = c.rep_id
+    left join sync.calendar_map cm on cm.id = c.calendar_map_id
     left join sales.opportunity o on o.id = c.opportunity_id
     left join core.contact ct on ct.id = o.contact_id
     where c.id = ${id}`;
   if (!call) notFound();
 
-  // pooler-safe: one batch of 2 concurrent queries (<= 4)
-  const [slots, objections] = await Promise.all([
+  // pooler-safe: one batch of 3 concurrent queries (<= 4)
+  const [slots, objections, reportsFiled] = await Promise.all([
     sql`select a.id, a.seq, a.scheduled_for, a.status, a.moved_by, r.name as reason
         from sales.appointment a left join core.cancellation_reason r on r.id = a.reason_id
         where a.call_id = ${id}
@@ -59,6 +62,10 @@ export async function CallBody({ id }: { id: string }) {
         from sales.objection ob left join core.objection_type ot on ot.id = ob.objection_type_id
         where ob.strategy_call_id = ${id}
         order by ob.created_at`,
+    sql`select rs.id, rs.type, rs.submitted_at, rs.status, rep.full_name as rep
+        from sales.report_submission rs left join sales.rep rep on rep.id = rs.rep_id
+        where rs.strategy_call_id = ${id}
+        order by rs.submitted_at desc`,
   ]);
 
   return (
@@ -80,6 +87,11 @@ export async function CallBody({ id }: { id: string }) {
           <Detail label="Type" value={label(call.type)} />
           <Detail label="Disposition" value={call.disposition ? <Badge tone={tone(call.disposition)}>{label(call.disposition)}</Badge> : "—"} />
           <Detail label="Rep" value={call.rep_name} />
+          <Detail label="Calendar" value={call.calendar_name} />
+          <Detail label="Paid booking" value={call.is_paid_booking == null
+            ? <span style={{ color: "var(--muted)" }}>—</span>
+            : <Badge tone={call.is_paid_booking ? "good" : "neutral"}>{call.is_paid_booking ? "Paid" : "Free"}</Badge>} />
+          <Detail label="Booked by" value={label(call.booked_by)} />
           <Detail label="Booking source" value={label(call.booking_source_channel)} />
           <Detail label="Scheduled" value={dateTime(call.scheduled_at, tz)} />
           <Detail label="Current scheduled" value={dateTime(call.current_scheduled_at, tz)} />
@@ -128,6 +140,29 @@ export async function CallBody({ id }: { id: string }) {
             </table>
           </div>
         </Card>
+      )}
+
+      {reportsFiled.length > 0 && (
+        <>
+          <SectionTitle>Reports filed</SectionTitle>
+          <Card>
+            <div className="overflow-x-auto">
+              <table>
+                <thead><tr><th>Type</th><th>Submitted</th><th>Status</th><th>Rep</th></tr></thead>
+                <tbody>
+                  {reportsFiled.map((rs: any) => (
+                    <tr key={rs.id}>
+                      <td><Badge tone="neutral">{label(rs.type)}</Badge></td>
+                      <td>{dateTime(rs.submitted_at, tz)}</td>
+                      <td><Badge tone={tone(rs.status)}>{label(rs.status)}</Badge></td>
+                      <td style={{ color: "var(--muted)" }}>{rs.rep ?? "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </>
       )}
     </EntityShell>
   );

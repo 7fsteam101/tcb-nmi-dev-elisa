@@ -3,6 +3,7 @@ import { checkCronSecret } from "@/lib/webhook";
 import { dispatchPending } from "@/lib/sync/writeback";
 import { processPending } from "@/lib/sync/ingest";
 import { syncAllGhl } from "@/lib/sync/ghl";
+import { pullNmiRecent } from "@/lib/sync/nmi-pull";
 import { reconcileStripe } from "@/lib/sync/stripe-reconcile";
 
 export const maxDuration = 60;
@@ -18,6 +19,8 @@ export async function GET(req: NextRequest) {
   const inbound = await processPending();
   let ghl: unknown = "no ghl connections";
   try { ghl = await syncAllGhl({ sinceDays: 2 }); } catch (err) { ghl = String(err); }
+  let nmi: unknown;
+  try { nmi = await pullNmiRecent(3); } catch (err) { nmi = String(err); } // freshness until Silent Post is on
   let stripe: unknown;
   try { stripe = await reconcileStripe({ sinceDays: 3 }); } catch (err) { stripe = String(err); }
   return NextResponse.json({ ok: true, writeback, inbound, ghl, stripe });

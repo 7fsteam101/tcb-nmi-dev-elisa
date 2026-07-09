@@ -14,6 +14,7 @@ const EXTRA_TONE: Record<string, "good" | "warn" | "bad" | "neutral" | "accent">
   taken: "good", confirmed: "accent", scheduled: "neutral", rescheduled: "warn",
   no_show: "bad", cancelled_by_lead: "bad", cancelled_by_team: "warn", pending: "warn",
   closed: "good", follow_up: "warn", dq_on_call: "bad", no_decision: "neutral",
+  submitted: "neutral", validated: "good", superseded: "neutral", rejected: "bad",
 };
 const tone = (s: string | null | undefined) => STATUS_TONE[s ?? ""] ?? EXTRA_TONE[s ?? ""] ?? "neutral";
 
@@ -58,24 +59,32 @@ export async function AppointmentBody({ id }: { id: string }) {
     select a.id, a.call_id, a.seq, a.scheduled_for, a.status, a.is_current,
            a.moved_by, a.rescheduled_at, r.name as reason,
            c.opportunity_id, c.type as call_type, c.disposition, c.is_booking, c.is_primary,
-           c.booking_source_channel, rep.full_name as rep_name,
+           c.booking_source_channel, c.booked_by, c.is_paid_booking,
+           cm.calendar_name, rep.full_name as rep_name,
            o.stage, o.contact_id, ct.full_name as contact_name
     from sales.appointment a
     left join core.cancellation_reason r on r.id = a.reason_id
     left join sales.call c on c.id = a.call_id
+    left join sync.calendar_map cm on cm.id = c.calendar_map_id
     left join sales.rep rep on rep.id = c.rep_id
     left join sales.opportunity o on o.id = c.opportunity_id
     left join core.contact ct on ct.id = o.contact_id
     where a.id = ${id}`;
   if (!appt) notFound();
 
-  // pooler-safe: objections for the folded-in call (single query, <= 4 concurrent)
-  const objections = appt.call_id
-    ? await sql`select ob.id, ob.led_to_loss, ob.source, ot.name as objection_type
-        from sales.objection ob left join core.objection_type ot on ot.id = ob.objection_type_id
-        where ob.strategy_call_id = ${appt.call_id}
-        order by ob.created_at`
-    : [];
+  // pooler-safe: objections + filed reports for the folded-in call (one batch of 2, <= 4 concurrent)
+  const [objections, reportsFiled] = appt.call_id
+    ? await Promise.all([
+        sql`select ob.id, ob.led_to_loss, ob.source, ot.name as objection_type
+            from sales.objection ob left join core.objection_type ot on ot.id = ob.objection_type_id
+            where ob.strategy_call_id = ${appt.call_id}
+            order by ob.created_at`,
+        sql`select rs.id, rs.type, rs.submitted_at, rs.status, rep.full_name as rep
+            from sales.report_submission rs left join sales.rep rep on rep.id = rs.rep_id
+            where rs.strategy_call_id = ${appt.call_id}
+            order by rs.submitted_at desc`,
+      ])
+    : [[], []];
 
   return (
     <EntityShell
@@ -114,6 +123,11 @@ export async function AppointmentBody({ id }: { id: string }) {
               <Detail label="Type" value={label(appt.call_type)} />
               <Detail label="Disposition" value={appt.disposition ? <Badge tone={tone(appt.disposition)}>{label(appt.disposition)}</Badge> : "—"} />
               <Detail label="Rep" value={appt.rep_name} />
+              <Detail label="Calendar" value={appt.calendar_name} />
+              <Detail label="Paid booking" value={appt.is_paid_booking == null
+                ? <span style={{ color: "var(--muted)" }}>—</span>
+                : <Badge tone={appt.is_paid_booking ? "good" : "neutral"}>{appt.is_paid_booking ? "Paid" : "Free"}</Badge>} />
+              <Detail label="Booked by" value={label(appt.booked_by)} />
               <Detail label="Booking source" value={label(appt.booking_source_channel)} />
               <Detail label="Primary call" value={<Badge tone={appt.is_primary ? "accent" : "neutral"}>{appt.is_primary ? "Yes" : "No"}</Badge>} />
               <Detail label="Counts as booked" value={<Badge tone={appt.is_booking ? "good" : "neutral"}>{appt.is_booking ? "Yes" : "No"}</Badge>} />
@@ -145,6 +159,29 @@ export async function AppointmentBody({ id }: { id: string }) {
             </table>
           </div>
         </Card>
+      )}
+
+      {reportsFiled.length > 0 && (
+        <>
+          <SectionTitle>Reports filed</SectionTitle>
+          <Card>
+            <div className="overflow-x-auto">
+              <table>
+                <thead><tr><th>Type</th><th>Submitted</th><th>Status</th><th>Rep</th></tr></thead>
+                <tbody>
+                  {reportsFiled.map((rs: any) => (
+                    <tr key={rs.id}>
+                      <td><Badge tone="neutral">{label(rs.type)}</Badge></td>
+                      <td>{dateTime(rs.submitted_at, tz)}</td>
+                      <td><Badge tone={tone(rs.status)}>{label(rs.status)}</Badge></td>
+                      <td style={{ color: "var(--muted)" }}>{rs.rep ?? "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </>
       )}
     </EntityShell>
   );

@@ -7,19 +7,21 @@ import { money, dateTime, shortDate } from "@/lib/format";
 import { Card, SectionTitle, Badge, STATUS_TONE, label } from "@/components/ui";
 import { ExternalLinks } from "@/components/external-links";
 import { Icon } from "@/components/icons";
-import { ContactTabs } from "./tabs";
 import { NoteForm } from "./note-form";
 
 // Shared contact-profile body — rendered by both the full page and the drawer.
-// Sectioned into tabs (Overview / Opportunities / Appointments / Deals /
-// Contracts / Notes / Activity) with a notes composer and a merged activity feed.
+// One flat page of anchored sections (Overview / Opt-ins / Calls / Appointments /
+// Payments / Credit / Reports / Contracts / Notes / Activity) with a jump nav,
+// a notes composer and a merged activity feed. Flat (not tabbed) on purpose:
+// hash deep-links like /contacts/[id]#opt-ins must land on first paint, which
+// display:none tab panels cannot do.
 const EXTRA_TONE: Record<string, "good" | "warn" | "bad" | "neutral" | "accent"> = {
   lead: "neutral", qualified: "accent", customer: "good", do_not_contact: "bad",
   closed_won: "good", won_pif: "good", won_pp: "good", deposit: "good", active_partner: "good",
   contract_signed: "good", contract_sent: "accent", closing: "accent", interested_partner: "accent",
   lost: "bad", not_a_fit: "bad", call_canceled_by_team: "bad", call_canceled_by_lead: "warn",
   warm_list: "warn", active: "good", refunded: "bad", churned: "warn",
-  submitted: "neutral", validated: "good", superseded: "neutral", rejected: "bad",
+  submitted: "neutral", validated: "good", superseded: "neutral", rejected: "bad", verified: "good",
   signed: "good", sent: "warn", declined: "bad", voided: "bad", draft: "neutral",
 };
 const tone = (s: string | null | undefined) => STATUS_TONE[s ?? ""] ?? EXTRA_TONE[s ?? ""] ?? "neutral";
@@ -47,7 +49,7 @@ export async function ContactBody({ id }: { id: string }) {
   const extIds = { closeId: contact.close_id, ghlMarketingId: contact.ghl_marketing_id, ghlRepairId: contact.ghl_repair_id, mondayId: contact.monday_lead_id };
   const tz = await reportTimezone();
 
-  // pooler-safe: batches of <= 4 concurrent (never all 13 at once)
+  // pooler-safe: batches of <= 4 concurrent (never everything at once)
   const [identifiers, opportunities, calls, appointments] = await Promise.all([
     sql`select id, type, value, is_primary from core.contact_identifier where contact_id = ${id} order by type, is_primary desc, created_at`,
     sql`select o.id, o.stage, o.opened_at, o.closed_at from sales.opportunity o where o.contact_id = ${id} order by o.opened_at desc nulls last, o.created_at desc`,
@@ -61,11 +63,28 @@ export async function ContactBody({ id }: { id: string }) {
     sql`select p.id, p.deal_id, p.type, p.amount_minor, p.processor, p.occurred_at from finance.successful_payment p where p.deal_id in (select d.id from sales.deal d where d.contact_id = ${id}) order by p.occurred_at`,
   ]);
   const [optIns, reports, notes, agreements] = await Promise.all([
-    sql`select o.id, o.submitted_at, o.source_channel, o.source_campaign from sales.opt_in o where o.contact_id = ${id} order by o.submitted_at desc`,
-    sql`select rs.id, rs.type, rs.submitted_at, rs.status from sales.report_submission rs where rs.strategy_call_id in (select c.id from sales.call c where c.opportunity_id in (select o.id from sales.opportunity o where o.contact_id = ${id})) order by rs.submitted_at desc`,
+    sql`select o.id, o.submitted_at, o.source_channel, o.source_campaign, o.form_id, fm.form_name,
+               o.utm, o.dub_link_id, o.goal, o.credit_score_range, o.blocker, o.counted, o.counts_as_unique
+        from sales.opt_in o left join sync.form_map fm on fm.form_id = o.form_id
+        where o.contact_id = ${id} order by o.submitted_at desc`,
+    sql`select rs.id, rs.type, rs.submitted_at, rs.status, rs.on_time, rs.strategy_call_id, rep.full_name as rep
+        from sales.report_submission rs left join sales.rep rep on rep.id = rs.rep_id
+        where rs.strategy_call_id in (select c.id from sales.call c where c.opportunity_id in (select o.id from sales.opportunity o where o.contact_id = ${id})) order by rs.submitted_at desc`,
     sql`select n.id, n.body, n.created_at, u.full_name as author from core.contact_note n left join core.app_user u on u.id = n.author_user_id where n.contact_id = ${id} order by n.created_at desc`,
     sql`select a.id, a.title, a.status, a.amount_minor, a.sent_at, a.signed_at, a.document_url from sales.agreement a where a.contact_id = ${id} order by coalesce(a.signed_at, a.sent_at, a.created_at) desc`,
   ]);
+  // Batches above are already full (4 each), so the credit queries run as
+  // sequential awaits: never widens the concurrent load on the pooler.
+  const nafas = await sql`
+    select n.id, n.pulled_at, n.provider, n.violation_opportunities, n.accounts_with_violations,
+           n.credit_score, n.utilization_pct, n.qualifies, n.is_canonical, n.report_url, n.report_pdf_url
+    from credit.nafa n where n.contact_id = ${id} order by n.pulled_at desc`;
+  // SECURITY: credit.intake_submission also holds encrypted credentials
+  // (idiq_username/idiq_password, msiq_username/msiq_password, last_4_ssn).
+  // NEVER select those columns here. Credentials must never reach the page.
+  const intakes = await sql`
+    select i.id, i.submitted_at, i.provider, i.status
+    from credit.intake_submission i where i.contact_id = ${id} order by i.submitted_at desc`;
 
   const callsByOpp = gb(calls, "opportunity_id");
   const slotsByCall = gb(appointments, "call_id");
@@ -103,15 +122,15 @@ export async function ContactBody({ id }: { id: string }) {
   const nextAppt = appointments
     .filter((a: any) => a.is_current && ["scheduled", "confirmed"].includes(a.status) && new Date(a.scheduled_for).getTime() > now)
     .sort((a: any, b: any) => new Date(a.scheduled_for).getTime() - new Date(b.scheduled_for).getTime())[0];
-  const strip: [string, string][] = [
-    ["Opt-ins", String(optIns.length)],
-    ["Booked", String(booked)],
-    ["Taken", String(taken)],
-    ["Opportunities", String(opportunities.length)],
-    ["Cash collected", money(totalPaid)],
-    ["Contracted", money(contractedMinor)],
-    ["Last activity", lastActivity ? shortDate(lastActivity, tz) : "—"],
-    ...(nextAppt ? [["Next appointment", shortDate(nextAppt.scheduled_for, tz)] as [string, string]] : []),
+  const strip: { l: string; v: string; href?: string }[] = [
+    { l: "Opt-ins", v: String(optIns.length), href: "#opt-ins" },
+    { l: "Booked", v: String(booked) },
+    { l: "Taken", v: String(taken) },
+    { l: "Opportunities", v: String(opportunities.length) },
+    { l: "Cash collected", v: money(totalPaid) },
+    { l: "Contracted", v: money(contractedMinor) },
+    { l: "Last activity", v: lastActivity ? shortDate(lastActivity, tz) : "—" },
+    ...(nextAppt ? [{ l: "Next appointment", v: shortDate(nextAppt.scheduled_for, tz) }] : []),
   ];
 
   // ================= sections =================
@@ -141,6 +160,34 @@ export async function ContactBody({ id }: { id: string }) {
           </div>
         )}
       </Card>
+    </div>
+  );
+
+  // Every opt-in in full: which form, where it came from, what the lead said,
+  // and whether it counts (form gate) / is unique (30-day dedupe).
+  const optInsSection = optIns.length === 0 ? <None>No opt-ins</None> : (
+    <div className="space-y-2">
+      {optIns.map((o: any) => (
+        <Card key={o.id}>
+          <div className="flex flex-wrap items-center gap-2">
+            {o.form_name
+              ? <span className="text-sm font-medium">{o.form_name}</span>
+              : <span className="font-mono text-xs" style={{ color: "var(--muted)" }}>{o.form_id ?? "Form submission"}</span>}
+            <Badge tone={o.counted ? "good" : "neutral"}>{o.counted ? "Counts" : "Not counted"}</Badge>
+            <Badge tone={o.counts_as_unique ? "accent" : "warn"}>{o.counts_as_unique ? "Unique" : "Repeat"}</Badge>
+            <span className="ml-auto text-xs" style={{ color: "var(--muted)" }}>{dateTime(o.submitted_at, tz)}</span>
+          </div>
+          <div className="mt-2 grid grid-cols-1 gap-x-8 gap-y-1.5 sm:grid-cols-2">
+            <Detail label="Source" value={label(o.source_channel)} />
+            <Detail label="Campaign" value={o.source_campaign} />
+            <Detail label="Goal" value={label(o.goal)} />
+            <Detail label="Credit score" value={o.credit_score_range} />
+            <Detail label="Blocker" value={o.blocker} />
+            <Detail label="UTM" value={o.utm} />
+            {o.dub_link_id && <Detail label="Dub link" value={o.dub_link_id} />}
+          </div>
+        </Card>
+      ))}
     </div>
   );
 
@@ -289,6 +336,81 @@ export async function ContactBody({ id }: { id: string }) {
     </Card>
   );
 
+  // NAFA audits + intake submissions. Intake rows show ONLY date / provider /
+  // status; the credential fields are never queried (see the query comment).
+  const creditSection = (
+    <div>
+      <div className="mb-2 text-[11px] uppercase tracking-wide" style={{ color: "var(--muted)" }}>NAFA audits</div>
+      {nafas.length === 0 ? <None>No NAFA audits</None> : (
+        <div className="space-y-2">
+          {nafas.map((n: any) => (
+            <Card key={n.id}>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm font-medium">{dateTime(n.pulled_at, tz)}</span>
+                <span className="text-xs" style={{ color: "var(--muted)" }}>{label(n.provider)}</span>
+                {n.is_canonical && <Badge tone="accent">Canonical</Badge>}
+                {n.qualifies != null && <Badge tone={n.qualifies ? "good" : "bad"}>{n.qualifies ? "Qualifies" : "Does not qualify"}</Badge>}
+                <span className="ml-auto flex items-center gap-1.5">
+                  {n.report_url && <ExtLink href={n.report_url}>Report</ExtLink>}
+                  {n.report_pdf_url && <ExtLink href={n.report_pdf_url}>PDF</ExtLink>}
+                </span>
+              </div>
+              <div className="mt-2 grid grid-cols-1 gap-x-8 gap-y-1.5 sm:grid-cols-2">
+                <Detail label="Violations" value={n.violation_opportunities == null ? null : String(n.violation_opportunities)} />
+                <Detail label="Accounts hit" value={n.accounts_with_violations == null ? null : String(n.accounts_with_violations)} />
+                <Detail label="Credit score" value={n.credit_score == null ? null : String(n.credit_score)} />
+                <Detail label="Utilization" value={n.utilization_pct == null ? null : `${Number(n.utilization_pct)}%`} />
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+      <div className="mb-2 mt-5 text-[11px] uppercase tracking-wide" style={{ color: "var(--muted)" }}>Intake submissions</div>
+      {intakes.length === 0 ? <None>No intake submissions</None> : (
+        <Card>
+          <div className="overflow-x-auto">
+            <table>
+              <thead><tr><th>Submitted</th><th>Provider</th><th>Status</th></tr></thead>
+              <tbody>
+                {intakes.map((i: any) => (
+                  <tr key={i.id}>
+                    <td>{dateTime(i.submitted_at, tz)}</td>
+                    <td style={{ color: "var(--muted)" }}>{label(i.provider)}</td>
+                    <td><Badge tone={tone(i.status)}>{label(i.status)}</Badge></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+
+  const reportsSection = reports.length === 0 ? <None>No reports filed</None> : (
+    <Card>
+      <div className="overflow-x-auto">
+        <table>
+          <thead><tr><th>Type</th><th>Submitted</th><th>Rep</th><th>Status</th><th>On time</th><th></th></tr></thead>
+          <tbody>
+            {reports.map((r: any) => (
+              <tr key={r.id}>
+                <td><Badge tone="neutral">{label(r.type)}</Badge></td>
+                <td>{dateTime(r.submitted_at, tz)}</td>
+                <td style={{ color: "var(--muted)" }}>{r.rep ?? "—"}</td>
+                <td><Badge tone={tone(r.status)}>{label(r.status)}</Badge></td>
+                <td>{r.on_time === false
+                  ? <Badge tone="warn">Late</Badge>
+                  : r.on_time === true ? <span className="text-xs" style={{ color: "var(--muted)" }}>On time</span> : "—"}</td>
+                <td className="text-right">{r.strategy_call_id && <Link href={`/calls/${r.strategy_call_id}`} className="text-xs" style={{ color: "var(--accent)" }}>View call &rarr;</Link>}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  );
+
   const notesSection = (
     <div>
       <NoteForm contactId={id} />
@@ -336,25 +458,73 @@ export async function ContactBody({ id }: { id: string }) {
         {contact.primary_email ?? "—"} &middot; {contact.primary_phone ?? "—"} &middot; Owner: {contact.owner ?? "—"}
       </p>
       <div className="mt-3 flex flex-wrap gap-x-6 gap-y-2 border-y py-2.5" style={{ borderColor: "var(--line)" }}>
-        {strip.map(([l, v]) => (
-          <div key={l}>
-            <div className="text-[10px] uppercase tracking-wide" style={{ color: "var(--muted)" }}>{l}</div>
-            <div className="text-sm font-semibold tabular-nums" style={{ color: "var(--text)" }}>{v}</div>
-          </div>
+        {strip.map((s) => {
+          const inner = (
+            <>
+              <div className="text-[10px] uppercase tracking-wide" style={{ color: "var(--muted)" }}>{s.l}</div>
+              <div className="text-sm font-semibold tabular-nums" style={{ color: "var(--text)" }}>{s.v}</div>
+            </>
+          );
+          return s.href
+            ? <a key={s.l} href={s.href} className="-mx-1 rounded-md px-1 hover:bg-white/5">{inner}</a>
+            : <div key={s.l}>{inner}</div>;
+        })}
+      </div>
+      {/* jump nav: anchor links (same visual language as the old tab bar) */}
+      <div className="mt-1 flex flex-wrap gap-1 border-b" style={{ borderColor: "var(--line)" }}>
+        {([
+          ["overview", "Overview", 0],
+          ["opt-ins", "Opt-ins", optIns.length],
+          ["calls", "Calls", opportunities.length],
+          ["appointments", "Appointments", appointments.length],
+          ["payments", "Payments", deals.length],
+          ["credit", "Credit", nafas.length + intakes.length],
+          ["reports", "Reports", reports.length],
+          ["contracts", "Contracts", agreements.length],
+          ["notes", "Notes", notes.length],
+          ["activity", "Activity", 0],
+        ] as [string, string, number][]).map(([anchor, name, count]) => (
+          <a key={anchor} href={`#${anchor}`}
+            className="flex items-center gap-1.5 px-3 py-2 text-[13px] font-medium hover:bg-white/5"
+            style={{ color: "var(--muted)" }}>
+            {name}
+            {count > 0 && <span className="rounded-full px-1.5 text-[10px]" style={{ background: "var(--panel-2)", color: "var(--muted)" }}>{count}</span>}
+          </a>
         ))}
       </div>
-      <div className="mt-4">
-        <ContactTabs tabs={[
-          { key: "overview", label: "Overview", content: overview },
-          { key: "opps", label: "Opportunities", badge: opportunities.length, content: oppsSection },
-          { key: "appts", label: "Appointments", badge: appointments.length, content: apptsSection },
-          { key: "deals", label: "Deals", badge: deals.length, content: dealsSection },
-          { key: "agreements", label: "Contracts", badge: agreements.length, content: agreementsSection },
-          { key: "notes", label: "Notes", badge: notes.length, content: notesSection },
-          { key: "activity", label: "Activity", content: activitySection },
-        ]} />
-      </div>
+      <Section id="overview" title="Overview">{overview}</Section>
+      <Section id="opt-ins" title="Opt-ins">{optInsSection}</Section>
+      <Section id="calls" title="Opportunities and calls">{oppsSection}</Section>
+      <Section id="appointments" title="Appointments">{apptsSection}</Section>
+      <Section id="payments" title="Deals and payments">{dealsSection}</Section>
+      <Section id="credit" title="Credit">{creditSection}</Section>
+      <Section id="reports" title="Reports">{reportsSection}</Section>
+      <Section id="contracts" title="Contracts">{agreementsSection}</Section>
+      <Section id="notes" title="Notes">{notesSection}</Section>
+      <Section id="activity" title="Activity">{activitySection}</Section>
     </div>
+  );
+}
+
+// Anchored section wrapper: the id is the deep-link target (#opt-ins etc.);
+// scrollMarginTop keeps the heading clear of the sticky app header on jump.
+function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
+  return (
+    <section id={id} className="mt-8" style={{ scrollMarginTop: 80 }}>
+      <SectionTitle>{title}</SectionTitle>
+      {children}
+    </section>
+  );
+}
+
+// Small bordered external-link button (report / PDF URLs), always a new tab.
+function ExtLink({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <a href={href} target="_blank" rel="noreferrer"
+      className="inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium"
+      style={{ borderColor: "var(--line)", color: "var(--accent)", background: "var(--panel)" }}>
+      {children} <Icon name="external" size={11} />
+    </a>
   );
 }
 
