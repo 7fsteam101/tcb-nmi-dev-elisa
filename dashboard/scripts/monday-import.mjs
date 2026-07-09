@@ -91,7 +91,9 @@ async function paymentSchedule() {
   console.log("subitem types:", JSON.stringify(hist));
   const isInstallment = (m) => {
     const t = String(val(m, "color_mm38mded") ?? "").toLowerCase();
-    if (/aoc|consult|settle|payout|hkd/.test(t)) return false; // settlement economics stay out
+    // settlement economics + refunds + incomplete rows stay out of receivables
+    // (histogram: Client Invoice=890 in, HKD Payment=78 / Refund=5 / Needs Input=2 out)
+    if (/aoc|consult|settle|payout|hkd|refund|needs input/.test(t)) return false;
     return val(m, "numeric_mkym1c9w") != null || val(m, "numbers") != null || /payment|installment|invoice/.test(t) || true && (val(m, "date4") != null);
   };
   const C = { deals: 0, matchedContact: 0, createdContact: 0, receivables: 0, skippedParents: 0, review: [] };
@@ -130,21 +132,42 @@ async function paymentSchedule() {
     C.deals++;
     C.receivables += mySubs.length;
     if (!RUN || !contactId) continue;
-    // opportunity: latest existing else create closed-won historical
     const started = day(val(m, "date_1")) ?? day(val(m, "date")) ?? "2025-01-01";
-    let [opp] = await sql`select id from sales.opportunity where contact_id=${contactId} and stage not in ('interested_partner','active_partner','not_a_fit') order by opened_at desc limit 1`;
-    if (!opp) [opp] = await sql`insert into sales.opportunity (contact_id, stage, opened_at, closed_at) values (${contactId},'closed_won',${started},${started}) returning id`;
     const closer = repByName(val(m, "dropdown_mkztr0xt"));
     const n = mySubs.length || 1;
-    const planType = n === 1 ? "pif" : [null,"pif","","3pay"][n] ?? (n===3?"3pay":n===6?"6pay":n===7?"7pay":n===12?"12pay":n===13?"13pay":"custom");
-    const [deal] = await sql`
-      insert into sales.deal (opportunity_id, contact_id, closer_rep_id, offer_id, total_contract_value_minor, plan_type_snapshot, deal_close_date, status, source, monday_item_id)
-      values (${opp.id}, ${contactId}, ${closer}, (select id from marketing.offer order by created_at limit 1), ${tcv ?? 0},
-              ${planType === "custom" ? "custom" : planType}::public.plan_type, ${started}, 'active', 'monday_import', ${p.id})
-      on conflict (monday_item_id) where monday_item_id is not null do update set updated_at = now()
-      returning id, (xmax = 0) as inserted`;
+    const planType = n === 1 ? "pif" : (n===3?"3pay":n===6?"6pay":n===7?"7pay":n===12?"12pay":n===13?"13pay":"custom");
+
+    // ONE DEAL PER OPPORTUNITY (uq_deal_per_opp): if this Monday item was already
+    // imported use that deal; else if the contact already HAS a deal (the NMI/Close
+    // reconstruction), ADOPT it (stamp the monday id, fill-only) instead of
+    // duplicating; else create the historical opportunity + deal.
+    let deal = (await sql`select id, 'monday' as via from sales.deal where monday_item_id = ${p.id} limit 1`)[0];
+    if (!deal) {
+      const [existing] = await sql`select id, monday_item_id from sales.deal where contact_id = ${contactId} and monday_item_id is null order by created_at desc limit 1`;
+      if (existing) {
+        await sql`update sales.deal set monday_item_id = ${p.id}, closer_rep_id = coalesce(closer_rep_id, ${closer}), source = coalesce(source, 'monday_import') where id = ${existing.id}`;
+        deal = { id: existing.id, via: "adopted" };
+        C.adopted = (C.adopted ?? 0) + 1;
+      }
+    }
+    if (!deal) {
+      // fresh historical deal: needs an opportunity WITHOUT a deal already on it
+      let [opp] = await sql`
+        select o.id from sales.opportunity o
+        where o.contact_id = ${contactId} and o.stage not in ('interested_partner','active_partner','not_a_fit')
+          and not exists (select 1 from sales.deal d where d.opportunity_id = o.id)
+        order by o.opened_at desc limit 1`;
+      if (!opp) [opp] = await sql`insert into sales.opportunity (contact_id, stage, opened_at, closed_at) values (${contactId},'closed_won',${started},${started}) returning id`;
+      [deal] = await sql`
+        insert into sales.deal (opportunity_id, contact_id, closer_rep_id, offer_id, total_contract_value_minor, plan_type_snapshot, deal_close_date, status, source, monday_item_id)
+        values (${opp.id}, ${contactId}, ${closer}, (select id from marketing.offer order by created_at limit 1), ${tcv ?? 0},
+                ${planType}::public.plan_type, ${started}, 'active', 'monday_import', ${p.id})
+        on conflict (monday_item_id) where monday_item_id is not null do update set updated_at = now()
+        returning id`;
+    }
+
     let [plan] = await sql`select id from finance.payment_plan where deal_id=${deal.id} and is_current limit 1`;
-    if (!plan) [plan] = await sql`insert into finance.payment_plan (deal_id, version, plan_type, total_minor, is_current, cadence, start_date) values (${deal.id},1,${planType === "custom" ? "custom" : planType}::public.plan_type,${tcv ?? 0},true,'monthly',${started}) returning id`;
+    if (!plan) [plan] = await sql`insert into finance.payment_plan (deal_id, version, plan_type, total_minor, is_current, cadence, start_date) values (${deal.id},1,${planType}::public.plan_type,${tcv ?? 0},true,'monthly',${started}) returning id`;
     let no = 0;
     for (const x of mySubs) {
       no++;
@@ -154,14 +177,24 @@ async function paymentSchedule() {
       const status = /paid|complete/.test(pstat) ? "paid" : /waiv/.test(pstat) ? "waived" : "scheduled";
       const paidAt = day(val(x.m, "date7") ?? val(x.m, "paid_date"));
       const instNo = parseInt(val(x.m, "numeric") ?? "") || no;
-      await sql`
-        insert into finance.receivable (payment_plan_id, deal_id, installment_no, due_date, amount_minor, status, paid_at, monday_payment_schedule_id)
-        values (${plan.id}, ${deal.id}, ${instNo}, ${dueDate}, ${amt}, ${status}::public.receivable_status, ${status === "paid" ? paidAt ?? dueDate : null}, ${x.s.id})
-        on conflict (monday_payment_schedule_id) where monday_payment_schedule_id is not null do update set
-          status = excluded.status, paid_at = excluded.paid_at, amount_minor = excluded.amount_minor`;
+      // adopted deals may already carry this installment from the NMI reconstruction:
+      // match by installment number and FILL (monday id + paid truth), never overwrite amounts.
+      const [have] = await sql`select id, status from finance.receivable where deal_id = ${deal.id} and installment_no = ${instNo} and monday_payment_schedule_id is null limit 1`;
+      if (have) {
+        await sql`update finance.receivable set monday_payment_schedule_id = ${x.s.id},
+          status = case when status = 'scheduled' and ${status} = 'paid' then 'paid'::public.receivable_status else status end,
+          paid_at = coalesce(paid_at, ${status === "paid" ? paidAt ?? dueDate : null})
+          where id = ${have.id}`;
+      } else {
+        await sql`
+          insert into finance.receivable (payment_plan_id, deal_id, installment_no, due_date, amount_minor, status, paid_at, monday_payment_schedule_id)
+          values (${plan.id}, ${deal.id}, ${instNo}, ${dueDate}, ${amt}, ${status}::public.receivable_status, ${status === "paid" ? paidAt ?? dueDate : null}, ${x.s.id})
+          on conflict (monday_payment_schedule_id) where monday_payment_schedule_id is not null do update set
+            status = excluded.status, paid_at = excluded.paid_at`;
+      }
     }
   }
-  console.log(`deals=${C.deals} (contacts matched=${C.matchedContact}, created=${C.createdContact}) receivable-rows=${C.receivables} skipped-parents=${C.skippedParents} review=${C.review.length}`);
+  console.log(`deals=${C.deals} (adopted-existing=${C.adopted ?? 0}, contacts matched=${C.matchedContact}, created=${C.createdContact}) receivable-rows=${C.receivables} skipped-parents=${C.skippedParents} review=${C.review.length}`);
   C.review.slice(0, 8).forEach((r) => console.log("  " + r));
   return C;
 }
