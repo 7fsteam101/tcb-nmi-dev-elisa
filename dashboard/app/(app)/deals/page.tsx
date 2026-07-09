@@ -4,6 +4,8 @@ import { isDemoMode, reportTimezone } from "@/lib/settings";
 import { money, num } from "@/lib/format";
 import { Stat } from "@/components/ui";
 import { DealsTable, type DealRow } from "./table";
+import { resolveRange } from "@/lib/range";
+import { DateRangeBar } from "@/components/date-range";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -48,6 +50,14 @@ export default async function Deals({
   const closerRaw = (first(sp.closer) ?? "").trim();
   const closer = UUID.test(closerRaw) ? closerRaw : null;
 
+  // ---- date range on close date (?days / ?from&?to via the standard bar) ----
+  // A deals ledger defaults to ALL TIME: with no range params there is no date
+  // filter; picking a pill or custom range bounds d.deal_close_date.
+  const hasRange = Boolean(first(sp.days) || (first(sp.from) && first(sp.to)));
+  const range = hasRange ? resolveRange({ days: first(sp.days), from: first(sp.from), to: first(sp.to) }) : null;
+  const sinceDate = range ? range.since.slice(0, 10) : null;
+  const untilDate = range?.until ? range.until.slice(0, 10) : null;
+
   // ---- sort (?sort=<field>.<asc|desc>), server-driven ----
   const [sfRaw = "", sdRaw = ""] = (first(sp.sort) ?? "").split(".");
   const sortEntry = sfRaw in SORTS ? SORTS[sfRaw] : undefined;
@@ -76,7 +86,9 @@ export default async function Deals({
     d.is_demo = ${demo}
     and (${pattern}::text is null or ct.full_name ilike ${pattern})
     and (${status}::text is null or d.status::text = ${status})
-    and (${closer}::uuid is null or d.closer_rep_id = ${closer}::uuid)`;
+    and (${closer}::uuid is null or d.closer_rep_id = ${closer}::uuid)
+    and (${sinceDate}::date is null or d.deal_close_date >= ${sinceDate}::date)
+    and (${untilDate}::date is null or d.deal_close_date < ${untilDate}::date)`;
 
   // light pair batched (pooler-safe: well under the 4-connection cap), then the
   // heavier page query runs alone
@@ -135,10 +147,13 @@ export default async function Deals({
   return (
     <div>
       <h1 className="text-xl font-semibold">Deals</h1>
-      <p className="mb-4 text-sm" style={{ color: "var(--muted)" }}>
-        Every closed deal: what was contracted, who closed it, and how much has actually been collected.
-        The stats follow the active filters.
-      </p>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm" style={{ color: "var(--muted)" }}>
+          Every closed deal: what was contracted, who closed it, and how much has actually been collected.
+          The stats follow the active filters{range ? ` (close date: ${range.label})` : " (all time)"}.
+        </p>
+        <DateRangeBar />
+      </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Stat label="Total deals" value={num(filtered)} tone="accent"

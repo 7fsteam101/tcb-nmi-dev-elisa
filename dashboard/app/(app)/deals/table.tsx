@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ReactNode, useEffect, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Card, Badge, label } from "@/components/ui";
 import { money, num, pct, shortDate } from "@/lib/format";
 
@@ -87,6 +87,7 @@ export function DealsTable({
   useEffect(() => setQInput(q), [q]);
 
   // ---- URL state: every control rewrites the query string ----
+  const sp = useSearchParams();
   function navigate(next: Partial<NavState>) {
     const s: NavState = {
       q, status, closer,
@@ -95,6 +96,11 @@ export function DealsTable({
       ...next,
     };
     const p = new URLSearchParams();
+    // the date-range bar owns these; preserve them across filter changes
+    for (const k of ["days", "preset", "from", "to"]) {
+      const v = sp.get(k);
+      if (v) p.set(k, v);
+    }
     if (s.q) p.set("q", s.q);
     if (s.status) p.set("status", s.status);
     if (s.closer) p.set("closer", s.closer);
