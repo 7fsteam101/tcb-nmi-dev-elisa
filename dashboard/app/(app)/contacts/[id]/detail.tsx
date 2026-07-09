@@ -6,19 +6,21 @@ import { reportTimezone, getSetting } from "@/lib/settings";
 import { money, dateTime, shortDate } from "@/lib/format";
 import { Badge, STATUS_TONE, label } from "@/components/ui";
 import { SectionTabs, SectionGroup } from "@/components/section-nav";
+import { AppointmentCards, HashAlias, type ApptCardRow } from "@/components/appointment-cards";
 import { ExternalLinks } from "@/components/external-links";
 import { Icon } from "@/components/icons";
 import { NoteForm } from "./note-form";
 
 // Shared contact-profile body, rendered by both the full page and the drawer.
 // Tabbed profile (Katie, July 9): a pill nav directly under the identity header
-// switches between sections (Overview / Opt-ins / Calls / Appointments /
-// Payments / Credit / Reports / Contracts / Notes / Activity) client-side.
+// switches between sections (Overview / Opt-ins / Opportunities / Appointments
+// / Payments / Credit / Reports / Contracts / Notes / Activity) client-side.
 // Every panel is still rendered HERE on the server and handed to the
 // SectionTabs client wrapper as a slot, so all queries stay server-side.
 // Hash deep-links (/contacts/[id]#opt-ins from explore tables) activate the
-// matching tab on mount. Inside a tab, each section is a collapsible
-// tone-tinted SectionGroup box.
+// matching tab on mount; the legacy #calls hash aliases to #opportunities
+// (HashAlias) since that tab was renamed (Katie, July 10). Inside a tab, each
+// section is a collapsible tone-tinted SectionGroup box.
 const EXTRA_TONE: Record<string, "good" | "warn" | "bad" | "neutral" | "accent"> = {
   lead: "neutral", qualified: "accent", customer: "good", do_not_contact: "bad",
   closed_won: "good", won_pif: "good", won_pp: "good", deposit: "good", active_partner: "good",
@@ -60,8 +62,20 @@ export async function ContactBody({ id }: { id: string }) {
   const [identifiers, opportunities, calls, appointments] = await Promise.all([
     sql`select id, type, value, is_primary from core.contact_identifier where contact_id = ${id} order by type, is_primary desc, created_at`,
     sql`select o.id, o.stage, o.opened_at, o.closed_at from sales.opportunity o where o.contact_id = ${id} order by o.opened_at desc nulls last, o.created_at desc`,
-    sql`select c.id, c.opportunity_id, c.type, c.disposition from sales.call c where c.opportunity_id in (select o.id from sales.opportunity o where o.contact_id = ${id}) order by coalesce(c.scheduled_at, c.occurred_at, c.created_at)`,
-    sql`select a.id, a.call_id, a.seq, a.scheduled_for, a.status, a.moved_by, a.created_at, r.name as reason from sales.appointment a left join core.cancellation_reason r on r.id = a.reason_id where a.call_id in (select c.id from sales.call c where c.opportunity_id in (select o.id from sales.opportunity o where o.contact_id = ${id})) order by a.scheduled_for desc nulls last`,
+    sql`select c.id, c.opportunity_id, c.type, c.disposition, coalesce(c.scheduled_at, c.occurred_at, c.created_at) as happened_at from sales.call c where c.opportunity_id in (select o.id from sales.opportunity o where o.contact_id = ${id}) order by coalesce(c.scheduled_at, c.occurred_at, c.created_at)`,
+    // slots + their parent-call context (calendar, booked by, source, paid) so
+    // the Appointments tab can expand each record inline without navigating to
+    // /appointments/[id]. Same single query, just wider: pooler load unchanged.
+    // a.is_current also powers the Next-appointment KPI tile below.
+    sql`select a.id, a.call_id, a.seq, a.scheduled_for, a.status, a.moved_by, a.created_at, a.is_current, r.name as reason,
+               c.booked_by, c.booking_source_channel, c.is_paid_booking, c.ghl_appointment_id,
+               cm.calendar_name
+        from sales.appointment a
+        left join core.cancellation_reason r on r.id = a.reason_id
+        left join sales.call c on c.id = a.call_id
+        left join sync.calendar_map cm on cm.id = c.calendar_map_id
+        where a.call_id in (select sc.id from sales.call sc where sc.opportunity_id in (select o.id from sales.opportunity o where o.contact_id = ${id}))
+        order by a.scheduled_for desc nulls last`,
   ]);
   const [deals, plans, receivables, payments] = await Promise.all([
     sql`select d.id, d.opportunity_id, d.plan_type_snapshot, d.total_contract_value_minor, d.status, d.deal_close_date from sales.deal d where d.contact_id = ${id} order by d.deal_close_date desc`,
@@ -100,7 +114,6 @@ export async function ContactBody({ id }: { id: string }) {
     order by a.created_at` : [];
 
   const callsByOpp = gb(calls, "opportunity_id");
-  const slotsByCall = gb(appointments, "call_id");
   const plansByDeal = gb(plans, "deal_id");
   const recvByDeal = gb(receivables, "deal_id");
   const paymentsByDeal = gb(payments, "deal_id");
@@ -146,7 +159,7 @@ export async function ContactBody({ id }: { id: string }) {
     { l: "Opt-ins", v: String(optIns.length), tn: "accent", href: "#opt-ins" },
     { l: "Booked", v: String(booked), tn: "accent", href: "#appointments" },
     { l: "Taken", v: String(taken), tn: "good", href: "#appointments" },
-    { l: "Opportunities", v: String(opportunities.length), tn: "accent", href: "#calls" },
+    { l: "Opportunities", v: String(opportunities.length), tn: "accent", href: "#opportunities" },
     { l: "Cash collected", v: money(totalPaid), tn: totalPaid > 0 ? "good" : "neutral", href: "#payments" },
     { l: "Contracted", v: money(contractedMinor), tn: "good", href: "#contracts" },
     { l: "Won deal", v: wonDeal ? money(wonDeal.total_contract_value_minor) : "None", tn: wonDeal ? "good" : "neutral", href: "#payments" },
@@ -212,12 +225,17 @@ export async function ContactBody({ id }: { id: string }) {
     </SectionGroup>
   );
 
-  const callsPanel = (
-    <SectionGroup title="Opportunities and calls" tone="warn">
+  // Opportunities tab (renamed from "Calls", Katie, July 10): opportunity
+  // cards only. The per-call rows duplicated the Appointments tab, so each
+  // card keeps a one-line call summary instead; slot-level detail lives in
+  // the Appointments tab's expandable records.
+  const opportunitiesPanel = (
+    <SectionGroup title="Opportunities" tone="warn">
       {opportunities.length === 0 ? <None>No opportunities</None> : (
         <div className="space-y-3">
           {opportunities.map((o: any) => {
             const oc = callsByOpp.get(String(o.id)) ?? [];
+            const latest = oc[oc.length - 1]; // calls query is ordered oldest to newest
             return (
               <TCard key={o.id}>
                 <div className="flex flex-wrap items-center gap-3">
@@ -225,16 +243,9 @@ export async function ContactBody({ id }: { id: string }) {
                   <span className="text-xs" style={{ color: "var(--muted)" }}>Opened {shortDate(o.opened_at, tz)}{o.closed_at ? ` · Closed ${shortDate(o.closed_at, tz)}` : ""}</span>
                   <Link href={`/opportunities/${o.id}`} className="ml-auto text-xs font-medium" style={{ color: "var(--accent)" }}>Open &rarr;</Link>
                 </div>
-                {oc.map((c: any) => (
-                  <div key={c.id} className="mt-3 border-t pt-2" style={{ borderColor: "var(--line)" }}>
-                    <Link href={`/calls/${c.id}`} className="flex items-center gap-2 rounded px-1 py-0.5 hover:bg-white/5">
-                      <Badge tone="neutral">{label(c.type)}</Badge>
-                      {c.disposition && <Badge tone={tone(c.disposition)}>{label(c.disposition)}</Badge>}
-                      <span className="text-xs" style={{ color: "var(--muted)" }}>{(slotsByCall.get(String(c.id)) ?? []).length} slot(s)</span>
-                      <span className="ml-auto text-xs" style={{ color: "var(--accent)" }}>Open &rarr;</span>
-                    </Link>
-                  </div>
-                ))}
+                <div className="mt-2 text-xs" style={{ color: "var(--muted)" }}>
+                  {oc.length === 0 ? "No calls yet" : `${oc.length} call${oc.length === 1 ? "" : "s"}, latest ${shortDate(latest.happened_at, tz)}`}
+                </div>
               </TCard>
             );
           })}
@@ -243,27 +254,29 @@ export async function ContactBody({ id }: { id: string }) {
     </SectionGroup>
   );
 
+  // Appointments tab: expandable records instead of a row-per-slot table whose
+  // only detail path was the Open link (Katie, July 10: too many hops).
+  // Collapsed = date / attempt / status / calendar; expanded = the full-page
+  // field grid inline plus the call's slot history. Display strings are
+  // formatted HERE (server, report tz) so hydration re-renders identical text.
+  const apptRows: ApptCardRow[] = appointments.map((a: any) => ({
+    id: String(a.id),
+    callId: a.call_id ? String(a.call_id) : null,
+    seq: a.seq == null ? null : Number(a.seq),
+    status: a.status ?? null,
+    scheduledDisplay: dateTime(a.scheduled_for, tz),
+    createdDisplay: dateTime(a.created_at, tz),
+    calendarName: a.calendar_name ?? null,
+    paidBooking: a.is_paid_booking ?? null,
+    bookedBy: a.booked_by ?? null,
+    sourceChannel: a.booking_source_channel ?? null,
+    reason: a.reason ?? null,
+    movedBy: a.moved_by ?? null,
+    ghlAppointmentId: a.ghl_appointment_id ?? null,
+  }));
   const apptsPanel = (
     <SectionGroup title="Appointments" tone="warn">
-      {appointments.length === 0 ? <None>No appointments</None> : (
-        <div className="overflow-x-auto">
-          <table>
-            <thead><tr><th>Scheduled for</th><th>Attempt</th><th>Status</th><th>Reason</th><th>Moved by</th><th></th></tr></thead>
-            <tbody>
-              {appointments.map((a: any) => (
-                <tr key={a.id}>
-                  <td>{dateTime(a.scheduled_for, tz)}</td>
-                  <td>{a.seq > 1 ? <Badge tone="warn">#{a.seq}</Badge> : "#1"}</td>
-                  <td><Badge tone={tone(a.status)}>{label(a.status)}</Badge></td>
-                  <td style={{ color: "var(--muted)" }}>{a.reason ?? "—"}</td>
-                  <td className="capitalize" style={{ color: "var(--muted)" }}>{label(a.moved_by)}</td>
-                  <td className="text-right"><Link href={`/appointments/${a.id}`} className="text-xs" style={{ color: "var(--accent)" }}>Open &rarr;</Link></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      {apptRows.length === 0 ? <None>No appointments</None> : <AppointmentCards rows={apptRows} />}
     </SectionGroup>
   );
 
@@ -518,11 +531,14 @@ export async function ContactBody({ id }: { id: string }) {
         </p>
       </header>
       {/* tab nav sits directly under the identity header; each panel below is
-          server-rendered and toggled client-side by SectionTabs */}
+          server-rendered and toggled client-side by SectionTabs. HashAlias
+          must render BEFORE SectionTabs so old #calls deep-links are rewritten
+          to #opportunities before the tab wrapper reads the hash on mount. */}
+      <HashAlias from="calls" to="opportunities" />
       <SectionTabs sections={[
         { id: "overview", label: "Overview", count: 0, panel: overviewPanel },
         { id: "opt-ins", label: "Opt-ins", count: optIns.length, panel: optInsPanel },
-        { id: "calls", label: "Calls", count: opportunities.length, panel: callsPanel },
+        { id: "opportunities", label: "Opportunities", count: opportunities.length, panel: opportunitiesPanel },
         { id: "appointments", label: "Appointments", count: appointments.length, panel: apptsPanel },
         { id: "payments", label: "Payments", count: deals.length, panel: paymentsPanel },
         { id: "credit", label: "Credit", count: nafas.length + intakes.length, panel: creditPanel },
