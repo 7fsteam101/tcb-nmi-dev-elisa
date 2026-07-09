@@ -4,13 +4,29 @@ import type { InvoiceData } from "./invoice";
 const money = (m: number) => `$${(m / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtDate = (iso: string) => new Date(iso + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
-const C = { ink: "#0b0f17", muted: "#6b7280", line: "#e5e7eb", panel: "#f8fafc", good: "#15803d", accent: "#111827", white: "#ffffff" };
+const C = { ink: "#0b0f17", muted: "#6b7280", line: "#e5e7eb", panel: "#f8fafc", good: "#15803d", accent: "#111827", white: "#ffffff", link: "#2563eb" };
+
+// Seller (The Credit Brothers) details for the invoice header. Hardcoded — these
+// change rarely and there is no settings surface for them.
+const COMPANY = {
+  legalName: "Steil Enterprises LLC",
+  phone: "(512) 882-0599",
+  address: "895 Main Street, Wilbraham, MA, 01095, US",
+  website: "http://thecreditbrothers.com/",
+  websiteLabel: "thecreditbrothers.com",
+};
+
+const TERMS =
+  "Payment is due within 3 days of the issue date. For payment plans, the card you use today is securely stored and automatically charged for each remaining installment on its due date. Prices are tax inclusive. Questions about this invoice? Call (512) 882-0599 or reply to the email it came from. Thank you for your business.";
 
 const st = StyleSheet.create({
   page: { padding: 40, fontSize: 10, fontFamily: "Helvetica", color: C.ink },
+  docTitle: { fontSize: 13, fontFamily: "Helvetica-Bold", marginBottom: 14 },
   row: { flexDirection: "row", justifyContent: "space-between" },
   brand: { fontSize: 15, fontFamily: "Helvetica-Bold", letterSpacing: 1 },
-  caption: { fontSize: 8, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginTop: 3 },
+  seller: { fontSize: 8, color: C.muted, marginTop: 2 },
+  sellerLink: { fontSize: 8, color: C.link, marginTop: 2 },
+  terms: { fontSize: 9, color: C.muted, lineHeight: 1.4 },
   invTitle: { fontSize: 20, fontFamily: "Helvetica-Bold", textAlign: "right" },
   meta: { fontSize: 9, color: C.muted, textAlign: "right", marginTop: 2 },
   section: { marginTop: 22 },
@@ -33,21 +49,25 @@ const col = {
   qty: { width: "10%", textAlign: "right" as const }, tax: { width: "12%", textAlign: "right" as const },
   sub: { width: "16%", textAlign: "right" as const },
 };
-// schedule columns: #, Due, Amount, Status
+// schedule columns: Payment X of Y, Due, Amount, Status
 const sc = {
-  no: { width: "10%" }, due: { width: "45%" },
-  amt: { width: "25%", textAlign: "right" as const }, stat: { width: "20%", textAlign: "right" as const },
+  pay: { width: "38%" }, due: { width: "27%" },
+  amt: { width: "18%", textAlign: "right" as const }, stat: { width: "17%", textAlign: "right" as const },
 };
 
 export function InvoiceDocument({ data }: { data: InvoiceData }) {
   return (
     <Document title={`Invoice ${data.invoiceNumber}`}>
       <Page size="A4" style={st.page}>
-        {/* header */}
+        {/* header: title + seller block (left) / invoice meta (right) */}
+        <Text style={st.docTitle}>New Invoice from The Credit Brothers</Text>
         <View style={st.row}>
-          <View>
+          <View style={{ maxWidth: 300 }}>
             <Text style={st.brand}>THE CREDIT BROTHERS</Text>
-            <Text style={st.caption}>Pro forma invoice</Text>
+            <Text style={st.seller}>{COMPANY.legalName}</Text>
+            <Text style={st.seller}>{COMPANY.phone}</Text>
+            <Text style={st.seller}>{COMPANY.address}</Text>
+            <Link src={COMPANY.website} style={st.sellerLink}>{COMPANY.websiteLabel}</Link>
           </View>
           <View>
             <Text style={st.invTitle}>INVOICE</Text>
@@ -88,14 +108,14 @@ export function InvoiceDocument({ data }: { data: InvoiceData }) {
           <View style={st.section}>
             <Text style={st.smallLabel}>Payment schedule{data.frequency ? ` · ${data.frequency}` : ""}</Text>
             <View style={st.th}>
-              <Text style={[st.cH, sc.no]}>#</Text>
+              <Text style={[st.cH, sc.pay]}>Payment</Text>
               <Text style={[st.cH, sc.due]}>Due date</Text>
               <Text style={[st.cH, sc.amt]}>Amount</Text>
               <Text style={[st.cH, sc.stat]}>Status</Text>
             </View>
             {data.schedule.map((s) => (
               <View key={s.no} style={st.td}>
-                <Text style={sc.no}>{s.no}</Text>
+                <Text style={sc.pay}>Payment {s.no} of {data.schedule.length}</Text>
                 <Text style={sc.due}>{fmtDate(s.dueDate)}{s.no === 1 ? " (today)" : ""}</Text>
                 <Text style={sc.amt}>{money(s.amountMinor)}</Text>
                 <Text style={[sc.stat, { color: s.status === "paid" ? C.good : C.muted, fontFamily: s.status === "paid" ? "Helvetica-Bold" : "Helvetica" }]}>
@@ -108,9 +128,10 @@ export function InvoiceDocument({ data }: { data: InvoiceData }) {
 
         {/* totals */}
         <View style={st.totalsBox}>
-          <View style={st.totalRow}><Text style={{ color: C.muted }}>Total</Text><Text>{money(data.totalMinor)}</Text></View>
-          <View style={st.totalRow}><Text style={{ color: C.muted }}>Amount paid</Text><Text>{money(data.paidMinor)}</Text></View>
-          <View style={st.dueRow}><Text style={{ fontFamily: "Helvetica-Bold" }}>Amount due</Text><Text style={{ fontFamily: "Helvetica-Bold" }}>{money(data.dueMinor)}</Text></View>
+          <View style={st.totalRow}><Text style={{ color: C.muted }}>Subtotal</Text><Text>{money(data.totalMinor)}</Text></View>
+          <View style={st.totalRow}><Text style={{ color: C.muted }}>Total (USD)</Text><Text>{money(data.totalMinor)}</Text></View>
+          <View style={st.totalRow}><Text style={{ color: C.muted }}>Amount paid (USD)</Text><Text>{money(data.paidMinor)}</Text></View>
+          <View style={st.dueRow}><Text style={{ fontFamily: "Helvetica-Bold" }}>Amount due (USD)</Text><Text style={{ fontFamily: "Helvetica-Bold" }}>{money(data.dueMinor)}</Text></View>
         </View>
 
         {/* pay button + clickable link (skip when fully paid) */}
@@ -120,6 +141,12 @@ export function InvoiceDocument({ data }: { data: InvoiceData }) {
             <Link src={data.payUrl} style={st.linkText}>{data.payUrl}</Link>
           </View>
         )}
+
+        {/* terms & notes */}
+        <View style={st.section}>
+          <Text style={st.smallLabel}>Terms &amp; notes</Text>
+          <Text style={st.terms}>{TERMS}</Text>
+        </View>
 
         <Text style={st.footer} fixed>Secured by NMI. Your card details are encrypted. Price is tax inclusive.</Text>
       </Page>

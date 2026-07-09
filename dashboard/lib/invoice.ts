@@ -47,12 +47,14 @@ export async function getInvoiceData(token: string): Promise<InvoiceData | null>
 
   const totalMinor = link.amount_minor as number;
   const paidMinor = schedule.filter((s) => s.status === "paid").reduce((a, s) => a + s.amountMinor, 0);
-  const year = new Date(link.created_at).getUTCFullYear();
+  const issued = new Date(link.created_at);
+  const due = new Date(issued);
+  due.setUTCDate(due.getUTCDate() + 3); // invoice due date = issue date + 3 days
 
   return {
-    invoiceNumber: `INV-${year}-${String(link.token).slice(0, 8).toUpperCase()}`,
-    issueDate: new Date(link.created_at).toISOString().slice(0, 10),
-    dueDate: schedule[0]?.dueDate ?? new Date(link.created_at).toISOString().slice(0, 10),
+    invoiceNumber: `INV-${issued.getUTCFullYear()}-${String(link.token).slice(0, 8).toUpperCase()}`,
+    issueDate: issued.toISOString().slice(0, 10),
+    dueDate: due.toISOString().slice(0, 10),
     billToName: link.contact_name ?? link.customer_name ?? "—",
     billToEmail: link.contact_email ?? link.customer_email ?? "",
     billToPhone: link.contact_phone ?? "",
