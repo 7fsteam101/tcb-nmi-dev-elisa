@@ -140,17 +140,18 @@ export async function ContactBody({ id }: { id: string }) {
   // tn = semantic tone for the VALUE (labels stay muted): counts accent,
   // show-up + money good, recency muted, upcoming warn. The Opt-ins tile links
   // to #opt-ins; the tab wrapper picks that up via its hashchange listener.
+  // KPI tiles deep-link into their tab (the tab wrapper listens on hashchange)
   const kpis: { l: string; v: string; tn: string; href?: string }[] = [
     { l: "Lifecycle", v: label(contact.lifecycle_status), tn: "accent" },
     { l: "Opt-ins", v: String(optIns.length), tn: "accent", href: "#opt-ins" },
-    { l: "Booked", v: String(booked), tn: "accent" },
-    { l: "Taken", v: String(taken), tn: "good" },
-    { l: "Opportunities", v: String(opportunities.length), tn: "accent" },
-    { l: "Cash collected", v: money(totalPaid), tn: totalPaid > 0 ? "good" : "neutral" },
-    { l: "Contracted", v: money(contractedMinor), tn: "good" },
-    { l: "Won deal", v: wonDeal ? money(wonDeal.total_contract_value_minor) : "None", tn: wonDeal ? "good" : "neutral" },
-    { l: "Last activity", v: lastActivity ? shortDate(lastActivity, tz) : "—", tn: "neutral" },
-    ...(nextAppt ? [{ l: "Next appointment", v: shortDate(nextAppt.scheduled_for, tz), tn: "warn" }] : []),
+    { l: "Booked", v: String(booked), tn: "accent", href: "#appointments" },
+    { l: "Taken", v: String(taken), tn: "good", href: "#appointments" },
+    { l: "Opportunities", v: String(opportunities.length), tn: "accent", href: "#calls" },
+    { l: "Cash collected", v: money(totalPaid), tn: totalPaid > 0 ? "good" : "neutral", href: "#payments" },
+    { l: "Contracted", v: money(contractedMinor), tn: "good", href: "#contracts" },
+    { l: "Won deal", v: wonDeal ? money(wonDeal.total_contract_value_minor) : "None", tn: wonDeal ? "good" : "neutral", href: "#payments" },
+    { l: "Last activity", v: lastActivity ? shortDate(lastActivity, tz) : "—", tn: "neutral", href: "#activity" },
+    ...(nextAppt ? [{ l: "Next appointment", v: shortDate(nextAppt.scheduled_for, tz), tn: "warn", href: "#appointments" }] : []),
   ];
 
   // ================= tab panels (all server-rendered) =================
