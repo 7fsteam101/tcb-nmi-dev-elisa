@@ -131,7 +131,10 @@ async function resolveCallType(locationId: string, calendarId: string | null, ca
   const m = rows[0];
   return {
     type: (m?.active ? m.call_type : "strategy") as "readiness" | "strategy" | "follow_up",
-    isBooking: m?.is_booking ?? true,
+    // record-but-don't-count: only ACTIVE calendars whose is_booking flag is set
+    // count toward paid-booking KPIs; unknown/uncategorized calendars land as
+    // strategy calls with isBooking=false until an admin categorizes them.
+    isBooking: m?.active ? (m.is_booking ?? true) : false,
     mapId: (m?.id as string) ?? null,
   };
 }
