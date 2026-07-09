@@ -4,7 +4,7 @@ import { useActionState, useState } from "react";
 import type { FormOptions } from "@/lib/form-options";
 import { submitPostCallAction } from "./actions";
 import {
-  FormPageHeader, FormLayout, Section, Field,
+  FormCard, FormLayout, Section, Field,
   SubmitBar, ResultBanner, SummaryRail, RailRow, RailChip,
 } from "../form-kit";
 
@@ -30,24 +30,24 @@ export function PostCallForm({ options, defaultCallId = "" }: { options: FormOpt
   );
 
   return (
-    <div>
-      <FormPageHeader
-        icon="knowledge"
-        title="Post-Call Notes"
-        subtitle="Notes and objections after a taken call. The note posts to the lead in Close."
-      />
-      <FormLayout
-        rail={rail}
-        form={
-          <form action={action} className="space-y-5">
-            <Section step={1} title="Call and rep" hint="Pick the taken call and who is submitting the notes.">
-              <Field label="Call">
+    <FormLayout
+      rail={rail}
+      form={
+        <form action={action} className="space-y-4">
+          <FormCard
+            icon="knowledge"
+            title="Post-Call Notes"
+            subtitle="Notes and objections after a taken call. The note posts to the lead in Close."
+            footer={<SubmitBar pending={pending} label="Submit notes" pendingLabel="Submitting..." />}
+          >
+            <Section title="Call and rep" hint="Pick the taken call and who is submitting the notes.">
+              <Field label="Call" required>
                 <select name="callId" required defaultValue={defaultCallId}>
                   <option value="" disabled>Pick the taken call</option>
                   {options.takenCalls.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
                 </select>
               </Field>
-              <Field label="Rep submitting">
+              <Field label="Rep submitting" required>
                 <select name="repId" required defaultValue="">
                   <option value="" disabled>Pick the rep</option>
                   {options.reps.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
@@ -55,13 +55,13 @@ export function PostCallForm({ options, defaultCallId = "" }: { options: FormOpt
               </Field>
             </Section>
 
-            <Section step={2} title="Notes" hint="How the call went and any next steps. This is the note that posts to Close.">
-              <Field label="Notes">
+            <Section title="Notes" hint="How the call went and any next steps. This is the note that posts to Close.">
+              <Field label="Notes" required>
                 <textarea name="notes" rows={5} required placeholder="How the call went, next steps, anything the team should know" />
               </Field>
             </Section>
 
-            <Section step={3} title="Objections" hint="Tick every objection that came up on the call.">
+            <Section title="Objections" hint="Tick every objection that came up on the call.">
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {options.objectionTypes.map((o) => (
                   <label
@@ -80,12 +80,10 @@ export function PostCallForm({ options, defaultCallId = "" }: { options: FormOpt
                 ))}
               </div>
             </Section>
-
-            <SubmitBar pending={pending} label="Submit notes" pendingLabel="Submitting..." />
-            <ResultBanner state={state} />
-          </form>
-        }
-      />
-    </div>
+          </FormCard>
+          <ResultBanner state={state} />
+        </form>
+      }
+    />
   );
 }

@@ -1,21 +1,24 @@
 import Link from "next/link";
-import { ReactNode, CSSProperties } from "react";
+import { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { sql } from "@/lib/db";
 import { reportTimezone, getSetting } from "@/lib/settings";
 import { money, dateTime, shortDate } from "@/lib/format";
-import { SectionTitle, Badge, STATUS_TONE, label } from "@/components/ui";
-import { SectionNav } from "@/components/section-nav";
+import { Badge, STATUS_TONE, label } from "@/components/ui";
+import { SectionTabs, SectionGroup } from "@/components/section-nav";
 import { ExternalLinks } from "@/components/external-links";
 import { Icon } from "@/components/icons";
 import { NoteForm } from "./note-form";
 
 // Shared contact-profile body, rendered by both the full page and the drawer.
-// One flat page of anchored sections (Overview / Opt-ins / Calls / Appointments /
-// Payments / Credit / Reports / Contracts / Notes / Activity) with a jump nav,
-// a notes composer and a merged activity feed. Flat (not tabbed) on purpose:
-// hash deep-links like /contacts/[id]#opt-ins must land on first paint, which
-// display:none tab panels cannot do.
+// Tabbed profile (Katie, July 9): a pill nav directly under the identity header
+// switches between sections (Overview / Opt-ins / Calls / Appointments /
+// Payments / Credit / Reports / Contracts / Notes / Activity) client-side.
+// Every panel is still rendered HERE on the server and handed to the
+// SectionTabs client wrapper as a slot, so all queries stay server-side.
+// Hash deep-links (/contacts/[id]#opt-ins from explore tables) activate the
+// matching tab on mount. Inside a tab, each section is a collapsible
+// tone-tinted SectionGroup box.
 const EXTRA_TONE: Record<string, "good" | "warn" | "bad" | "neutral" | "accent"> = {
   lead: "neutral", qualified: "accent", customer: "good", do_not_contact: "bad",
   closed_won: "good", won_pif: "good", won_pp: "good", deposit: "good", active_partner: "good",
@@ -32,6 +35,8 @@ const gb = (rows: any[], key: string) => {
   for (const r of rows) { const k = String(r[key]); (m.get(k) ?? m.set(k, []).get(k)!).push(r); }
   return m;
 };
+const fmtSize = (b: number) =>
+  b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : b >= 1024 ? `${Math.round(b / 1024)} KB` : `${b} B`;
 function None({ children = "Nothing yet" }: { children?: ReactNode }) {
   return <p className="py-2 text-sm" style={{ color: "var(--muted)" }}>{children}</p>;
 }
@@ -75,7 +80,7 @@ export async function ContactBody({ id }: { id: string }) {
     sql`select n.id, n.body, n.created_at, u.full_name as author from core.contact_note n left join core.app_user u on u.id = n.author_user_id where n.contact_id = ${id} order by n.created_at desc`,
     sql`select a.id, a.title, a.status, a.amount_minor, a.sent_at, a.signed_at, a.document_url from sales.agreement a where a.contact_id = ${id} order by coalesce(a.signed_at, a.sent_at, a.created_at) desc`,
   ]);
-  // Batches above are already full (4 each), so the credit queries run as
+  // Batches above are already full (4 each), so the remaining queries run as
   // sequential awaits: never widens the concurrent load on the pooler.
   const nafas = await sql`
     select n.id, n.pulled_at, n.provider, n.violation_opportunities, n.accounts_with_violations,
@@ -87,12 +92,19 @@ export async function ContactBody({ id }: { id: string }) {
   const intakes = await sql`
     select i.id, i.submitted_at, i.provider, i.status
     from credit.intake_submission i where i.contact_id = ${id} order by i.submitted_at desc`;
+  // note attachments: metadata only (never the bytea), served via /api/attachments/[id]
+  const noteAttachments = notes.length > 0 ? await sql`
+    select a.id, a.note_id, a.filename, a.size_bytes
+    from core.note_attachment a
+    where a.note_id in (select n.id from core.contact_note n where n.contact_id = ${id})
+    order by a.created_at` : [];
 
   const callsByOpp = gb(calls, "opportunity_id");
   const slotsByCall = gb(appointments, "call_id");
   const plansByDeal = gb(plans, "deal_id");
   const recvByDeal = gb(receivables, "deal_id");
   const paymentsByDeal = gb(payments, "deal_id");
+  const attByNote = gb(noteAttachments, "note_id");
 
   const extras = identifiers.filter((i: any) => ![contact.primary_email, contact.primary_phone].filter(Boolean).map((v) => String(v).toLowerCase()).includes(String(i.value).toLowerCase()));
   const ghlMktUrl = ghlLoc.marketing && contact.ghl_marketing_id
@@ -113,41 +125,41 @@ export async function ContactBody({ id }: { id: string }) {
   notes.forEach((n: any) => feed.push({ when: n.created_at, text: `Note by ${n.author ?? "team"}`, sub: n.body, tn: "neutral" }));
   const activity = feed.filter((e) => e.when).sort((a, b) => new Date(b.when).getTime() - new Date(a.when).getTime());
 
-  // top-of-profile metric strip
+  // Overview KPI grid: the old top strip and the old overview minis, merged
+  // into ONE tinted-Stat grid at the top of the Overview tab (Katie, July 9).
   const booked = calls.filter((c: any) => c.type === "strategy").length;
   const taken = appointments.filter((a: any) => a.status === "taken").length;
   const contractedMinor = deals.filter((d: any) => d.status !== "refunded").reduce((s: number, d: any) => s + Number(d.total_contract_value_minor), 0);
   // last activity = the most recent PAST event; a future-dated booking is not
-  // "activity" yet, it surfaces as its own Next-appointment chip instead.
+  // "activity" yet, it surfaces as its own Next-appointment tile instead.
   const now = Date.now();
   const lastActivity = activity.find((e) => new Date(e.when).getTime() <= now)?.when;
   const nextAppt = appointments
     .filter((a: any) => a.is_current && ["scheduled", "confirmed"].includes(a.status) && new Date(a.scheduled_for).getTime() > now)
     .sort((a: any, b: any) => new Date(a.scheduled_for).getTime() - new Date(b.scheduled_for).getTime())[0];
   // tn = semantic tone for the VALUE (labels stay muted): counts accent,
-  // show-up + money good, recency muted, upcoming warn.
-  const strip: { l: string; v: string; tn: string; href?: string }[] = [
+  // show-up + money good, recency muted, upcoming warn. The Opt-ins tile links
+  // to #opt-ins; the tab wrapper picks that up via its hashchange listener.
+  const kpis: { l: string; v: string; tn: string; href?: string }[] = [
+    { l: "Lifecycle", v: label(contact.lifecycle_status), tn: "accent" },
     { l: "Opt-ins", v: String(optIns.length), tn: "accent", href: "#opt-ins" },
     { l: "Booked", v: String(booked), tn: "accent" },
     { l: "Taken", v: String(taken), tn: "good" },
     { l: "Opportunities", v: String(opportunities.length), tn: "accent" },
-    { l: "Cash collected", v: money(totalPaid), tn: "good" },
+    { l: "Cash collected", v: money(totalPaid), tn: totalPaid > 0 ? "good" : "neutral" },
     { l: "Contracted", v: money(contractedMinor), tn: "good" },
+    { l: "Won deal", v: wonDeal ? money(wonDeal.total_contract_value_minor) : "None", tn: wonDeal ? "good" : "neutral" },
     { l: "Last activity", v: lastActivity ? shortDate(lastActivity, tz) : "—", tn: "neutral" },
     ...(nextAppt ? [{ l: "Next appointment", v: shortDate(nextAppt.scheduled_for, tz), tn: "warn" }] : []),
   ];
 
-  // ================= sections =================
-  const overview = (
-    <div>
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Mini label="Lifecycle" value={label(contact.lifecycle_status)} tn="accent" />
-        <Mini label="Opportunities" value={String(opportunities.length)} tn="accent" />
-        <Mini label="Cash collected" value={money(totalPaid)} tn={totalPaid > 0 ? "good" : "neutral"} />
-        <Mini label="Won deal" value={wonDeal ? money(wonDeal.total_contract_value_minor) : "None"} tn={wonDeal ? "good" : "neutral"} />
+  // ================= tab panels (all server-rendered) =================
+  const overviewPanel = (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        {kpis.map((k) => <Mini key={k.l} label={k.l} value={k.v} tn={k.tn} href={k.href} />)}
       </div>
-      <SectionTitle>Contact details</SectionTitle>
-      <TCard>
+      <SectionGroup title="Contact details" tone="accent">
         <div className="grid grid-cols-1 gap-x-8 gap-y-2 sm:grid-cols-2">
           <Detail label="Email" value={contact.primary_email} />
           <Detail label="Phone" value={contact.primary_phone} />
@@ -163,215 +175,207 @@ export async function ContactBody({ id }: { id: string }) {
             <ExternalLinks ids={extIds} loc={ghlLoc} variant="urls" />
           </div>
         )}
-      </TCard>
+      </SectionGroup>
     </div>
   );
 
   // Every opt-in in full: which form, where it came from, what the lead said,
   // and whether it counts (form gate) / is unique (30-day dedupe).
-  const optInsSection = optIns.length === 0 ? <None>No opt-ins</None> : (
-    <div className="space-y-2">
-      {optIns.map((o: any) => (
-        <TCard key={o.id}>
-          <div className="flex flex-wrap items-center gap-2">
-            {o.form_name
-              ? <span className="text-sm font-medium">{o.form_name}</span>
-              : <span className="font-mono text-xs" style={{ color: "var(--muted)" }}>{o.form_id ?? "Form submission"}</span>}
-            <Badge tone={o.counted ? "good" : "neutral"}>{o.counted ? "Counts" : "Not counted"}</Badge>
-            <Badge tone={o.counts_as_unique ? "accent" : "warn"}>{o.counts_as_unique ? "Unique" : "Repeat"}</Badge>
-            <span className="ml-auto text-xs" style={{ color: "var(--muted)" }}>{dateTime(o.submitted_at, tz)}</span>
-          </div>
-          <div className="mt-2 grid grid-cols-1 gap-x-8 gap-y-1.5 sm:grid-cols-2">
-            <Detail label="Source" value={label(o.source_channel)} />
-            <Detail label="Campaign" value={o.source_campaign} />
-            <Detail label="Goal" value={label(o.goal)} />
-            <Detail label="Credit score" value={o.credit_score_range} />
-            <Detail label="Blocker" value={o.blocker} />
-            <Detail label="UTM" value={o.utm} />
-            {o.dub_link_id && <Detail label="Dub link" value={o.dub_link_id} />}
-          </div>
-        </TCard>
-      ))}
-    </div>
-  );
-
-  const oppsSection = opportunities.length === 0 ? <None>No opportunities</None> : (
-    <div className="space-y-3">
-      {opportunities.map((o: any) => {
-        const oc = callsByOpp.get(String(o.id)) ?? [];
-        return (
-          <TCard key={o.id}>
-            <div className="flex flex-wrap items-center gap-3">
-              <Badge tone={tone(o.stage)}>{label(o.stage)}</Badge>
-              <span className="text-xs" style={{ color: "var(--muted)" }}>Opened {shortDate(o.opened_at, tz)}{o.closed_at ? ` · Closed ${shortDate(o.closed_at, tz)}` : ""}</span>
-              <Link href={`/opportunities/${o.id}`} className="ml-auto text-xs font-medium" style={{ color: "var(--accent)" }}>Open &rarr;</Link>
-            </div>
-            {oc.map((c: any) => (
-              <div key={c.id} className="mt-3 border-t pt-2" style={{ borderColor: "var(--line)" }}>
-                <Link href={`/calls/${c.id}`} className="flex items-center gap-2 rounded px-1 py-0.5 hover:bg-white/5">
-                  <Badge tone="neutral">{label(c.type)}</Badge>
-                  {c.disposition && <Badge tone={tone(c.disposition)}>{label(c.disposition)}</Badge>}
-                  <span className="text-[11px]" style={{ color: "var(--muted)" }}>{(slotsByCall.get(String(c.id)) ?? []).length} slot(s)</span>
-                  <span className="ml-auto text-xs" style={{ color: "var(--accent)" }}>Open &rarr;</span>
-                </Link>
-              </div>
-            ))}
-          </TCard>
-        );
-      })}
-    </div>
-  );
-
-  const apptsSection = appointments.length === 0 ? <None>No appointments</None> : (
-    <TCard>
-      <div className="overflow-x-auto">
-        <table>
-          <thead><tr><th>Scheduled for</th><th>Attempt</th><th>Status</th><th>Reason</th><th>Moved by</th><th></th></tr></thead>
-          <tbody>
-            {appointments.map((a: any) => (
-              <tr key={a.id}>
-                <td>{dateTime(a.scheduled_for, tz)}</td>
-                <td>{a.seq > 1 ? <Badge tone="warn">#{a.seq}</Badge> : "#1"}</td>
-                <td><Badge tone={tone(a.status)}>{label(a.status)}</Badge></td>
-                <td style={{ color: "var(--muted)" }}>{a.reason ?? "—"}</td>
-                <td className="capitalize" style={{ color: "var(--muted)" }}>{label(a.moved_by)}</td>
-                <td className="text-right"><Link href={`/appointments/${a.id}`} className="text-xs" style={{ color: "var(--accent)" }}>Open &rarr;</Link></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </TCard>
-  );
-
-  const dealsSection = deals.length === 0 ? <None>No deals</None> : (
-    <div className="space-y-3">
-      {deals.map((d: any) => {
-        const dp = plansByDeal.get(String(d.id)) ?? [];
-        const dRec = recvByDeal.get(String(d.id)) ?? [];
-        const pay = paymentsByDeal.get(String(d.id)) ?? [];
-        const paidMinor = pay.reduce((s: number, p: any) => s + Number(p.amount_minor), 0);
-        const scheduledMinor = dRec.filter((r: any) => r.status !== "paid").reduce((s: number, r: any) => s + Number(r.amount_minor), 0);
-        return (
-          <TCard key={d.id}>
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="text-lg font-semibold">{money(d.total_contract_value_minor)}</span>
-              <Badge tone="accent">{label(d.plan_type_snapshot)}</Badge>
-              <Badge tone={tone(d.status)}>{label(d.status)}</Badge>
-              <span className="text-xs" style={{ color: "var(--muted)" }}>Closed {shortDate(d.deal_close_date, tz)}</span>
-              <Link href={`/deals/${d.id}`} className="ml-auto text-xs font-medium" style={{ color: "var(--accent)" }}>Open deal &rarr;</Link>
-            </div>
-
-            {/* payment plan */}
-            {dp.length > 0 && (
-              <div className="mt-3 border-t pt-2" style={{ borderColor: "var(--line)" }}>
-                <div className="mb-1 text-[11px] uppercase tracking-wide" style={{ color: "var(--muted)" }}>Payment plan</div>
-                {dp.map((p: any) => (
-                  <div key={p.id} className="flex flex-wrap items-center gap-2 text-sm">
-                    <Link href={`/plans/${p.id}`} className="font-medium" style={{ color: "var(--accent)" }}>Version {p.version}</Link>
-                    <Badge tone={p.is_current ? "good" : "neutral"}>{p.is_current ? "current" : "superseded"}</Badge>
-                    <span className="text-xs" style={{ color: "var(--muted)" }}>{label(p.plan_type)}{p.total_minor != null ? ` · ${money(p.total_minor)}` : ""}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* receivables (schedule) */}
-            {dRec.length > 0 && (
-              <div className="mt-3 border-t pt-2" style={{ borderColor: "var(--line)" }}>
-                <div className="mb-1 flex items-center justify-between">
-                  <span className="text-[11px] uppercase tracking-wide" style={{ color: "var(--muted)" }}>Receivables</span>
-                  <span className="text-[11px]" style={{ color: "var(--muted)" }}>{money(paidMinor)} paid · {money(scheduledMinor)} scheduled</span>
-                </div>
-                <div className="overflow-x-auto">
-                  <table>
-                    <thead><tr><th>#</th><th>Due</th><th className="text-right">Amount</th><th>Status</th></tr></thead>
-                    <tbody>
-                      {dRec.map((r: any) => (
-                        <tr key={r.id}><td><Link href={`/receivables/${r.id}`} style={{ color: "var(--accent)" }}>#{r.installment_no}</Link></td><td>{shortDate(r.due_date, tz)}</td><td className="text-right">{money(r.amount_minor)}</td><td><Badge tone={tone(r.status)}>{label(r.status)}</Badge></td></tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {/* payments */}
-            {pay.length > 0 && (
-              <div className="mt-3 border-t pt-2" style={{ borderColor: "var(--line)" }}>
-                <div className="mb-1 text-[11px] uppercase tracking-wide" style={{ color: "var(--muted)" }}>Payments ({pay.length})</div>
-                <div className="overflow-x-auto">
-                  <table>
-                    <thead><tr><th>Paid</th><th>Type</th><th className="text-right">Amount</th><th>Processor</th></tr></thead>
-                    <tbody>
-                      {pay.map((p: any) => (
-                        <tr key={p.id}><td>{shortDate(p.occurred_at, tz)}</td><td style={{ color: "var(--muted)" }}>{label(p.type)}</td><td className="text-right">{money(p.amount_minor)}</td><td style={{ color: "var(--muted)" }}>{label(p.processor)}</td></tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </TCard>
-        );
-      })}
-    </div>
-  );
-
-  const agreementsSection = agreements.length === 0 ? <None>No contracts</None> : (
-    <TCard>
-      <div className="overflow-x-auto">
-        <table>
-          <thead><tr><th>Agreement</th><th>Status</th><th className="text-right">Amount</th><th>Sent</th><th>Signed</th><th></th></tr></thead>
-          <tbody>
-            {agreements.map((a: any) => (
-              <tr key={a.id}>
-                <td><Link href={`/agreements/${a.id}`} style={{ color: "var(--accent)" }}>{a.title}</Link></td>
-                <td><Badge tone={tone(a.status)}>{label(a.status)}</Badge></td>
-                <td className="text-right">{a.amount_minor ? money(a.amount_minor) : "—"}</td>
-                <td style={{ color: "var(--muted)" }}>{a.sent_at ? shortDate(a.sent_at, tz) : "—"}</td>
-                <td style={{ color: "var(--muted)" }}>{a.signed_at ? shortDate(a.signed_at, tz) : "—"}</td>
-                <td className="text-right"><Link href={`/agreements/${a.id}`} className="text-xs" style={{ color: "var(--accent)" }}>Open &rarr;</Link></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </TCard>
-  );
-
-  // NAFA audits + intake submissions. Intake rows show ONLY date / provider /
-  // status; the credential fields are never queried (see the query comment).
-  const creditSection = (
-    <div>
-      <div className="mb-2 text-[11px] uppercase tracking-wide" style={{ color: "var(--muted)" }}>NAFA audits</div>
-      {nafas.length === 0 ? <None>No NAFA audits</None> : (
+  const optInsPanel = (
+    <SectionGroup title="Opt-ins" tone="accent">
+      {optIns.length === 0 ? <None>No opt-ins</None> : (
         <div className="space-y-2">
-          {nafas.map((n: any) => (
-            <TCard key={n.id}>
+          {optIns.map((o: any) => (
+            <TCard key={o.id}>
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm font-medium">{dateTime(n.pulled_at, tz)}</span>
-                <span className="text-xs" style={{ color: "var(--muted)" }}>{label(n.provider)}</span>
-                {n.is_canonical && <Badge tone="accent">Canonical</Badge>}
-                {n.qualifies != null && <Badge tone={n.qualifies ? "good" : "bad"}>{n.qualifies ? "Qualifies" : "Does not qualify"}</Badge>}
-                <span className="ml-auto flex items-center gap-1.5">
-                  {n.report_url && <ExtLink href={n.report_url}>Report</ExtLink>}
-                  {n.report_pdf_url && <ExtLink href={n.report_pdf_url}>PDF</ExtLink>}
-                </span>
+                {o.form_name
+                  ? <span className="text-sm font-medium">{o.form_name}</span>
+                  : <span className="num text-sm" style={{ color: "var(--muted)" }}>{o.form_id ?? "Form submission"}</span>}
+                <Badge tone={o.counted ? "good" : "neutral"}>{o.counted ? "Counts" : "Not counted"}</Badge>
+                <Badge tone={o.counts_as_unique ? "accent" : "warn"}>{o.counts_as_unique ? "Unique" : "Repeat"}</Badge>
+                <span className="ml-auto text-xs" style={{ color: "var(--muted)" }}>{dateTime(o.submitted_at, tz)}</span>
               </div>
               <div className="mt-2 grid grid-cols-1 gap-x-8 gap-y-1.5 sm:grid-cols-2">
-                <Detail label="Violations" value={n.violation_opportunities == null ? null : String(n.violation_opportunities)} />
-                <Detail label="Accounts hit" value={n.accounts_with_violations == null ? null : String(n.accounts_with_violations)} />
-                <Detail label="Credit score" value={n.credit_score == null ? null : String(n.credit_score)} />
-                <Detail label="Utilization" value={n.utilization_pct == null ? null : `${Number(n.utilization_pct)}%`} />
+                <Detail label="Source" value={label(o.source_channel)} />
+                <Detail label="Campaign" value={o.source_campaign} />
+                <Detail label="Goal" value={label(o.goal)} />
+                <Detail label="Credit score" value={o.credit_score_range} />
+                <Detail label="Blocker" value={o.blocker} />
+                <Detail label="UTM" value={o.utm} />
+                {o.dub_link_id && <Detail label="Dub link" value={o.dub_link_id} />}
               </div>
             </TCard>
           ))}
         </div>
       )}
-      <div className="mb-2 mt-5 text-[11px] uppercase tracking-wide" style={{ color: "var(--muted)" }}>Intake submissions</div>
-      {intakes.length === 0 ? <None>No intake submissions</None> : (
-        <TCard>
+    </SectionGroup>
+  );
+
+  const callsPanel = (
+    <SectionGroup title="Opportunities and calls" tone="warn">
+      {opportunities.length === 0 ? <None>No opportunities</None> : (
+        <div className="space-y-3">
+          {opportunities.map((o: any) => {
+            const oc = callsByOpp.get(String(o.id)) ?? [];
+            return (
+              <TCard key={o.id}>
+                <div className="flex flex-wrap items-center gap-3">
+                  <Badge tone={tone(o.stage)}>{label(o.stage)}</Badge>
+                  <span className="text-xs" style={{ color: "var(--muted)" }}>Opened {shortDate(o.opened_at, tz)}{o.closed_at ? ` · Closed ${shortDate(o.closed_at, tz)}` : ""}</span>
+                  <Link href={`/opportunities/${o.id}`} className="ml-auto text-xs font-medium" style={{ color: "var(--accent)" }}>Open &rarr;</Link>
+                </div>
+                {oc.map((c: any) => (
+                  <div key={c.id} className="mt-3 border-t pt-2" style={{ borderColor: "var(--line)" }}>
+                    <Link href={`/calls/${c.id}`} className="flex items-center gap-2 rounded px-1 py-0.5 hover:bg-white/5">
+                      <Badge tone="neutral">{label(c.type)}</Badge>
+                      {c.disposition && <Badge tone={tone(c.disposition)}>{label(c.disposition)}</Badge>}
+                      <span className="text-xs" style={{ color: "var(--muted)" }}>{(slotsByCall.get(String(c.id)) ?? []).length} slot(s)</span>
+                      <span className="ml-auto text-xs" style={{ color: "var(--accent)" }}>Open &rarr;</span>
+                    </Link>
+                  </div>
+                ))}
+              </TCard>
+            );
+          })}
+        </div>
+      )}
+    </SectionGroup>
+  );
+
+  const apptsPanel = (
+    <SectionGroup title="Appointments" tone="warn">
+      {appointments.length === 0 ? <None>No appointments</None> : (
+        <div className="overflow-x-auto">
+          <table>
+            <thead><tr><th>Scheduled for</th><th>Attempt</th><th>Status</th><th>Reason</th><th>Moved by</th><th></th></tr></thead>
+            <tbody>
+              {appointments.map((a: any) => (
+                <tr key={a.id}>
+                  <td>{dateTime(a.scheduled_for, tz)}</td>
+                  <td>{a.seq > 1 ? <Badge tone="warn">#{a.seq}</Badge> : "#1"}</td>
+                  <td><Badge tone={tone(a.status)}>{label(a.status)}</Badge></td>
+                  <td style={{ color: "var(--muted)" }}>{a.reason ?? "—"}</td>
+                  <td className="capitalize" style={{ color: "var(--muted)" }}>{label(a.moved_by)}</td>
+                  <td className="text-right"><Link href={`/appointments/${a.id}`} className="text-xs" style={{ color: "var(--accent)" }}>Open &rarr;</Link></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </SectionGroup>
+  );
+
+  const paymentsPanel = (
+    <SectionGroup title="Deals and payments" tone="good">
+      {deals.length === 0 ? <None>No deals</None> : (
+        <div className="space-y-3">
+          {deals.map((d: any) => {
+            const dp = plansByDeal.get(String(d.id)) ?? [];
+            const dRec = recvByDeal.get(String(d.id)) ?? [];
+            const pay = paymentsByDeal.get(String(d.id)) ?? [];
+            const paidMinor = pay.reduce((s: number, p: any) => s + Number(p.amount_minor), 0);
+            const scheduledMinor = dRec.filter((r: any) => r.status !== "paid").reduce((s: number, r: any) => s + Number(r.amount_minor), 0);
+            return (
+              <TCard key={d.id}>
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="text-lg font-semibold">{money(d.total_contract_value_minor)}</span>
+                  <Badge tone="accent">{label(d.plan_type_snapshot)}</Badge>
+                  <Badge tone={tone(d.status)}>{label(d.status)}</Badge>
+                  <span className="text-xs" style={{ color: "var(--muted)" }}>Closed {shortDate(d.deal_close_date, tz)}</span>
+                  <Link href={`/deals/${d.id}`} className="ml-auto text-xs font-medium" style={{ color: "var(--accent)" }}>Open deal &rarr;</Link>
+                </div>
+
+                {/* payment plan */}
+                {dp.length > 0 && (
+                  <div className="mt-3 border-t pt-2" style={{ borderColor: "var(--line)" }}>
+                    <div className="mb-1 text-xs uppercase tracking-wide" style={{ color: "var(--muted)" }}>Payment plan</div>
+                    {dp.map((p: any) => (
+                      <div key={p.id} className="flex flex-wrap items-center gap-2 text-sm">
+                        <Link href={`/plans/${p.id}`} className="font-medium" style={{ color: "var(--accent)" }}>Version {p.version}</Link>
+                        <Badge tone={p.is_current ? "good" : "neutral"}>{p.is_current ? "current" : "superseded"}</Badge>
+                        <span className="text-xs" style={{ color: "var(--muted)" }}>{label(p.plan_type)}{p.total_minor != null ? ` · ${money(p.total_minor)}` : ""}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* receivables (schedule) */}
+                {dRec.length > 0 && (
+                  <div className="mt-3 border-t pt-2" style={{ borderColor: "var(--line)" }}>
+                    <div className="mb-1 flex items-center justify-between">
+                      <span className="text-xs uppercase tracking-wide" style={{ color: "var(--muted)" }}>Receivables</span>
+                      <span className="text-xs" style={{ color: "var(--muted)" }}>{money(paidMinor)} paid · {money(scheduledMinor)} scheduled</span>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table>
+                        <thead><tr><th>#</th><th>Due</th><th className="text-right">Amount</th><th>Status</th></tr></thead>
+                        <tbody>
+                          {dRec.map((r: any) => (
+                            <tr key={r.id}><td><Link href={`/receivables/${r.id}`} style={{ color: "var(--accent)" }}>#{r.installment_no}</Link></td><td>{shortDate(r.due_date, tz)}</td><td className="text-right">{money(r.amount_minor)}</td><td><Badge tone={tone(r.status)}>{label(r.status)}</Badge></td></tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* payments */}
+                {pay.length > 0 && (
+                  <div className="mt-3 border-t pt-2" style={{ borderColor: "var(--line)" }}>
+                    <div className="mb-1 text-xs uppercase tracking-wide" style={{ color: "var(--muted)" }}>Payments ({pay.length})</div>
+                    <div className="overflow-x-auto">
+                      <table>
+                        <thead><tr><th>Paid</th><th>Type</th><th className="text-right">Amount</th><th>Processor</th></tr></thead>
+                        <tbody>
+                          {pay.map((p: any) => (
+                            <tr key={p.id}><td>{shortDate(p.occurred_at, tz)}</td><td style={{ color: "var(--muted)" }}>{label(p.type)}</td><td className="text-right">{money(p.amount_minor)}</td><td style={{ color: "var(--muted)" }}>{label(p.processor)}</td></tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </TCard>
+            );
+          })}
+        </div>
+      )}
+    </SectionGroup>
+  );
+
+  // NAFA audits + intake submissions. Intake rows show ONLY date / provider /
+  // status; the credential fields are never queried (see the query comment).
+  const creditPanel = (
+    <div className="space-y-4">
+      <SectionGroup title="NAFA audits" tone="warn" count={nafas.length}>
+        {nafas.length === 0 ? <None>No NAFA audits</None> : (
+          <div className="space-y-2">
+            {nafas.map((n: any) => (
+              <TCard key={n.id}>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-medium">{dateTime(n.pulled_at, tz)}</span>
+                  <span className="text-xs" style={{ color: "var(--muted)" }}>{label(n.provider)}</span>
+                  {n.is_canonical && <Badge tone="accent">Canonical</Badge>}
+                  {n.qualifies != null && <Badge tone={n.qualifies ? "good" : "bad"}>{n.qualifies ? "Qualifies" : "Does not qualify"}</Badge>}
+                  <span className="ml-auto flex items-center gap-1.5">
+                    {n.report_url && <ExtLink href={n.report_url}>Report</ExtLink>}
+                    {n.report_pdf_url && <ExtLink href={n.report_pdf_url}>PDF</ExtLink>}
+                  </span>
+                </div>
+                <div className="mt-2 grid grid-cols-1 gap-x-8 gap-y-1.5 sm:grid-cols-2">
+                  <Detail label="Violations" value={n.violation_opportunities == null ? null : String(n.violation_opportunities)} />
+                  <Detail label="Accounts hit" value={n.accounts_with_violations == null ? null : String(n.accounts_with_violations)} />
+                  <Detail label="Credit score" value={n.credit_score == null ? null : String(n.credit_score)} />
+                  <Detail label="Utilization" value={n.utilization_pct == null ? null : `${Number(n.utilization_pct)}%`} />
+                </div>
+              </TCard>
+            ))}
+          </div>
+        )}
+      </SectionGroup>
+      <SectionGroup title="Intake submissions" tone="warn" count={intakes.length}>
+        {intakes.length === 0 ? <None>No intake submissions</None> : (
           <div className="overflow-x-auto">
             <table>
               <thead><tr><th>Submitted</th><th>Provider</th><th>Status</th></tr></thead>
@@ -386,152 +390,152 @@ export async function ContactBody({ id }: { id: string }) {
               </tbody>
             </table>
           </div>
-        </TCard>
-      )}
+        )}
+      </SectionGroup>
     </div>
   );
 
-  const reportsSection = reports.length === 0 ? <None>No reports filed</None> : (
-    <TCard>
-      <div className="overflow-x-auto">
-        <table>
-          <thead><tr><th>Type</th><th>Submitted</th><th>Rep</th><th>Status</th><th>On time</th><th></th></tr></thead>
-          <tbody>
-            {reports.map((r: any) => (
-              <tr key={r.id}>
-                <td><Badge tone="neutral">{label(r.type)}</Badge></td>
-                <td>{dateTime(r.submitted_at, tz)}</td>
-                <td style={{ color: "var(--muted)" }}>{r.rep ?? "—"}</td>
-                <td><Badge tone={tone(r.status)}>{label(r.status)}</Badge></td>
-                <td>{r.on_time === false
-                  ? <Badge tone="warn">Late</Badge>
-                  : r.on_time === true ? <span className="text-xs" style={{ color: "var(--muted)" }}>On time</span> : "—"}</td>
-                <td className="text-right">{r.strategy_call_id && <Link href={`/calls/${r.strategy_call_id}`} className="text-xs" style={{ color: "var(--accent)" }}>View call &rarr;</Link>}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </TCard>
+  const reportsPanel = (
+    <SectionGroup title="Reports" tone="neutral">
+      {reports.length === 0 ? <None>No reports filed</None> : (
+        <div className="overflow-x-auto">
+          <table>
+            <thead><tr><th>Type</th><th>Submitted</th><th>Rep</th><th>Status</th><th>On time</th><th></th></tr></thead>
+            <tbody>
+              {reports.map((r: any) => (
+                <tr key={r.id}>
+                  <td><Badge tone="neutral">{label(r.type)}</Badge></td>
+                  <td>{dateTime(r.submitted_at, tz)}</td>
+                  <td style={{ color: "var(--muted)" }}>{r.rep ?? "—"}</td>
+                  <td><Badge tone={tone(r.status)}>{label(r.status)}</Badge></td>
+                  <td>{r.on_time === false
+                    ? <Badge tone="warn">Late</Badge>
+                    : r.on_time === true ? <span className="text-xs" style={{ color: "var(--muted)" }}>On time</span> : "—"}</td>
+                  <td className="text-right">{r.strategy_call_id && <Link href={`/calls/${r.strategy_call_id}`} className="text-xs" style={{ color: "var(--accent)" }}>View call &rarr;</Link>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </SectionGroup>
   );
 
-  const notesSection = (
-    <div>
+  const contractsPanel = (
+    <SectionGroup title="Contracts" tone="accent">
+      {agreements.length === 0 ? <None>No contracts</None> : (
+        <div className="overflow-x-auto">
+          <table>
+            <thead><tr><th>Agreement</th><th>Status</th><th className="text-right">Amount</th><th>Sent</th><th>Signed</th><th></th></tr></thead>
+            <tbody>
+              {agreements.map((a: any) => (
+                <tr key={a.id}>
+                  <td><Link href={`/agreements/${a.id}`} style={{ color: "var(--accent)" }}>{a.title}</Link></td>
+                  <td><Badge tone={tone(a.status)}>{label(a.status)}</Badge></td>
+                  <td className="text-right">{a.amount_minor ? money(a.amount_minor) : "—"}</td>
+                  <td style={{ color: "var(--muted)" }}>{a.sent_at ? shortDate(a.sent_at, tz) : "—"}</td>
+                  <td style={{ color: "var(--muted)" }}>{a.signed_at ? shortDate(a.signed_at, tz) : "—"}</td>
+                  <td className="text-right"><Link href={`/agreements/${a.id}`} className="text-xs" style={{ color: "var(--accent)" }}>Open &rarr;</Link></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </SectionGroup>
+  );
+
+  const notesPanel = (
+    <SectionGroup title="Notes" tone="neutral">
       <NoteForm contactId={id} />
       {notes.length === 0 ? <None>No notes yet</None> : (
         <div className="space-y-2">
-          {notes.map((n: any) => (
-            <TCard key={n.id}>
-              <div className="whitespace-pre-wrap text-sm" style={{ color: "var(--text)" }}>{n.body}</div>
-              <div className="mt-1 text-[11px]" style={{ color: "var(--muted)" }}>{n.author ?? "Team"} · {dateTime(n.created_at, tz)}</div>
-            </TCard>
+          {notes.map((n: any) => {
+            const atts = attByNote.get(String(n.id)) ?? [];
+            return (
+              <TCard key={n.id}>
+                <div className="whitespace-pre-wrap text-sm" style={{ color: "var(--text)" }}>{n.body}</div>
+                {atts.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {atts.map((a: any) => (
+                      <a key={a.id} href={`/api/attachments/${a.id}`} target="_blank" rel="noreferrer"
+                        className="inline-flex max-w-full items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs font-medium"
+                        style={{ borderColor: "var(--line)", background: "var(--panel-2)", color: "var(--accent)" }}>
+                        <span className="min-w-0 truncate">{a.filename}</span>
+                        <span className="num shrink-0 text-[10px]" style={{ color: "var(--muted)" }}>{fmtSize(Number(a.size_bytes))}</span>
+                      </a>
+                    ))}
+                  </div>
+                )}
+                <div className="mt-1 text-[12px]" style={{ color: "var(--muted)" }}>{n.author ?? "Team"} · {dateTime(n.created_at, tz)}</div>
+              </TCard>
+            );
+          })}
+        </div>
+      )}
+    </SectionGroup>
+  );
+
+  const activityPanel = (
+    <SectionGroup title="Activity" tone="neutral">
+      {activity.length === 0 ? <None>No activity yet</None> : (
+        <div className="relative ml-1 border-l pl-4" style={{ borderColor: "var(--line)" }}>
+          {activity.map((e, i) => (
+            <div key={i} className="relative mb-3.5">
+              <span className="absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full" style={{ background: TONE_COLOR[e.tn ?? "neutral"] }} />
+              <div className="text-sm" style={{ color: "var(--text)" }}>
+                {e.href
+                  ? <a href={e.href} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1" style={{ color: "var(--accent)" }}>{e.text} <Icon name="external" size={12} /></a>
+                  : e.text}
+              </div>
+              {e.sub && <div className="text-[13px]" style={{ color: "var(--muted)" }}>{e.sub}</div>}
+              <div className="text-[11px]" style={{ color: "var(--muted)" }}>{dateTime(e.when, tz)}</div>
+            </div>
           ))}
         </div>
       )}
-    </div>
-  );
-
-  const activitySection = activity.length === 0 ? <None>No activity yet</None> : (
-    <div className="relative ml-1 border-l pl-4" style={{ borderColor: "var(--line)" }}>
-      {activity.map((e, i) => (
-        <div key={i} className="relative mb-4">
-          <span className="absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full" style={{ background: TONE_COLOR[e.tn ?? "neutral"] }} />
-          <div className="text-sm" style={{ color: "var(--text)" }}>
-            {e.href
-              ? <a href={e.href} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1" style={{ color: "var(--accent)" }}>{e.text} <Icon name="external" size={12} /></a>
-              : e.text}
-          </div>
-          {e.sub && <div className="text-[12px]" style={{ color: "var(--muted)" }}>{e.sub}</div>}
-          <div className="text-[11px]" style={{ color: "var(--muted)" }}>{dateTime(e.when, tz)}</div>
-        </div>
-      ))}
-    </div>
+    </SectionGroup>
   );
 
   return (
     <div>
       {/* header block: a very soft accent gradient anchors the identity area.
           Negative margins cancel the inner padding, so text stays aligned with
-          the column and the tint bleeds slightly into the page padding. */}
+          the column and the tint bleeds slightly into the page padding.
+          Kept intentionally simple (Katie, July 9): name + lifecycle badge +
+          email + phone. No Owner here (it lives in Contact details) and no
+          external-system buttons (they live in Contact details > External
+          systems, incl. GHL Marketing). */}
       <header className="-mx-3 -mt-2 rounded-xl px-3 pb-1 pt-2"
         style={{ background: "linear-gradient(180deg, color-mix(in srgb, var(--accent) 7%, transparent), transparent 70%)" }}>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-xl font-semibold">{contact.full_name}</h1>
-            <Badge tone={tone(contact.lifecycle_status)}>{label(contact.lifecycle_status)}</Badge>
-          </div>
-          <ExternalLinks ids={extIds} loc={ghlLoc} variant="buttons" />
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-xl font-semibold">{contact.full_name}</h1>
+          <Badge tone={tone(contact.lifecycle_status)}>{label(contact.lifecycle_status)}</Badge>
         </div>
         <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
-          {contact.primary_email ?? "—"} &middot; {contact.primary_phone ?? "—"} &middot; Owner: {contact.owner ?? "—"}
+          {contact.primary_email ?? "—"} &middot; {contact.primary_phone ?? "—"}
         </p>
       </header>
-      <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2 border-y py-2.5" style={{ borderColor: "var(--line)" }}>
-        {strip.map((s) => {
-          const inner = (
-            <>
-              <div className="text-[10px] uppercase tracking-wide" style={{ color: "var(--muted)" }}>{s.l}</div>
-              <div className="num text-sm font-semibold" style={{ color: TONE_COLOR[s.tn] ?? "var(--text)" }}>{s.v}</div>
-            </>
-          );
-          return s.href
-            ? <a key={s.l} href={s.href} className="-mx-1 rounded-md px-1 hover:bg-white/5">{inner}</a>
-            : <div key={s.l}>{inner}</div>;
-        })}
-      </div>
-      {/* jump nav: segmented pills with scroll-spy (see components/section-nav).
-          Same anchors and counts as before; the sticky/opaque/zIndex-5 wrapper
-          behavior lives inside SectionNav now. */}
-      <SectionNav sections={[
-        { id: "overview", label: "Overview", count: 0 },
-        { id: "opt-ins", label: "Opt-ins", count: optIns.length },
-        { id: "calls", label: "Calls", count: opportunities.length },
-        { id: "appointments", label: "Appointments", count: appointments.length },
-        { id: "payments", label: "Payments", count: deals.length },
-        { id: "credit", label: "Credit", count: nafas.length + intakes.length },
-        { id: "reports", label: "Reports", count: reports.length },
-        { id: "contracts", label: "Contracts", count: agreements.length },
-        { id: "notes", label: "Notes", count: notes.length },
-        { id: "activity", label: "Activity", count: 0 },
+      {/* tab nav sits directly under the identity header; each panel below is
+          server-rendered and toggled client-side by SectionTabs */}
+      <SectionTabs sections={[
+        { id: "overview", label: "Overview", count: 0, panel: overviewPanel },
+        { id: "opt-ins", label: "Opt-ins", count: optIns.length, panel: optInsPanel },
+        { id: "calls", label: "Calls", count: opportunities.length, panel: callsPanel },
+        { id: "appointments", label: "Appointments", count: appointments.length, panel: apptsPanel },
+        { id: "payments", label: "Payments", count: deals.length, panel: paymentsPanel },
+        { id: "credit", label: "Credit", count: nafas.length + intakes.length, panel: creditPanel },
+        { id: "reports", label: "Reports", count: reports.length, panel: reportsPanel },
+        { id: "contracts", label: "Contracts", count: agreements.length, panel: contractsPanel },
+        { id: "notes", label: "Notes", count: notes.length, panel: notesPanel },
+        { id: "activity", label: "Activity", count: 0, panel: activityPanel },
       ]} />
-      <Section id="overview" title="Overview" tone="accent">{overview}</Section>
-      <Section id="opt-ins" title="Opt-ins" tone="accent">{optInsSection}</Section>
-      <Section id="calls" title="Opportunities and calls" tone="warn">{oppsSection}</Section>
-      <Section id="appointments" title="Appointments" tone="warn">{apptsSection}</Section>
-      <Section id="payments" title="Deals and payments" tone="good">{dealsSection}</Section>
-      <Section id="credit" title="Credit" tone="warn">{creditSection}</Section>
-      <Section id="reports" title="Reports" tone="neutral">{reportsSection}</Section>
-      <Section id="contracts" title="Contracts" tone="accent">{agreementsSection}</Section>
-      <Section id="notes" title="Notes" tone="neutral">{notesSection}</Section>
-      <Section id="activity" title="Activity" tone="neutral">{activitySection}</Section>
     </div>
   );
 }
 
-// Anchored section wrapper: the id is the deep-link target (#opt-ins etc.);
-// scrollMarginTop keeps the heading clear of the sticky app header on jump.
-// Each section carries a semantic tone from the existing palette (accent /
-// warn / good / neutral): a 3px rounded bar + soft dot flank the title, and
-// --sect cascades the tone color down so the section's cards (TCard) pick up
-// a faint tinted border. Color only; content and anchors are unchanged.
-function Section({ id, title, tone: tn, children }: { id: string; title: string; tone: string; children: ReactNode }) {
-  const c = TONE_COLOR[tn] ?? "var(--accent)";
-  return (
-    <section id={id} className="mt-8" style={{ scrollMarginTop: 80, "--sect": c } as CSSProperties}>
-      <div className="mb-3 flex items-center gap-2">
-        <span aria-hidden className="shrink-0 rounded-full"
-          style={{ width: 3, height: 14, background: `color-mix(in srgb, ${c} 80%, var(--panel))` }} />
-        <h2 className="text-[13px] font-semibold uppercase tracking-wider" style={{ color: "var(--muted)" }}>{title}</h2>
-        <span aria-hidden className="shrink-0 rounded-full"
-          style={{ width: 6, height: 6, background: `color-mix(in srgb, ${c} 45%, var(--panel))` }} />
-      </div>
-      {children}
-    </section>
-  );
-}
-
 // Section-tinted card: same .card base as components/ui Card, but the border
-// color mixes in the surrounding section's tone (--sect, set by Section).
+// color mixes in the surrounding group's tone (--sect, set by SectionGroup).
 function TCard({ children }: { children: ReactNode }) {
   return (
     <div className="card p-4" style={{ borderColor: "color-mix(in srgb, var(--sect, var(--muted)) 22%, var(--line))" }}>
@@ -560,15 +564,22 @@ function Detail({ label: l, value }: { label: string; value: string | null | und
   );
 }
 
-// Overview mini-stat: the tinted-Stat treatment the main dashboard uses, i.e.
+// Overview KPI tile: the tinted-Stat treatment the main dashboard uses, i.e.
 // tone-tinted background, tone-mixed border, value in the tone color (.num).
-function Mini({ label: l, value, tn }: { label: string; value: string; tn?: string }) {
+// Optional href renders it as a plain anchor (e.g. #opt-ins flips that tab).
+function Mini({ label: l, value, tn, href }: { label: string; value: string; tn?: string; href?: string }) {
   const c = TONE_COLOR[tn ?? "accent"] ?? "var(--accent)";
-  return (
-    <div className="rounded-lg border p-2.5"
-      style={{ borderColor: `color-mix(in srgb, ${c} 30%, transparent)`, background: `color-mix(in srgb, ${c} 12%, var(--panel))` }}>
+  const style = {
+    borderColor: `color-mix(in srgb, ${c} 30%, transparent)`,
+    background: `color-mix(in srgb, ${c} 12%, var(--panel))`,
+  };
+  const inner = (
+    <>
       <div className="text-[11px] font-medium uppercase tracking-wide" style={{ color: "var(--muted)" }}>{l}</div>
       <div className="num mt-0.5 text-sm font-semibold" style={{ color: c }}>{value}</div>
-    </div>
+    </>
   );
+  return href
+    ? <a href={href} className="block rounded-lg border p-2.5 hover:brightness-110" style={style}>{inner}</a>
+    : <div className="rounded-lg border p-2.5" style={style}>{inner}</div>;
 }

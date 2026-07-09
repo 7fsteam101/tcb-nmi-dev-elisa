@@ -5,7 +5,7 @@ import type { FormOptions } from "@/lib/form-options";
 import { label } from "@/components/ui";
 import { submitSalesCallAction } from "./actions";
 import {
-  FormPageHeader, FormLayout, Section, Field, ConditionalPanel, CheckRow,
+  FormCard, FormLayout, Section, Field, ConditionalPanel, CheckRow,
   SubmitBar, ResultBanner, SummaryRail, RailRow, RailChip,
 } from "../form-kit";
 
@@ -80,24 +80,24 @@ export function SalesCallForm({ options, defaultAppointmentId = "" }: { options:
   );
 
   return (
-    <div>
-      <FormPageHeader
-        icon="forms"
-        title="Sales Call Report"
-        subtitle="Logs the outcome, creates the deal on a close, and pushes the stage and a note to Close."
-      />
-      <FormLayout
-        rail={rail}
-        form={
-          <form action={action} className="space-y-5">
-            <Section step={1} title="Call and closer" hint="Pick the call being reported and who is submitting it.">
-              <Field label="Call" hint="This is the call date the report is tied to.">
+    <FormLayout
+      rail={rail}
+      form={
+        <form action={action} className="space-y-4">
+          <FormCard
+            icon="forms"
+            title="Sales Call Report"
+            subtitle="Logs the outcome, creates the deal on a close, and pushes the stage and a note to Close."
+            footer={<SubmitBar pending={pending} label="Submit report" pendingLabel="Submitting..." />}
+          >
+            <Section title="Call and closer" hint="Pick the call being reported and who is submitting it.">
+              <Field label="Call" required hint="This is the call date the report is tied to.">
                 <select name="appointmentId" required defaultValue={defaultAppointmentId}>
                   <option value="" disabled>Pick the call</option>
                   {options.appointments.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}
                 </select>
               </Field>
-              <Field label="Closer submitting">
+              <Field label="Closer submitting" required>
                 <select name="repId" required defaultValue="">
                   <option value="" disabled>Pick the closer</option>
                   {options.reps.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
@@ -105,8 +105,8 @@ export function SalesCallForm({ options, defaultAppointmentId = "" }: { options:
               </Field>
             </Section>
 
-            <Section step={2} title="Outcome" hint="How the call ended. This sets the pipeline stage and unlocks the right follow-on fields.">
-              <Field label="Outcome">
+            <Section title="Outcome" hint="How the call ended. This sets the pipeline stage and unlocks the right follow-on fields.">
+              <Field label="Outcome" required>
                 <select name="callResult" required value={outcome} onChange={(e) => setOutcome(e.target.value)}>
                   <option value="" disabled>How did the call end</option>
                   {OUTCOMES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -129,21 +129,21 @@ export function SalesCallForm({ options, defaultAppointmentId = "" }: { options:
               {showDeposit && (
                 <ConditionalPanel tone="warn" title="Deposit" hint="The deal record is created when it fully closes; this logs the deposit now.">
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <Field label="Deposit collected ($)"><input name="cashCollected" type="number" step="0.01" required /></Field>
-                    <Field label="Expected close date"><input name="expectedCloseDate" type="date" required /></Field>
+                    <Field label="Deposit collected ($)" required><input name="cashCollected" type="number" step="0.01" required /></Field>
+                    <Field label="Expected close date" required><input name="expectedCloseDate" type="date" required /></Field>
                   </div>
                 </ConditionalPanel>
               )}
             </Section>
 
             {won && (
-              <Section step={3} title="Won deal" hint="Records the deal, its value, and the payment schedule. This is the moment the deal is born.">
+              <Section title="Won deal" hint="Records the deal, its value, and the payment schedule. This is the moment the deal is born.">
                 <ConditionalPanel tone="good" title={outcome === "won_pif" ? "Paid in full" : "Payment plan"}>
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <Field label="Amount contracted ($)"><input name="amountContracted" type="number" step="0.01" required /></Field>
+                    <Field label="Amount contracted ($)" required><input name="amountContracted" type="number" step="0.01" required /></Field>
                     <Field label="Cash collected today ($)"><input name="cashCollected" type="number" step="0.01" placeholder="0 for zero-down" /></Field>
                   </div>
-                  <Field label="Start date (first payment)"><input name="startDate" type="date" required /></Field>
+                  <Field label="Start date (first payment)" required><input name="startDate" type="date" required /></Field>
                   {outcome === "won_pp" && (
                     <>
                       <Field label="Payment cadence">
@@ -155,7 +155,7 @@ export function SalesCallForm({ options, defaultAppointmentId = "" }: { options:
                         </select>
                       </Field>
                       {cadence !== "custom" && (
-                        <Field label="Payment plan" hint="Pick the plan that was sold.">
+                        <Field label="Payment plan" required hint="Pick the plan that was sold.">
                           <select name="pricingPlanId" required defaultValue="">
                             <option value="" disabled>Pick the plan sold</option>
                             {options.plans.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
@@ -205,7 +205,7 @@ export function SalesCallForm({ options, defaultAppointmentId = "" }: { options:
               </Section>
             )}
 
-            <Section step={won ? 4 : 3} title="Qualification and objections" hint="Whether the lead qualified, plus the main objection that came up.">
+            <Section title="Qualification and objections" hint="Whether the lead qualified, plus the main objection that came up.">
               <Field label="Was the lead qualified?">
                 <select name="qualified" value={qualified} onChange={(e) => setQualified(e.target.value)}>
                   <option value="yes">Yes (qualified, even if no offer was made)</option>
@@ -213,7 +213,7 @@ export function SalesCallForm({ options, defaultAppointmentId = "" }: { options:
                 </select>
               </Field>
               {(qualified === "no" || outcome === "dq_on_call") && (
-                <Field label="Disqualified reason">
+                <Field label="Disqualified reason" required>
                   <select name="dqReasonId" required defaultValue="">
                     <option value="" disabled>Why disqualified</option>
                     {options.dqReasons.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
@@ -221,7 +221,7 @@ export function SalesCallForm({ options, defaultAppointmentId = "" }: { options:
                 </Field>
               )}
               {outcome === "lost" && (
-                <Field label="Lost reason">
+                <Field label="Lost reason" required>
                   <select name="lostReasonId" required defaultValue="">
                     <option value="" disabled>Why lost</option>
                     {options.lostReasons.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
@@ -236,8 +236,8 @@ export function SalesCallForm({ options, defaultAppointmentId = "" }: { options:
               </Field>
             </Section>
 
-            <Section step={won ? 5 : 4} title="Follow-up" hint="Schedule the next touch, or record why there is not one.">
-              <Field label="Follow up?">
+            <Section title="Follow-up" hint="Schedule the next touch, or record why there is not one.">
+              <Field label="Follow up?" required>
                 <select name="followUpWanted" required value={followUp} onChange={(e) => setFollowUp(e.target.value)}>
                   <option value="" disabled>Choose</option>
                   <option value="yes">Yes</option>
@@ -247,7 +247,7 @@ export function SalesCallForm({ options, defaultAppointmentId = "" }: { options:
               {followUp === "yes" && (
                 <ConditionalPanel tone="accent">
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <Field label="Follow up date">
+                    <Field label="Follow up date" required>
                       <input name="followUpDate" type="date" required defaultValue={followUpDefault} key={followUpDefault} />
                     </Field>
                     <Field label="Assignee" hint="Defaults to the closer.">
@@ -260,23 +260,21 @@ export function SalesCallForm({ options, defaultAppointmentId = "" }: { options:
                 </ConditionalPanel>
               )}
               {followUp === "no" && (
-                <Field label="Why not?">
+                <Field label="Why not?" required>
                   <input name="followUpWhyNot" required placeholder="Why no follow-up" />
                 </Field>
               )}
             </Section>
 
-            <Section step={won ? 6 : 5} title="Notes" hint="Anything the team should know about this call.">
+            <Section title="Notes" hint="Anything the team should know about this call.">
               <Field label="Outcome notes">
                 <textarea name="notes" rows={3} placeholder="Anything worth knowing" />
               </Field>
             </Section>
-
-            <SubmitBar pending={pending} label="Submit report" pendingLabel="Submitting..." />
-            <ResultBanner state={state} />
-          </form>
-        }
-      />
-    </div>
+          </FormCard>
+          <ResultBanner state={state} />
+        </form>
+      }
+    />
   );
 }

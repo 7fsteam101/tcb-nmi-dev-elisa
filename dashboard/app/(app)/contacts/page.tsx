@@ -34,7 +34,8 @@ export default async function Contacts({
   const demo = await isDemoMode();
   const tz = await reportTimezone();
 
-  // ---- filters (?q, ?lifecycle, ?has_email, ?has_phone), all combinable ----
+  // ---- filters (?q, ?lifecycle, ?has_email, ?has_phone, ?created_from,
+  // ?created_to), all combinable ----
   const q = (first(sp.q) ?? "").trim();
   const pattern = q ? `%${q}%` : null;
   const lifecycleRaw = (first(sp.lifecycle) ?? "").trim();
@@ -43,6 +44,13 @@ export default async function Contacts({
   const lifecycle = /^[a-z0-9_]{1,64}$/i.test(lifecycleRaw) ? lifecycleRaw : null;
   const hasEmail = first(sp.has_email) === "1";
   const hasPhone = first(sp.has_phone) === "1";
+  // created-date range (YYYY-MM-DD, the native date-input format); anything
+  // else is ignored so a malformed param can never reach the ::date cast
+  const DATE = /^\d{4}-\d{2}-\d{2}$/;
+  const createdFromRaw = (first(sp.created_from) ?? "").trim();
+  const createdFrom = DATE.test(createdFromRaw) ? createdFromRaw : null;
+  const createdToRaw = (first(sp.created_to) ?? "").trim();
+  const createdTo = DATE.test(createdToRaw) ? createdToRaw : null;
 
   // ---- sort (?sort=<field>.<asc|desc>), server-driven ----
   const [sfRaw = "", sdRaw = ""] = (first(sp.sort) ?? "").split(".");
@@ -67,7 +75,9 @@ export default async function Contacts({
          or exists (select 1 from core.contact_identifier ci where ci.contact_id = ct.id and ci.value ilike ${pattern}))
     and (${lifecycle}::text is null or ct.lifecycle_status::text = ${lifecycle})
     and (${hasEmail} = false or coalesce(ct.primary_email, '') <> '')
-    and (${hasPhone} = false or coalesce(ct.primary_phone, '') <> '')`;
+    and (${hasPhone} = false or coalesce(ct.primary_phone, '') <> '')
+    and (${createdFrom}::date is null or ct.created_at >= ${createdFrom}::date)
+    and (${createdTo}::date is null or ct.created_at < ${createdTo}::date + interval '1 day')`;
 
   // light pair batched (pooler-safe: well under the 4-connection cap), then the
   // heavier page query runs alone
@@ -125,6 +135,8 @@ export default async function Contacts({
         lifecycle={lifecycle ?? ""}
         hasEmail={hasEmail}
         hasPhone={hasPhone}
+        createdFrom={createdFrom ?? ""}
+        createdTo={createdTo ?? ""}
         lifecycleOptions={lifecycleOptions}
         sortField={sortField}
         sortDir={sortDir}

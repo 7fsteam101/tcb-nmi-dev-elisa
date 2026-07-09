@@ -32,11 +32,14 @@ function Detail({ label: l, value }: { label: string; value: ReactNode }) {
 }
 
 // Small bordered form shortcut. Carries the appointment + contact ids so the
-// target form can prefill.
+// target form can prefill. Opens in a new tab so the closer keeps this detail
+// page while filing the report.
 function FormLink({ href, children }: { href: string; children: ReactNode }) {
   return (
     <Link
       href={href}
+      target="_blank"
+      rel="noopener"
       className="inline-block rounded-md border px-2.5 py-1 text-xs font-medium"
       style={{ borderColor: "var(--line)", color: "var(--text)", background: "var(--panel)" }}
     >

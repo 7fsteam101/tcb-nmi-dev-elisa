@@ -6,28 +6,13 @@ import { Icon } from "@/components/icons";
 // layout, spacing, headings, and theme-token styling so every form reads like a
 // polished SaaS product in both dark and light mode. All color comes from
 // var(--...) tokens; never a hardcoded hex.
+//
+// Layout contract: each form renders as ONE container (FormCard): a header with
+// the form title and one-line purpose, the field sections separated by subtle
+// labelled dividers (Section), and a single prominent submit footer (SubmitBar).
+// The whole thing reads as one form, never a stack of floating groups.
 
 const tint = (token: string, pct: number) => `color-mix(in srgb, var(${token}) ${pct}%, transparent)`;
-
-/** Page hero: icon chip + title + one-line purpose, on a subtle panel band. */
-export function FormPageHeader({
-  icon, title, subtitle,
-}: { icon: string; title: string; subtitle: string }) {
-  return (
-    <div className="mb-6 flex items-start gap-3.5">
-      <div
-        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
-        style={{ background: tint("--accent", 14), color: "var(--accent)", border: `1px solid ${tint("--accent", 30)}` }}
-      >
-        <Icon name={icon} size={20} />
-      </div>
-      <div className="min-w-0">
-        <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
-        <p className="mt-0.5 text-sm" style={{ color: "var(--muted)" }}>{subtitle}</p>
-      </div>
-    </div>
-  );
-}
 
 /** Two-column shell: the form column on the left, a sticky summary rail on the right. */
 export function FormLayout({ form, rail }: { form: ReactNode; rail?: ReactNode }) {
@@ -41,42 +26,65 @@ export function FormLayout({ form, rail }: { form: ReactNode; rail?: ReactNode }
   );
 }
 
-/** A numbered, titled section card that groups related fields. */
-export function Section({
-  step, title, hint, children, right,
-}: { step?: number; title: string; hint?: string; children: ReactNode; right?: ReactNode }) {
+/** THE form container: one bordered, rounded card holding the header (icon chip
+ *  + title + one-line purpose), every field section, and the submit footer.
+ *  Render it INSIDE the <form> element so the footer's submit button works. */
+export function FormCard({
+  icon, title, subtitle, footer, children,
+}: { icon: string; title: string; subtitle: string; footer: ReactNode; children: ReactNode }) {
   return (
-    <section className="card p-5 sm:p-6">
-      <div className="mb-4 flex items-start justify-between gap-3">
-        <div className="flex min-w-0 items-start gap-3">
-          {step != null && (
-            <span
-              className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold"
-              style={{ background: tint("--accent", 16), color: "var(--accent)" }}
-            >
-              {step}
-            </span>
-          )}
-          <div className="min-w-0">
-            <h2 className="text-[15px] font-semibold leading-tight">{title}</h2>
-            {hint && <p className="mt-1 text-xs leading-relaxed" style={{ color: "var(--muted)" }}>{hint}</p>}
-          </div>
+    <div className="card overflow-hidden">
+      <div
+        className="flex items-start gap-3.5 border-b px-5 py-5 sm:px-6"
+        style={{ borderColor: "var(--line)", background: tint("--panel-2", 45) }}
+      >
+        <div
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
+          style={{ background: tint("--accent", 14), color: "var(--accent)", border: `1px solid ${tint("--accent", 30)}` }}
+        >
+          <Icon name={icon} size={20} />
         </div>
-        {right}
+        <div className="min-w-0">
+          <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+          <p className="mt-0.5 text-sm" style={{ color: "var(--muted)" }}>{subtitle}</p>
+        </div>
       </div>
-      <div className="space-y-4">{children}</div>
+      <div className="space-y-7 px-5 py-6 sm:px-6">{children}</div>
+      {footer}
+    </div>
+  );
+}
+
+/** A titled group of fields INSIDE the form container: a small uppercase muted
+ *  label with a hairline rule as the divider, never a separate floating card. */
+export function Section({
+  title, hint, children,
+}: { title: string; hint?: string; children: ReactNode }) {
+  return (
+    <section>
+      <div className="flex items-center gap-3">
+        <h2 className="shrink-0 text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--muted)" }}>
+          {title}
+        </h2>
+        <span aria-hidden className="h-px flex-1" style={{ background: "var(--line)" }} />
+      </div>
+      {hint && <p className="mt-1.5 text-xs leading-relaxed" style={{ color: "var(--muted)" }}>{hint}</p>}
+      <div className="mt-3.5 space-y-4">{children}</div>
     </section>
   );
 }
 
-/** A labelled field row with a larger, more legible label + optional helper. */
+/** A labelled field row: label above the input (inputs themselves are full-width,
+ *  14px, from the global input styles), optional helper below, and a required
+ *  marker when the wrapped input is required. */
 export function Field({
-  label, hint, htmlFor, children, className = "",
-}: { label: string; hint?: string; htmlFor?: string; children: ReactNode; className?: string }) {
+  label, hint, htmlFor, required, children, className = "",
+}: { label: string; hint?: string; htmlFor?: string; required?: boolean; children: ReactNode; className?: string }) {
   return (
     <div className={className}>
       <label htmlFor={htmlFor} className="mb-1.5 block text-[13px] font-medium" style={{ color: "var(--text)" }}>
         {label}
+        {required && <span aria-hidden title="Required" className="ml-0.5" style={{ color: "var(--bad)" }}>*</span>}
       </label>
       {children}
       {hint && <p className="mt-1 text-[11px] leading-relaxed" style={{ color: "var(--muted)" }}>{hint}</p>}
@@ -118,14 +126,17 @@ export function CheckRow({ children }: { children: ReactNode }) {
   );
 }
 
-/** Sticky submit bar with the primary action and pending state. */
+/** The container's footer: one prominent accent submit button plus the what-happens note. */
 export function SubmitBar({ pending, label, pendingLabel }: { pending: boolean; label: string; pendingLabel: string }) {
   return (
-    <div className="card flex items-center justify-between gap-3 p-4">
+    <div
+      className="flex flex-col gap-3 border-t px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6"
+      style={{ borderColor: "var(--line)", background: tint("--panel-2", 45) }}
+    >
       <p className="text-xs" style={{ color: "var(--muted)" }}>
         Submitting logs the report, updates the reporting tables, and syncs to Close.
       </p>
-      <button type="submit" disabled={pending} className="btn shrink-0 px-6">
+      <button type="submit" disabled={pending} className="btn shrink-0 px-7" style={{ background: "var(--accent)" }}>
         {pending ? pendingLabel : label}
       </button>
     </div>

@@ -64,6 +64,8 @@ type Props = {
   lifecycle: string;
   hasEmail: boolean;
   hasPhone: boolean;
+  createdFrom: string; // YYYY-MM-DD or "" (?created_from=)
+  createdTo: string;   // YYYY-MM-DD or "" (?created_to=)
   lifecycleOptions: string[];
   sortField: string | null;
   sortDir: SortDir | null;
@@ -73,10 +75,13 @@ type Props = {
   totalCount: number;
 };
 
-type NavState = { q: string; lifecycle: string; hasEmail: boolean; hasPhone: boolean; sort: string | null; page: number };
+type NavState = {
+  q: string; lifecycle: string; hasEmail: boolean; hasPhone: boolean;
+  createdFrom: string; createdTo: string; sort: string | null; page: number;
+};
 
 export function ContactsTable({
-  rows, tz, q, lifecycle, hasEmail, hasPhone, lifecycleOptions,
+  rows, tz, q, lifecycle, hasEmail, hasPhone, createdFrom, createdTo, lifecycleOptions,
   sortField, sortDir, page, totalPages, filteredCount, totalCount,
 }: Props) {
   const router = useRouter();
@@ -85,6 +90,13 @@ export function ContactsTable({
   // search box: local text, applied on submit (server-side ?q=)
   const [qInput, setQInput] = useState(q);
   useEffect(() => setQInput(q), [q]);
+
+  // created-date range: local mirrors so the inputs never snap back while the
+  // route transition is pending; a change navigates immediately
+  const [fromInput, setFromInput] = useState(createdFrom);
+  useEffect(() => setFromInput(createdFrom), [createdFrom]);
+  const [toInput, setToInput] = useState(createdTo);
+  useEffect(() => setToInput(createdTo), [createdTo]);
 
   // ---- column widths (drag handles on header edges, persisted) ----
   const [widths, setWidths] = useState<Record<ColKey, number>>(
@@ -145,7 +157,7 @@ export function ContactsTable({
   // ---- URL state: every control rewrites the query string ----
   function navigate(next: Partial<NavState>) {
     const s: NavState = {
-      q, lifecycle, hasEmail, hasPhone,
+      q, lifecycle, hasEmail, hasPhone, createdFrom, createdTo,
       sort: sortField && sortDir ? `${sortField}.${sortDir}` : null,
       page,
       ...next,
@@ -155,6 +167,8 @@ export function ContactsTable({
     if (s.lifecycle) p.set("lifecycle", s.lifecycle);
     if (s.hasEmail) p.set("has_email", "1");
     if (s.hasPhone) p.set("has_phone", "1");
+    if (s.createdFrom) p.set("created_from", s.createdFrom);
+    if (s.createdTo) p.set("created_to", s.createdTo);
     if (s.sort) p.set("sort", s.sort);
     if (s.page > 1) p.set("page", String(s.page));
     const qs = p.toString();
@@ -175,9 +189,9 @@ export function ContactsTable({
   const scrollRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
-  }, [page, sortField, sortDir, q, lifecycle, hasEmail, hasPhone]);
+  }, [page, sortField, sortDir, q, lifecycle, hasEmail, hasPhone, createdFrom, createdTo]);
 
-  const activeFilters = [q !== "", lifecycle !== "", hasEmail, hasPhone].filter(Boolean).length;
+  const activeFilters = [q !== "", lifecycle !== "", hasEmail, hasPhone, createdFrom !== "", createdTo !== ""].filter(Boolean).length;
   const filtersActive = activeFilters > 0;
   const countLine = filtersActive
     ? `${num(filteredCount)} of ${num(totalCount)} contacts`
@@ -213,10 +227,30 @@ export function ContactsTable({
         </select>
         <Toggle active={hasEmail} onClick={() => navigate({ hasEmail: !hasEmail, page: 1 })}>Has email</Toggle>
         <Toggle active={hasPhone} onClick={() => navigate({ hasPhone: !hasPhone, page: 1 })}>Has phone</Toggle>
+        <span className="flex items-center gap-1.5 text-xs" style={{ color: "var(--muted)" }}>
+          Created
+          <input
+            type="date"
+            value={fromInput}
+            max={toInput || undefined}
+            onChange={(e) => { setFromInput(e.target.value); navigate({ createdFrom: e.target.value, page: 1 }); }}
+            aria-label="Created from"
+            className="!w-auto !py-1 text-xs"
+          />
+          to
+          <input
+            type="date"
+            value={toInput}
+            min={fromInput || undefined}
+            onChange={(e) => { setToInput(e.target.value); navigate({ createdTo: e.target.value, page: 1 }); }}
+            aria-label="Created to"
+            className="!w-auto !py-1 text-xs"
+          />
+        </span>
         {filtersActive && (
           <button
             type="button"
-            onClick={() => { setQInput(""); navigate({ q: "", lifecycle: "", hasEmail: false, hasPhone: false, page: 1 }); }}
+            onClick={() => { setQInput(""); setFromInput(""); setToInput(""); navigate({ q: "", lifecycle: "", hasEmail: false, hasPhone: false, createdFrom: "", createdTo: "", page: 1 }); }}
             className="rounded-md border px-2.5 py-1.5 text-xs font-medium hover:bg-white/5"
             style={{ color: "var(--muted)", borderColor: "var(--line)" }}
           >
