@@ -48,15 +48,13 @@ async function closeStageId(key: string, stageLabel: string): Promise<string> {
     // slug-matched so "won_pif" finds "Won PIF" however Close spells it
     for (const s of body.data ?? []) stageIdCache[slug(s.label)] = s.id;
   }
-  // fallbacks: the new "Sales" pipeline (live 2026-07-07) carries the redesigned
-  // stages directly, so these now only catch strays: a legacy internal
-  // 'strategy_call_booked' maps to the new Self Booked, and if a new-pipeline
-  // label is ever missing we fall back to the old-pipeline equivalents.
+  // Outbound stage fallbacks. AUDIT FINDING (July 10): mapping won_pif/won_pp/
+  // deposit to the OLD pipeline's closed_won could fire the client's onboarding
+  // chain (Worker B /stage-change) from a dashboard action. The new Sales
+  // pipeline carries every stage we write, so the only fallback kept is the
+  // legacy internal strategy_call_booked mapping onto the new Self Booked.
   const OUTBOUND_FALLBACKS: Record<string, string[]> = {
-    strategy_call_booked: ["self_booked", "strategy_call_booked"],
-    won_pif: ["closed_won"], won_pp: ["closed_won"], deposit: ["closed_won"],
-    dq_on_call: ["not_a_fit"], intake_form_submitted: ["intake_submitted"],
-    follow_up_call_booked: ["call_completed"], warm_list: ["call_completed"],
+    strategy_call_booked: ["self_booked"],
   };
   const want = slug(stageLabel);
   const id = stageIdCache[want] ?? (OUTBOUND_FALLBACKS[want] ?? []).map((f) => stageIdCache![f]).find(Boolean);
