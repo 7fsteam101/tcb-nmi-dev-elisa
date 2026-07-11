@@ -1371,6 +1371,9 @@
   var state = { q:'', f:'all' };
 
   function matchFilter(c){
+    /* recommendation cards (pr-*) are future ideas, not existing automations:
+       the status/migration quick filters never hide them (search still applies) */
+    if (c.className.indexOf("pr-") !== -1) return true;
     switch(state.f){
       case 'repoint': return c.classList.contains('mig-repoint');
       case 'safe':    return c.classList.contains('mig-safe');
