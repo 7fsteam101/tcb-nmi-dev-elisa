@@ -95,9 +95,9 @@ up, not-sales). Extend the same pattern to everything:
 - Their GHL -> Close -> Slack glue runs on Josh's Cloudflare Workers + Zapier,
   documented in the tcb-operations repo.
 - TO DO:
-  1. Audit that repo the moment Josh approves the token (watcher armed):
-     produce the map of every flow, what fires it, and what must be re-pointed
-     to the new pipeline (the onboarding worker is the known critical one).
+  1. DONE (July 11): AUTOMATION-AUDIT.md carries the line-verified map of every
+     flow across bdcr-operations, tcb-operations AND BDCR-salesmen-dashboard,
+     with the exact re-point list (file:line) and the migration sequence.
   2. Coordinate the pipeline migration: Josh re-points onboarding off old
      "Closed Won", then the team moves open opportunities to the new pipeline.
   3. Longer term: decide which flows migrate INTO our system (we already push

@@ -14,3 +14,5 @@ node_modules/
 **/scripts/.*.mjs
 .claude/worktrees/
 bdcr-operations/
+tcb-operations/
+BDCR-salesmen-dashboard/
