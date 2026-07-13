@@ -68,7 +68,7 @@ export default async function PortalHome() {
                 {c.description && <div style={{ ...muted, fontSize: 12 }}>{c.description}</div>}
               </div>
               {f.allowCardUpdate && c.linkToken && (
-                <Link href={`/pay/${c.linkToken}/card`} style={{ fontSize: 13, color: accent, textDecoration: "none" }}>
+                <Link href={`/pay/${c.linkToken}/card`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: accent, textDecoration: "none" }}>
                   Update card →
                 </Link>
               )}
@@ -126,6 +126,8 @@ export default async function PortalHome() {
                 <Link
                   key={inv.id}
                   href={`/pay/${inv.token}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="portal-pay-row"
                   style={{ ...row, textDecoration: "none", color: "inherit" }}
                 >
