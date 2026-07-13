@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { getPortalSession } from "@/lib/portal-auth";
 import { getPortalFeatures } from "@/lib/portal";
+import { PortalNavLink } from "./nav";
 
 export const dynamic = "force-dynamic";
 
@@ -12,9 +12,11 @@ export default async function PortalAppLayout({ children }: { children: React.Re
   const session = await getPortalSession();
   if (!session) redirect("/portal/login");
   const f = await getPortalFeatures();
+  const accent = f.brandAccent && f.brandAccent.trim() ? f.brandAccent : "#3b82f6";
 
+  // Single "Billing" entry -> /portal (payment methods is a SECTION on that page,
+  // not its own nav item). Account only when business-info editing is enabled.
   const nav: { href: string; label: string }[] = [{ href: "/portal", label: "Billing" }];
-  if (f.showPaymentMethods) nav.push({ href: "/portal#payment-methods", label: "Payment methods" });
   if (f.editBusinessInfo) nav.push({ href: "/portal/account", label: "Account" });
 
   return (
@@ -40,9 +42,7 @@ export default async function PortalAppLayout({ children }: { children: React.Re
         <div style={{ fontWeight: 800, letterSpacing: 0.5, fontSize: 15 }}>{f.brandName.toUpperCase()}</div>
         <nav style={{ display: "flex", gap: 16, fontSize: 13, alignItems: "center" }}>
           {nav.map((n) => (
-            <Link key={n.label} href={n.href} style={{ color: "#8aa0bd", textDecoration: "none" }}>
-              {n.label}
-            </Link>
+            <PortalNavLink key={n.href} href={n.href} label={n.label} accent={accent} />
           ))}
           <a href="/portal/logout" style={{ color: "#8aa0bd", textDecoration: "none" }}>
             Sign out

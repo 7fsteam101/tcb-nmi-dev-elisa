@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { sql } from "./db";
-import { getVaultCardCached, type VaultCard } from "./nmi";
+import { getVaultCardCached, cancelSubscription, ok, type VaultCard } from "./nmi";
 
 // =============================================================================
 // Customer Billing Portal — data layer (v1)
@@ -221,14 +221,48 @@ export type PortalSubscription = {
 };
 
 export async function listCustomerSubscriptions(contactId: string): Promise<PortalSubscription[]> {
+  // Quoted aliases preserve camelCase (Postgres lowercases unquoted identifiers),
+  // so the returned rows match PortalSubscription (linkId/subscriptionId) exactly —
+  // an unquoted `as link_id` would give s.link_id and leave s.linkId undefined.
   const rows = await sql`
-    select id as link_id, nmi_subscription_id as subscription_id,
+    select id as "linkId", nmi_subscription_id as "subscriptionId",
            description, amount_minor, status, created_at
     from finance.payment_link
     where contact_id = ${contactId}
       and nmi_subscription_id is not null
     order by created_at desc`;
   return rows as unknown as PortalSubscription[];
+}
+
+export type CancelResult = { ok: true } | { ok: false; message: string };
+
+/**
+ * Cancel one of THIS customer's subscriptions. Ownership is re-verified against
+ * contactId (never trust a client-supplied linkId alone): the payment_link must
+ * belong to the contact and carry an nmi_subscription_id. On NMI success the row
+ * is marked 'void' — the closest cancelled state the chk_payment_link_status
+ * constraint allows ('created','sent','pending','viewed','paid','failed',
+ * 'expired','void','refunded') — so the portal stops showing it as active.
+ */
+export async function cancelCustomerSubscription(contactId: string, linkId: string): Promise<CancelResult> {
+  // Guard: an empty/blank id would make `where id = ''` throw
+  // "invalid input syntax for type uuid". Fail cleanly instead.
+  if (!linkId || !linkId.trim()) return { ok: false, message: "Missing subscription reference. Please refresh and try again." };
+  const rows = await sql`
+    select id, nmi_subscription_id, status
+    from finance.payment_link
+    where id = ${linkId} and contact_id = ${contactId} and nmi_subscription_id is not null
+    limit 1`;
+  if (!rows.length) return { ok: false, message: "Subscription not found." };
+  const subscriptionId = rows[0].nmi_subscription_id as string;
+
+  const res = await cancelSubscription({ subscriptionId });
+  if (!ok(res)) {
+    return { ok: false, message: res.responsetext ? String(res.responsetext) : "The subscription could not be cancelled. Please try again." };
+  }
+
+  await sql`update finance.payment_link set status = 'void' where id = ${linkId}`;
+  return { ok: true };
 }
 
 // -----------------------------------------------------------------------------

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getPortalSession } from "@/lib/portal-auth";
+import { CancelSubscription } from "./cancel-subscription";
 import {
   getPortalCustomer,
   getPortalFeatures,
@@ -79,15 +80,23 @@ export default async function PortalHome() {
       {f.showSubscriptions && subs.length > 0 && (
         <section style={card}>
           <div style={h2}>Subscriptions</div>
-          {subs.map((s) => (
-            <div key={s.linkId} style={row}>
-              <div>
-                <div>{s.description || "Payment plan"}</div>
-                <div style={{ ...muted, fontSize: 12 }}>Started {day(s.created_at)}</div>
+          {subs.map((s, i) => {
+            // "Active" = not already in a terminal cancelled/ended state. The
+            // cancel affordance only shows when the admin flag allowCancel is on.
+            const cancellable = f.allowCancel && !["void", "refunded", "expired"].includes(s.status);
+            return (
+              <div key={s.linkId || `sub-${i}`} style={row}>
+                <div>
+                  <div>{s.description || "Payment plan"}</div>
+                  <div style={{ ...muted, fontSize: 12 }}>Started {day(s.created_at)}</div>
+                </div>
+                <span style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                  <StatusPill status={s.status} />
+                  {cancellable && <CancelSubscription linkId={s.linkId} />}
+                </span>
               </div>
-              <StatusPill status={s.status} />
-            </div>
-          ))}
+            );
+          })}
         </section>
       )}
 

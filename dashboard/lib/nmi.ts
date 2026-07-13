@@ -131,6 +131,16 @@ export async function addSubscription(input: {
   });
 }
 
+/** Cancel a recurring subscription in NMI (recurring=delete_subscription). Same
+ *  post()/security_key/form-encoding path as the other calls; ok() (response=1)
+ *  means NMI accepted the cancellation. */
+export async function cancelSubscription(input: { subscriptionId: string }): Promise<NmiResult> {
+  return post({
+    recurring: "delete_subscription",
+    subscription_id: input.subscriptionId,
+  });
+}
+
 /** Replace the stored card on a vault record (card-on-file update). */
 export async function updateVaultCard(input: { vaultId: string; source: CardOrToken }): Promise<NmiResult> {
   return post({ customer_vault: "update_customer", customer_vault_id: input.vaultId, ...cardFields(input.source) });
