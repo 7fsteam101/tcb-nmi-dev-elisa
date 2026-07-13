@@ -1,11 +1,16 @@
 # TCB Launch Runbook: pipeline cutover + go-live
 
-Written July 13, 2026. The step-by-step to launch, in execution order. Every
-Close status id below was pulled live from their org today, so nobody hunts ids
-tomorrow. Sources: AUTOMATION-AUDIT.md (line-verified across bdcr-operations,
+Written July 13, 2026. UPDATED July 14: Katie executes everything herself (no
+Josh dependency). The entire Phase 1 re-point is ALREADY BUILT and waiting as
+two pull requests: tcb-operations#132 and BDCR-salesmen-dashboard#578 (all
+tests green, catalog validated). Deploying them is one script:
+deploy-cutover.sh in this folder, which needs a Cloudflare API token.
+
+Every Close status id below was pulled live from their org, so nobody hunts
+ids. Sources: AUTOMATION-AUDIT.md (line-verified across bdcr-operations,
 tcb-operations, BDCR-salesmen-dashboard), the automation map site, and the
-launch plan. Owners: JOSH (client tech), KATIE (8FS), TEAM (reps), ELISA (NMI
-checkout, parallel track, not blocking).
+launch plan. Owners: KATIE (everything), TEAM (reps), ELISA (NMI checkout,
+parallel track, not blocking).
 
 ## The one rule that orders everything
 
@@ -40,13 +45,18 @@ Old pipeline (BDCR Sales, pipe_7QGKHLVYed30khcc1R8PyN) stays untouched as the
 historical archive. Old Closed Won (the current onboarding trigger):
 stat_5H0LFdifIUVPfma3Cy38yaIMj2AZIZVQN1icedhUr2E.
 
-## Phase 0: pre-flight (tonight, ~30 min total)
+## Phase 0: pre-flight (KATIE, ~30 min total)
 
-- [ ] JOSH decides the Deposit policy: onboarding fires on Won PIF + Won PP
-      EXPLICIT status ids, never on Close's "won" TYPE. (Deposit is also typed
-      won; keying on type would onboard deposit-only clients prematurely.)
-- [ ] JOSH screenshots the Zapier dashboard (Zap names + on/off) so the audit's
-      Zapier picture is verified complete, not just catalog-documented.
+- [x] Deposit policy: RESOLVED per the July 2 call and built accordingly.
+      Onboarding fires on Won PIF + Won PP explicit status ids, never on
+      Close's "won" type, never on Deposit.
+- [ ] KATIE mints the Cloudflare API token on The Credit Brothers account:
+      https://dash.cloudflare.com/profile/api-tokens -> Create Token ->
+      "Edit Cloudflare Workers" template + add "Workers KV Storage: Edit".
+      This is the ONLY missing credential; everything else is already in hand.
+- [ ] KATIE opens Zapier and confirms the Zap catalog (names + on/off states)
+      matches AUTOMATION-AUDIT.md; locate the WF-03 booking Zap (302729523)
+      ready to switch off in Phase 1.
 - [ ] KATIE turns on the NMI Silent Post: NMI portal, Settings, Silent Post URL:
       https://tcb-sales-system.vercel.app/api/webhooks/nmi?secret=03a493de668fa3fc0acb712885ae394b
 - [ ] KATIE configures Slack notifications (Admin > Notifications): channel +
@@ -55,52 +65,43 @@ stat_5H0LFdifIUVPfma3Cy38yaIMj2AZIZVQN1icedhUr2E.
 - [ ] KATIE sanity check: dashboard Connections page shows every source green,
       no needs-attention items pending decisions.
 
-## Phase 1: re-point the automations (JOSH, ~2-4 hours, from AUTOMATION-AUDIT.md)
+## Phase 1: re-point the automations (KATIE, ~30 min; the code is ALREADY BUILT)
 
-All in tcb-operations unless noted. Ship as ONE PR so the CI-enforced catalog
-(config/workflows.json) updates with the code.
+The whole re-point exists as two reviewed-and-tested pull requests, built by
+8FS on July 14 with all ids embedded:
 
-- [ ] 1.1 Worker B /stage-change (THE onboarding chain). CODE change: the
-      Closed Won match is a hardcoded single-id comparison (worker-b/src/index.js
-      around :252 and :1411); it must become a SET containing Won PIF
-      (stat_6Sqc...) and Won PP (stat_be0y...), per the Phase 0 policy NOT
-      Deposit and NOT type=won. Update the KV config stage map (namespace
-      ce3fbd35d0cc4373906ada4f27f07877) for the new pipeline ids. The chain it
-      protects: lead status write, Slack win alert (C069L4NFGSZ), onboarding
-      email (Close template), Monday client records (boards 7002021408 +
-      7117839824), GHL Repair iMessage workflow, commission-rate stamp,
-      agreement PDF attach, Repair Leads board stamping.
-- [ ] 1.2 Worker A /intake-submitted: writes old Intake Submitted; re-point to
-      Intake Form Submitted (stat_7kuJ...). Note its failure mode is a hard 500
-      keyed off the old stage id (src/index.js:244-245).
-- [ ] 1.3 nafa-audit-sync: writes old Audit Complete; re-point to new Audit
-      Complete (stat_fFza...).
-- [ ] 1.4 contract-signed-webhook: writes old Contract Signed; re-point to new
-      Contract Signed (stat_c3DT...) (Slack #1-signed-agreements unchanged).
-- [ ] 1.5 ghl-optin-close-sync: wrangler.toml:37-87 vars carry the old pipeline
-      and its 8-stage forward-only ladder; replace with the new pipeline id +
-      new stage ids (config edit + redeploy, no code).
-- [ ] 1.6 affiliate-partner-sync: wrangler.toml:35 BDCR_PIPELINE_ID points at
-      the old pipeline for its active-sales split; update to
-      pipe_5ZtGJ7zT6RjguZ6KPEebkC.
-- [ ] 1.7 quiz-email-draft (WF-54): creates opt-in opps on the old pipeline;
-      re-point creation to Lead Opt In (stat_q8Py...).
-- [ ] 1.8 Zapier WF-03 booking Zap (302729523): TURN OFF. Our dashboard push
-      replaces it (Phase 2). Do not re-point it; retiring removes the dual-writer.
-- [ ] 1.9 BDCR-salesmen-dashboard (separate repo): 3 constants in
-      workers/bdcr-sales-dashboard-api/src/index.js (CLOSE_PIPELINE_ID :1711,
-      eligibility stage :1695, strategy stage :1703 -> Setter Booked / Self
-      Booked as appropriate) + the WF-40 lead-health stage table
-      (src/lead-health-spec.js:31-44) + redeploy. Note: its booking write is
-      non-blocking, so un-re-pointed it mis-routes SILENTLY.
-- [ ] 1.10 Sales Hub commission engine (same repo, src/index.js:9029-9032) still
-      pays the OLD 10/15 percent rule; either update to the July 2 plan or
-      accept a known temporary divergence from the dashboard statements and tell
-      the reps which number is canonical (the dashboard).
-- [ ] 1.11 Deploy everything, then verify with ONE synthetic lead: create a test
-      lead in Close, walk it Lead Opt In -> Self Booked -> Won PP on the NEW
-      pipeline; confirm the onboarding chain fires exactly once (Slack win
-      alert, email, Monday records) and NOTHING fires from the old pipeline.
+  tcb-operations#132  https://github.com/The-Credit-Brothers/tcb-operations/pull/132
+    kv-mappings.json stage map v2 (13 stages), worker-b won-set {Won PIF, Won
+    PP} (Deposit excluded), worker-a intake id, nafa-audit-sync ids + guard,
+    contract-signed-webhook id, ghl-optin pipeline/opt-in/Setter Booked +
+    rebuilt forward-only ladder (parked states No Show / cancels / Warm List
+    sit before Setter Booked so a re-book lifts them back into the flow),
+    affiliate + quiz vars, catalog (WF-11/38/41) + docs. Tests: worker-a 7/7,
+    worker-b 9/9, quiz 7/7, ghl-optin 28/28, affiliate 33/33; catalog check OK.
+
+  BDCR-salesmen-dashboard#578  https://github.com/The-Credit-Brothers/BDCR-salesmen-dashboard/pull/578
+    Booking writes -> Setter Booked / Self Booked, pipeline id, WF-40
+    lead-health stage table rebuilt (keys stable, Contract Sent / Contract
+    Signed / Deposit added, Won PP + DQ aliased). Tests: 763/763.
+
+Steps:
+- [ ] 1.1 Merge both PRs (review the diffs on GitHub; squash-merge per repo
+      convention; bump versions at merge if you follow their vX.XXX rule).
+- [ ] 1.2 Zapier WF-03 booking Zap (302729523): TURN OFF. Our dashboard push
+      replaces it (Phase 2). Do not re-point it; retiring removes the
+      dual-writer.
+- [ ] 1.3 Run the deploy: `CLOUDFLARE_API_TOKEN=... bash deploy-cutover.sh`
+      (in 7FS/clients/the-credit-brothers/). It pushes the KV stage map and
+      deploys all 8 workers across both repos in one pass. Worker A and the
+      KV config MUST ship together; the script does this.
+- [ ] 1.4 Synthetic-lead test: create a test lead in Close, walk it Lead Opt
+      In -> Self Booked -> Won PP on the NEW pipeline; confirm the onboarding
+      chain fires exactly once (Slack win alert C069L4NFGSZ, onboarding email,
+      Monday client records) and NOTHING fires from the old pipeline.
+
+Known accepted divergence: the Sales Hub commission engine still pays the old
+10/15 rule (deliberately untouched). The dashboard carries the July 2 comp
+plan and is canonical for commissions; update or retire the Hub engine later.
 
 ## Phase 2: flip our push (KATIE, 10 min, only after 1.8)
 
