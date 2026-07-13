@@ -22,9 +22,25 @@ type Rule = {
   example: Record<string, string> | null;
 };
 
-// same substitution the engine uses (lib/notify.ts render)
+// same substitution the engine uses (lib/notify.ts render), incl. the date
+// modifiers: {time|date}, {time|time}, {time|datetime}; bare ISO auto-formats.
+const TZ = "America/New_York";
+const ISO_RE = /^\d{4}-\d{2}-\d{2}T/;
+const fmtDate = (d: Date, mode: string) => {
+  const date = new Intl.DateTimeFormat("en-US", { timeZone: TZ, month: "short", day: "numeric" }).format(d);
+  const time = new Intl.DateTimeFormat("en-US", { timeZone: TZ, hour: "numeric", minute: "2-digit" }).format(d);
+  return mode === "date" ? date : mode === "time" ? time : date + ", " + time;
+};
 const renderPreview = (template: string, vars: Record<string, string>) =>
-  template.replace(/\{(\w+)\}/g, (_, k: string) => vars[k] ?? "").replace(/\s{2,}/g, " ").trim();
+  template.replace(/\{(\w+)(?:\|(\w+))?\}/g, (_, k: string, mod?: string) => {
+    const v = vars[k];
+    if (v === null || v === undefined || v === "") return "";
+    if (mod || ISO_RE.test(v)) {
+      const d = new Date(v);
+      if (!isNaN(d.getTime())) return fmtDate(d, mod ?? "datetime");
+    }
+    return v;
+  }).replace(/\s{2,}/g, " ").trim();
 
 // min-amount gate only makes sense on money events
 const MONEY_EVENTS = ["payment_succeeded", "payment_refunded"];
@@ -93,17 +109,37 @@ function RuleCard({ rule, channels }: { rule: Rule; channels: Channel[] }) {
   const known = rule.channelId != null && channels.some((c) => c.id === rule.channelId);
   const save = (patch: RulePatch) => start(() => updateRuleAction(rule.id, patch));
 
-  // clicking a variable chip inserts {var} at the cursor and keeps typing flow
+  // inserting a value: at the cursor when the textarea has been interacted
+  // with, otherwise appended at the end (never silently at position 0)
+  const caretRef = useRef<number | null>(null);
   const vars = (rule.variables.match(/\{\w+\}/g) ?? []);
+  const DATE_VARS = ["time", "date"];
+  const options: { v: string; hint: string }[] = vars.flatMap((v) => {
+    const name = v.slice(1, -1);
+    if (!DATE_VARS.includes(name)) return [{ v, hint: "" }];
+    return [
+      { v, hint: " (date + time)" },
+      { v: `{${name}|date}`, hint: " (date only)" },
+      { v: `{${name}|time}`, hint: " (time only)" },
+    ];
+  });
   const insertVar = (v: string) => {
     const ta = taRef.current;
-    const at = ta ? ta.selectionStart ?? template.length : template.length;
-    const next = template.slice(0, at) + v + template.slice(ta ? ta.selectionEnd ?? at : at);
+    const at = caretRef.current ?? template.length;
+    const before = template.slice(0, at);
+    const pad = before.length > 0 && !/\s$/.test(before) && caretRef.current === null ? " " : "";
+    const next = before + pad + v + template.slice(at);
     setTemplate(next);
     save({ template: next });
+    const newCaret = at + pad.length + v.length;
+    caretRef.current = newCaret;
     requestAnimationFrame(() => {
-      if (ta) { ta.focus(); ta.selectionStart = ta.selectionEnd = at + v.length; }
+      if (ta) { ta.focus(); ta.selectionStart = ta.selectionEnd = newCaret; }
     });
+  };
+  const trackCaret = () => {
+    const ta = taRef.current;
+    if (ta) caretRef.current = ta.selectionStart ?? null;
   };
   const previewVars = previewMode === "real" && rule.example ? rule.example : rule.sample;
   const previewText = renderPreview(template, previewVars);
@@ -176,26 +212,27 @@ function RuleCard({ rule, channels }: { rule: Rule; channels: Channel[] }) {
             className="text-sm"
             value={template}
             aria-label="Message template"
-            onChange={(e) => setTemplate(e.target.value)}
-            onBlur={() => { if (template !== rule.template) save({ template }); }}
+            onChange={(e) => { setTemplate(e.target.value); trackCaret(); }}
+            onClick={trackCaret}
+            onKeyUp={trackCaret}
+            onSelect={trackCaret}
+            onBlur={() => { trackCaret(); if (template !== rule.template) save({ template }); }}
           />
-          <div className="mt-1.5 flex flex-wrap items-center gap-1">
-            <span className="mr-1 text-[11px]" style={{ color: "var(--muted)" }}>Insert value:</span>
-            {vars.map((v) => (
-              <button
-                key={v}
-                type="button"
-                onClick={() => insertVar(v)}
-                className="num rounded-md border px-1.5 py-0.5 text-[11px]"
-                style={{
-                  borderColor: "color-mix(in srgb, var(--accent) 35%, var(--line))",
-                  color: "var(--accent)",
-                  background: "color-mix(in srgb, var(--accent) 8%, transparent)",
-                }}
-              >
-                {v}
-              </button>
-            ))}
+          <div className="mt-1.5 flex flex-wrap items-center gap-2">
+            <select
+              className="!w-auto !py-1 text-[12px]"
+              value=""
+              aria-label="Insert a value into the template"
+              onChange={(e) => { if (e.target.value) insertVar(e.target.value); e.target.value = ""; }}
+            >
+              <option value="">Insert value...</option>
+              {options.map((o) => (
+                <option key={o.v} value={o.v}>{o.v}{o.hint}</option>
+              ))}
+            </select>
+            <span className="text-[11px]" style={{ color: "var(--muted)" }}>
+              Dates accept formats: {"{time}"} full, {"{time|date}"} date only, {"{time|time}"} time only.
+            </span>
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <label className="flex items-center gap-1 text-[11px]" style={{ color: "var(--muted)" }}>

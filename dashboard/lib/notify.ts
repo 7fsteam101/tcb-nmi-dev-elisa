@@ -52,10 +52,27 @@ const identity = (name?: string | null, icon?: string | null) => ({
   ...(icon ? (icon.startsWith("http") ? { icon_url: icon } : { icon_emoji: icon }) : {}),
 });
 
+// Template rendering with optional date-format modifiers: {time|date} -> Jul 18,
+// {time|time} -> 1:30 PM, {time|datetime} -> Jul 18, 1:30 PM. A bare {var} whose
+// value is an ISO timestamp auto-formats as datetime so raw ISO never reaches
+// Slack. All dates render in the report timezone (locked ET per decision 3).
+const TZ = "America/New_York";
+const ISO_RE = /^\d{4}-\d{2}-\d{2}T/;
+const fmtDate = (d: Date, mode: string) => {
+  const date = new Intl.DateTimeFormat("en-US", { timeZone: TZ, month: "short", day: "numeric" }).format(d);
+  const time = new Intl.DateTimeFormat("en-US", { timeZone: TZ, hour: "numeric", minute: "2-digit" }).format(d);
+  return mode === "date" ? date : mode === "time" ? time : date + ", " + time;
+};
 const render = (template: string, vars: Record<string, string | number | null | undefined>) =>
-  template.replace(/\{(\w+)\}/g, (_, k) => {
+  template.replace(/\{(\w+)(?:\|(\w+))?\}/g, (_, k, mod) => {
     const v = vars[k];
-    return v === null || v === undefined || v === "" ? "" : String(v);
+    if (v === null || v === undefined || v === "") return "";
+    const s = String(v);
+    if (mod || ISO_RE.test(s)) {
+      const d = new Date(s);
+      if (!isNaN(d.getTime())) return fmtDate(d, mod ?? "datetime");
+    }
+    return s;
   }).replace(/\s{2,}/g, " ").trim();
 
 /**

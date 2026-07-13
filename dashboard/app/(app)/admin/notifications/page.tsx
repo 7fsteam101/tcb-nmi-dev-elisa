@@ -1,6 +1,6 @@
 import { sql } from "@/lib/db";
 import { slackStatus, listSlackChannels } from "@/lib/notify";
-import { money, dateTime, shortDate } from "@/lib/format";
+import { money, shortDate } from "@/lib/format";
 import { reportTimezone } from "@/lib/settings";
 import { label } from "@/components/ui";
 import { NotificationRulesEditor } from "./editor";
@@ -13,7 +13,7 @@ export const maxDuration = 60;
 const SAMPLE: Record<string, string> = {
   contact_name: "Jane Sample", amount: "$2,500", processor: "NMI", plan_type: "3pay",
   collected_pct: "33%", deal_value: "$7,500", kind: "refund", closer: "Sample Closer",
-  time: "Jul 14, 2:00 PM", calendar: "Strategy Calls", booked_by: "Self book",
+  time: "2026-07-14T18:00:00.000Z", calendar: "Strategy Calls", booked_by: "Self book",
   source: "meta ads", campaign: " (Sample Campaign)",
   leads: "12", booked: "5", taken: "4", cash: "$8,250", date: "2026-07-12",
 };
@@ -73,7 +73,7 @@ export default async function NotificationsAdmin() {
     where not a.is_demo and a.is_current
     order by a.created_at desc limit 1`;
   if (appt) examples.appointment_booked = {
-    contact_name: appt.full_name ?? "unknown", time: dateTime(appt.scheduled_for, tz),
+    contact_name: appt.full_name ?? "unknown", time: new Date(appt.scheduled_for).toISOString(),
     calendar: appt.calendar_name ?? "", booked_by: appt.booked_by ? label(appt.booked_by) : "Self book",
   };
   const [ns] = await sql`
@@ -86,7 +86,7 @@ export default async function NotificationsAdmin() {
     where not a.is_demo and a.status = 'no_show'
     order by a.scheduled_for desc limit 1`;
   if (ns) examples.appointment_no_show = {
-    contact_name: ns.full_name ?? "unknown", time: dateTime(ns.scheduled_for, tz), calendar: ns.calendar_name ?? "",
+    contact_name: ns.full_name ?? "unknown", time: new Date(ns.scheduled_for).toISOString(), calendar: ns.calendar_name ?? "",
   };
   const [lead] = await sql`
     select o.submitted_at, o.source_channel, o.source_campaign, ct.full_name
