@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { Badge } from "@/components/ui";
 import { updateRuleAction, testRuleAction, type RulePatch } from "./actions";
 
@@ -97,6 +97,105 @@ export function NotificationRulesEditor({ connected, channels, rules }: {
   );
 }
 
+// Two-level insert menu: level one lists the event's values with their LIVE
+// example (whatever the preview currently shows); date values expand to a
+// format picker where every option shows exactly what it renders.
+const DATE_VARS = ["time", "date"];
+const friendly = (name: string) => name.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+const clip = (s: string, n = 26) => (s.length > n ? s.slice(0, n - 3) + "..." : s);
+
+function InsertMenu({ vars, previewVars, onInsert }: {
+  vars: string[];
+  previewVars: Record<string, string>;
+  onInsert: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", away);
+    document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("mousedown", away); document.removeEventListener("keydown", esc); };
+  }, [open]);
+
+  const pick = (token: string) => { onInsert(token); setOpen(false); setExpanded(null); };
+  const exampleFor = (name: string, mode?: string) => {
+    const raw = previewVars[name] ?? "";
+    if (!raw) return "empty";
+    if (ISO_RE.test(raw)) {
+      const d = new Date(raw);
+      if (!isNaN(d.getTime())) return fmtDate(d, mode ?? "datetime");
+    }
+    return clip(raw);
+  };
+
+  return (
+    <div ref={wrapRef} className="relative inline-block">
+      <button
+        type="button"
+        onClick={() => { setOpen((o) => !o); setExpanded(null); }}
+        className="rounded-md border px-2 py-1 text-[12px]"
+        style={{
+          borderColor: "color-mix(in srgb, var(--accent) 35%, var(--line))",
+          color: "var(--accent)",
+          background: "color-mix(in srgb, var(--accent) 8%, transparent)",
+        }}
+      >
+        + Insert value
+      </button>
+      {open && (
+        <div
+          className="absolute left-0 z-20 mt-1 w-72 overflow-hidden rounded-lg border shadow-lg"
+          style={{ borderColor: "var(--line)", background: "var(--panel)" }}
+        >
+          {vars.map((v) => {
+            const name = v.slice(1, -1);
+            const isDate = DATE_VARS.includes(name);
+            const isOpen = expanded === name;
+            return (
+              <div key={v} style={{ borderTop: "1px solid var(--line)" }}>
+                <button
+                  type="button"
+                  onClick={() => (isDate ? setExpanded(isOpen ? null : name) : pick(v))}
+                  className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-[12px] hover:brightness-110"
+                  style={{ background: isOpen ? "var(--panel-2)" : "transparent" }}
+                >
+                  <span className="font-medium">{friendly(name)}</span>
+                  <span className="num truncate text-[11px]" style={{ color: "var(--muted)" }}>
+                    {isDate ? (isOpen ? "pick a format" : exampleFor(name)) : exampleFor(name)}
+                  </span>
+                  {isDate && <span className="text-[10px]" style={{ color: "var(--muted)" }}>{isOpen ? String.fromCharCode(9662) : String.fromCharCode(9656)}</span>}
+                </button>
+                {isDate && isOpen && (
+                  <div style={{ background: "var(--panel-2)" }}>
+                    {([["datetime", "Date + time", v], ["date", "Date only", `{${name}|date}`], ["time", "Time only", `{${name}|time}`]] as const).map(([mode, labelTxt, token]) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => pick(token)}
+                        className="flex w-full items-center justify-between gap-2 py-1.5 pl-6 pr-3 text-left text-[12px] hover:brightness-110"
+                      >
+                        <span>{labelTxt}</span>
+                        <span className="num text-[11px]" style={{ color: "var(--accent)" }}>{exampleFor(name, mode)}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function RuleCard({ rule, channels }: { rule: Rule; channels: Channel[] }) {
   const [, start] = useTransition();
   const [template, setTemplate] = useState(rule.template);
@@ -113,16 +212,6 @@ function RuleCard({ rule, channels }: { rule: Rule; channels: Channel[] }) {
   // with, otherwise appended at the end (never silently at position 0)
   const caretRef = useRef<number | null>(null);
   const vars = (rule.variables.match(/\{\w+\}/g) ?? []);
-  const DATE_VARS = ["time", "date"];
-  const options: { v: string; hint: string }[] = vars.flatMap((v) => {
-    const name = v.slice(1, -1);
-    if (!DATE_VARS.includes(name)) return [{ v, hint: "" }];
-    return [
-      { v, hint: " (date + time)" },
-      { v: `{${name}|date}`, hint: " (date only)" },
-      { v: `{${name}|time}`, hint: " (time only)" },
-    ];
-  });
   const insertVar = (v: string) => {
     const ta = taRef.current;
     const at = caretRef.current ?? template.length;
@@ -218,21 +307,8 @@ function RuleCard({ rule, channels }: { rule: Rule; channels: Channel[] }) {
             onSelect={trackCaret}
             onBlur={() => { trackCaret(); if (template !== rule.template) save({ template }); }}
           />
-          <div className="mt-1.5 flex flex-wrap items-center gap-2">
-            <select
-              className="!w-auto !py-1 text-[12px]"
-              value=""
-              aria-label="Insert a value into the template"
-              onChange={(e) => { if (e.target.value) insertVar(e.target.value); e.target.value = ""; }}
-            >
-              <option value="">Insert value...</option>
-              {options.map((o) => (
-                <option key={o.v} value={o.v}>{o.v}{o.hint}</option>
-              ))}
-            </select>
-            <span className="text-[11px]" style={{ color: "var(--muted)" }}>
-              Dates accept formats: {"{time}"} full, {"{time|date}"} date only, {"{time|time}"} time only.
-            </span>
+          <div className="mt-1.5">
+            <InsertMenu vars={vars} previewVars={previewVars} onInsert={insertVar} />
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <label className="flex items-center gap-1 text-[11px]" style={{ color: "var(--muted)" }}>
