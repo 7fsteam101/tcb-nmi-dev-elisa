@@ -20,6 +20,37 @@ async function stripeAllowed(role: string): Promise<boolean> {
   return flag === "true";
 }
 
+// -----------------------------------------------------------------------------
+// Contact typeahead for the payment-link picker. Server-side ilike search so ALL
+// contacts are reachable — the old page preloaded only the first 500 by name and
+// filtered client-side, leaving ~8k unreachable. Columns are whitelisted and the
+// input is parameterized (postgres.js tagged template = bound param, no interp).
+// Mirrors the Contacts page search (full_name / primary_email / primary_phone /
+// contact_identifier email+phone).
+// -----------------------------------------------------------------------------
+export type ContactSearchResult = { id: string; name: string; email: string };
+
+export async function searchContactsAction(rawQuery: string): Promise<ContactSearchResult[]> {
+  const user = await requireSession();
+  if (!["admin", "leadership", "closer"].includes(user.role)) return [];
+  const q = (rawQuery ?? "").trim();
+  if (q.length < 2) return []; // minimum query length before we hit the DB
+  const pattern = `%${q}%`;
+  const rows = await sql`
+    select ct.id, ct.full_name, ct.primary_email
+    from core.contact ct
+    where ct.full_name is not null
+      and (ct.full_name ilike ${pattern}
+           or ct.primary_email ilike ${pattern}
+           or ct.primary_phone ilike ${pattern}
+           or exists (select 1 from core.contact_identifier ci
+                      where ci.contact_id = ct.id and ci.type in ('email', 'phone') and ci.value ilike ${pattern}))
+    order by ct.full_name
+    limit 25`;
+  return (rows as unknown as { id: string; full_name: string | null; primary_email: string | null }[])
+    .map((c) => ({ id: c.id, name: c.full_name ?? "", email: c.primary_email ?? "" }));
+}
+
 export async function createPaymentLinkAction(_prev: unknown, formData: FormData) {
   const user = await requireSession();
   if (!["admin", "leadership", "closer"].includes(user.role))

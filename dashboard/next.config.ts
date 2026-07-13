@@ -1,3 +1,4 @@
+import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   // @react-pdf/renderer pulls in pdfkit/fontkit — keep them external so Next
