@@ -10,7 +10,7 @@ export default async function NotificationsAdmin() {
   const connected = await slackStatus();
   const channels = connected ? await listSlackChannels() : [];
   const rules = await sql`
-    select id, event_type, label, enabled, channel_id, channel_name, template, variables, min_amount_minor
+    select id, event_type, label, enabled, channel_id, channel_name, template, variables, min_amount_minor, bot_name, bot_icon
     from core.notification_rule order by label`;
   const serialized = rules.map((r: any) => ({
     id: String(r.id),
@@ -22,6 +22,8 @@ export default async function NotificationsAdmin() {
     template: String(r.template),
     variables: String(r.variables),
     minAmountMinor: r.min_amount_minor == null ? null : Number(r.min_amount_minor),
+    botName: r.bot_name ?? null,
+    botIcon: r.bot_icon ?? null,
   }));
   return <NotificationRulesEditor connected={connected} channels={channels} rules={serialized} />;
 }

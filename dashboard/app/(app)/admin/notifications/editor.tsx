@@ -7,6 +7,8 @@ import { updateRuleAction, testRuleAction, type RulePatch } from "./actions";
 
 type Channel = { id: string; name: string; isPrivate: boolean };
 type Rule = {
+  botName: string | null;
+  botIcon: string | null;
   id: string;
   eventType: string;
   label: string;
@@ -77,6 +79,8 @@ function RuleCard({ rule, channels }: { rule: Rule; channels: Channel[] }) {
   const [, start] = useTransition();
   const [template, setTemplate] = useState(rule.template);
   const [minAmount, setMinAmount] = useState(rule.minAmountMinor == null ? "" : String(rule.minAmountMinor / 100));
+  const [botName, setBotName] = useState(rule.botName ?? "");
+  const [botIcon, setBotIcon] = useState(rule.botIcon ?? "");
   const [test, setTest] = useState<{ ok: boolean; error?: string } | "sending" | null>(null);
   const known = rule.channelId != null && channels.some((c) => c.id === rule.channelId);
   const save = (patch: RulePatch) => start(() => updateRuleAction(rule.id, patch));
@@ -151,6 +155,33 @@ function RuleCard({ rule, channels }: { rule: Rule; channels: Channel[] }) {
       />
       <div className="mt-1 text-[11px]" style={{ color: "var(--muted)" }}>
         Available values: {rule.variables}
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <label className="flex items-center gap-1 text-[11px]" style={{ color: "var(--muted)" }}>
+          Bot name
+          <input
+            className="!w-40 !py-1 text-sm"
+            value={botName}
+            placeholder="default"
+            aria-label="Sender name override"
+            onChange={(e) => setBotName(e.target.value)}
+            onBlur={() => { if (botName !== (rule.botName ?? "")) save({ botName: botName.trim() || null }); }}
+          />
+        </label>
+        <label className="flex items-center gap-1 text-[11px]" style={{ color: "var(--muted)" }}>
+          Icon
+          <input
+            className="!w-48 !py-1 text-sm"
+            value={botIcon}
+            placeholder=":moneybag: or https image URL"
+            aria-label="Sender icon override"
+            onChange={(e) => setBotIcon(e.target.value)}
+            onBlur={() => { if (botIcon !== (rule.botIcon ?? "")) save({ botIcon: botIcon.trim() || null }); }}
+          />
+        </label>
+        <span className="text-[11px]" style={{ color: "var(--muted)" }}>
+          Blank = the app default. Needs the chat:write.customize scope.
+        </span>
       </div>
       {test !== null && test !== "sending" && (
         <div className="mt-1 text-xs" style={{ color: test.ok ? "var(--good)" : "var(--bad)" }}>

@@ -16,12 +16,14 @@ export type RulePatch = {
   channelName?: string | null;
   template?: string;
   minAmountMinor?: number | null;
+  botName?: string | null;
+  botIcon?: string | null;
 };
 
 export async function updateRuleAction(id: string, patch: RulePatch) {
   await guard();
   const [r] = await sql`
-    select enabled, channel_id, channel_name, template, min_amount_minor
+    select enabled, channel_id, channel_name, template, min_amount_minor, bot_name, bot_icon
     from core.notification_rule where id = ${id} limit 1`;
   if (!r) return;
   await sql`
@@ -30,7 +32,9 @@ export async function updateRuleAction(id: string, patch: RulePatch) {
       channel_id = ${patch.channelId !== undefined ? patch.channelId : r.channel_id},
       channel_name = ${patch.channelName !== undefined ? patch.channelName : r.channel_name},
       template = ${patch.template ?? r.template},
-      min_amount_minor = ${patch.minAmountMinor !== undefined ? patch.minAmountMinor : r.min_amount_minor}
+      min_amount_minor = ${patch.minAmountMinor !== undefined ? patch.minAmountMinor : r.min_amount_minor},
+      bot_name = ${patch.botName !== undefined ? (patch.botName || null) : r.bot_name},
+      bot_icon = ${patch.botIcon !== undefined ? (patch.botIcon || null) : r.bot_icon}
     where id = ${id}`;
   revalidatePath("/admin/notifications");
 }
@@ -66,12 +70,12 @@ export async function testRuleAction(id: string): Promise<{ ok: boolean; error?:
   try {
     await guard();
     const [r] = await sql`
-      select channel_id, template from core.notification_rule where id = ${id} limit 1`;
+      select channel_id, template, bot_name, bot_icon from core.notification_rule where id = ${id} limit 1`;
     if (!r) return { ok: false, error: "rule not found" };
     if (!r.channel_id) return { ok: false, error: "pick a channel first" };
     const text = renderSample(String(r.template));
     if (!text) return { ok: false, error: "template renders empty" };
-    return await sendTestMessage(String(r.channel_id), text);
+    return await sendTestMessage(String(r.channel_id), text, r.bot_name, r.bot_icon);
   } catch (err) {
     return { ok: false, error: String(err instanceof Error ? err.message : err) };
   }
