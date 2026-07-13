@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { Badge } from "@/components/ui";
 import { updateRuleAction, testRuleAction, type RulePatch } from "./actions";
 
@@ -18,7 +18,13 @@ type Rule = {
   template: string;
   variables: string;
   minAmountMinor: number | null;
+  sample: Record<string, string>;
+  example: Record<string, string> | null;
 };
+
+// same substitution the engine uses (lib/notify.ts render)
+const renderPreview = (template: string, vars: Record<string, string>) =>
+  template.replace(/\{(\w+)\}/g, (_, k: string) => vars[k] ?? "").replace(/\s{2,}/g, " ").trim();
 
 // min-amount gate only makes sense on money events
 const MONEY_EVENTS = ["payment_succeeded", "payment_refunded"];
@@ -82,8 +88,25 @@ function RuleCard({ rule, channels }: { rule: Rule; channels: Channel[] }) {
   const [botName, setBotName] = useState(rule.botName ?? "");
   const [botIcon, setBotIcon] = useState(rule.botIcon ?? "");
   const [test, setTest] = useState<{ ok: boolean; error?: string } | "sending" | null>(null);
+  const [previewMode, setPreviewMode] = useState<"sample" | "real">(rule.example ? "real" : "sample");
+  const taRef = useRef<HTMLTextAreaElement>(null);
   const known = rule.channelId != null && channels.some((c) => c.id === rule.channelId);
   const save = (patch: RulePatch) => start(() => updateRuleAction(rule.id, patch));
+
+  // clicking a variable chip inserts {var} at the cursor and keeps typing flow
+  const vars = (rule.variables.match(/\{\w+\}/g) ?? []);
+  const insertVar = (v: string) => {
+    const ta = taRef.current;
+    const at = ta ? ta.selectionStart ?? template.length : template.length;
+    const next = template.slice(0, at) + v + template.slice(ta ? ta.selectionEnd ?? at : at);
+    setTemplate(next);
+    save({ template: next });
+    requestAnimationFrame(() => {
+      if (ta) { ta.focus(); ta.selectionStart = ta.selectionEnd = at + v.length; }
+    });
+  };
+  const previewVars = previewMode === "real" && rule.example ? rule.example : rule.sample;
+  const previewText = renderPreview(template, previewVars);
 
   return (
     <div className="card p-4">
@@ -145,43 +168,117 @@ function RuleCard({ rule, channels }: { rule: Rule; channels: Channel[] }) {
           {test === "sending" ? "Sending..." : "Send test"}
         </button>
       </div>
-      <textarea
-        rows={2}
-        className="mt-3 text-sm"
-        value={template}
-        aria-label="Message template"
-        onChange={(e) => setTemplate(e.target.value)}
-        onBlur={() => { if (template !== rule.template) save({ template }); }}
-      />
-      <div className="mt-1 text-[11px]" style={{ color: "var(--muted)" }}>
-        Available values: {rule.variables}
-      </div>
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        <label className="flex items-center gap-1 text-[11px]" style={{ color: "var(--muted)" }}>
-          Bot name
-          <input
-            className="!w-40 !py-1 text-sm"
-            value={botName}
-            placeholder="default"
-            aria-label="Sender name override"
-            onChange={(e) => setBotName(e.target.value)}
-            onBlur={() => { if (botName !== (rule.botName ?? "")) save({ botName: botName.trim() || null }); }}
+      <div className="mt-3 grid gap-3 md:grid-cols-[1fr_300px]">
+        <div>
+          <textarea
+            ref={taRef}
+            rows={3}
+            className="text-sm"
+            value={template}
+            aria-label="Message template"
+            onChange={(e) => setTemplate(e.target.value)}
+            onBlur={() => { if (template !== rule.template) save({ template }); }}
           />
-        </label>
-        <label className="flex items-center gap-1 text-[11px]" style={{ color: "var(--muted)" }}>
-          Icon
-          <input
-            className="!w-48 !py-1 text-sm"
-            value={botIcon}
-            placeholder=":moneybag: or https image URL"
-            aria-label="Sender icon override"
-            onChange={(e) => setBotIcon(e.target.value)}
-            onBlur={() => { if (botIcon !== (rule.botIcon ?? "")) save({ botIcon: botIcon.trim() || null }); }}
-          />
-        </label>
-        <span className="text-[11px]" style={{ color: "var(--muted)" }}>
-          Blank = the app default. Needs the chat:write.customize scope.
-        </span>
+          <div className="mt-1.5 flex flex-wrap items-center gap-1">
+            <span className="mr-1 text-[11px]" style={{ color: "var(--muted)" }}>Insert value:</span>
+            {vars.map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => insertVar(v)}
+                className="num rounded-md border px-1.5 py-0.5 text-[11px]"
+                style={{
+                  borderColor: "color-mix(in srgb, var(--accent) 35%, var(--line))",
+                  color: "var(--accent)",
+                  background: "color-mix(in srgb, var(--accent) 8%, transparent)",
+                }}
+              >
+                {v}
+              </button>
+            ))}
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <label className="flex items-center gap-1 text-[11px]" style={{ color: "var(--muted)" }}>
+              Bot name
+              <input
+                className="!w-36 !py-1 text-sm"
+                value={botName}
+                placeholder="default"
+                aria-label="Sender name override"
+                onChange={(e) => setBotName(e.target.value)}
+                onBlur={() => { if (botName !== (rule.botName ?? "")) save({ botName: botName.trim() || null }); }}
+              />
+            </label>
+            <label className="flex items-center gap-1 text-[11px]" style={{ color: "var(--muted)" }}>
+              Icon
+              <input
+                className="!w-44 !py-1 text-sm"
+                value={botIcon}
+                placeholder=":moneybag: or https URL"
+                aria-label="Sender icon override"
+                onChange={(e) => setBotIcon(e.target.value)}
+                onBlur={() => { if (botIcon !== (rule.botIcon ?? "")) save({ botIcon: botIcon.trim() || null }); }}
+              />
+            </label>
+          </div>
+          <p className="mt-1 text-[11px]" style={{ color: "var(--muted)" }}>
+            Blank identity = the app default. Custom name/icon needs the chat:write.customize scope.
+          </p>
+        </div>
+
+        {/* live preview: what this message will look like in Slack */}
+        <div className="rounded-lg border p-3" style={{ borderColor: "var(--line)", background: "var(--panel-2)" }}>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: "var(--muted)" }}>Preview</span>
+            <div className="flex gap-1">
+              <button
+                type="button"
+                onClick={() => setPreviewMode("sample")}
+                className="rounded px-1.5 py-0.5 text-[10px]"
+                style={previewMode === "sample" ? { background: "color-mix(in srgb, var(--accent) 16%, var(--panel))", color: "var(--accent)" } : { color: "var(--muted)" }}
+              >
+                Sample
+              </button>
+              <button
+                type="button"
+                onClick={() => setPreviewMode("real")}
+                disabled={!rule.example}
+                title={rule.example ? "Preview with the latest real record" : "No real data yet for this event"}
+                className="rounded px-1.5 py-0.5 text-[10px]"
+                style={previewMode === "real" ? { background: "color-mix(in srgb, var(--good) 16%, var(--panel))", color: "var(--good)" } : { color: "var(--muted)", opacity: rule.example ? 1 : 0.5 }}
+              >
+                Real example
+              </button>
+            </div>
+          </div>
+          <div className="flex items-start gap-2">
+            <div
+              className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-md text-base"
+              style={{ background: "color-mix(in srgb, var(--accent) 14%, var(--panel))" }}
+            >
+              {botIcon.startsWith("http") ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={botIcon} alt="" className="h-8 w-8 object-cover" />
+              ) : botIcon ? (
+                <span className="text-[10px]">{botIcon}</span>
+              ) : (
+                <span className="text-[11px] font-semibold" style={{ color: "var(--accent)" }}>TCB</span>
+              )}
+            </div>
+            <div className="min-w-0">
+              <div className="text-[13px]">
+                <span className="font-semibold">{botName || "TCB Sales System"}</span>{" "}
+                <span className="rounded px-1 text-[9px] uppercase" style={{ background: "var(--line)", color: "var(--muted)" }}>app</span>
+              </div>
+              <div className="mt-0.5 break-words text-[13px]" style={{ color: "var(--text)" }}>
+                {previewText || <span style={{ color: "var(--muted)" }}>Template renders empty</span>}
+              </div>
+              <div className="mt-1 text-[10px]" style={{ color: "var(--muted)" }}>
+                to {rule.channelName ? `#${rule.channelName}` : "no channel selected"}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
       {test !== null && test !== "sending" && (
         <div className="mt-1 text-xs" style={{ color: test.ok ? "var(--good)" : "var(--bad)" }}>
