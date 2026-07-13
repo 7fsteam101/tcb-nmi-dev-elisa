@@ -49,6 +49,10 @@ export default async function PortalHome() {
 
   return (
     <>
+      <style>{`
+        a.portal-pay-row { cursor: pointer; transition: background-color 120ms ease; }
+        a.portal-pay-row:hover { background-color: rgba(255, 255, 255, 0.04); }
+      `}</style>
       <h1 style={{ fontSize: 22, fontWeight: 800 }}>Hi{customer.first_name ? `, ${customer.first_name}` : ""}</h1>
       <p style={{ ...muted, marginTop: 4 }}>Manage your billing, payment methods, and account details.</p>
 
@@ -103,15 +107,40 @@ export default async function PortalHome() {
         <section style={card}>
           <div style={h2}>Billing history</div>
           {invoices.length === 0 && receipts.length === 0 && <div style={muted}>No billing history yet.</div>}
-          {invoices.map((inv) => (
-            <div key={inv.id} style={row}>
-              <div>
-                <div>{inv.description || "Payment"}</div>
-                <div style={{ ...muted, fontSize: 12 }}>{day(inv.created_at)}</div>
+          {invoices.map((inv) => {
+            // Unpaid + has a hosted-pay token -> the whole row links to the existing
+            // /pay/<token> page and is styled with the accent so it reads as
+            // actionable. Paid (or tokenless) invoices render plain & non-clickable.
+            const payable = ["pending", "sent", "created", "failed"].includes(inv.status) && !!inv.token;
+            if (payable) {
+              return (
+                <Link
+                  key={inv.id}
+                  href={`/pay/${inv.token}`}
+                  className="portal-pay-row"
+                  style={{ ...row, textDecoration: "none", color: "inherit" }}
+                >
+                  <div>
+                    <div style={{ color: accent, fontWeight: 600 }}>{inv.description || "Payment"}</div>
+                    <div style={{ ...muted, fontSize: 12 }}>{day(inv.created_at)}</div>
+                  </div>
+                  <span style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                    {money(inv.amount_minor)} <StatusPill status={inv.status} />
+                    <span style={{ color: accent, fontWeight: 600 }}>Pay now →</span>
+                  </span>
+                </Link>
+              );
+            }
+            return (
+              <div key={inv.id} style={row}>
+                <div>
+                  <div>{inv.description || "Payment"}</div>
+                  <div style={{ ...muted, fontSize: 12 }}>{day(inv.created_at)}</div>
+                </div>
+                <span style={{ display: "flex", gap: 10, alignItems: "center" }}>{money(inv.amount_minor)} <StatusPill status={inv.status} /></span>
               </div>
-              <span style={{ display: "flex", gap: 10, alignItems: "center" }}>{money(inv.amount_minor)} <StatusPill status={inv.status} /></span>
-            </div>
-          ))}
+            );
+          })}
           {receipts.map((r) => (
             <div key={r.id} style={row}>
               <div>
