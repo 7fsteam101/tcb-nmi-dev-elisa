@@ -103,7 +103,7 @@ Known accepted divergence: the Sales Hub commission engine still pays the old
 10/15 rule (deliberately untouched). The dashboard carries the July 2 comp
 plan and is canonical for commissions; update or retire the Hub engine later.
 
-## Phase 2: flip our push (KATIE, 10 min, only after 1.8)
+## Phase 2: flip our push (KATIE, 10 min, only after the Zap is off in 1.2)
 
 - [ ] 2.1 Admin > Options > Sync policy: toggle ON "Push GHL events to Close".
 - [ ] 2.2 Live test: book a slot on "BDCR Strategy Call (Free Bookings)" in GHL.
@@ -166,6 +166,6 @@ plan and is canonical for commissions; update or retire the Hub engine later.
 | Onboarding fires twice / from old pipeline | Re-check 1.1 set logic; the 90-day markers absorb repeats for recent wins |
 | Onboarding does not fire on a new win | Worker B logs; confirm KV map + the two won ids; the win alert channel is the canary |
 | Close cards not moving on bookings | Admin > Options toggle state; writeback queue errors; contact missing close_id shows as a normalize note |
-| Cards moving twice / fighting | The booking Zap came back on; turn it off (1.8) |
+| Cards moving twice / fighting | The booking Zap came back on; turn it off (step 1.2) |
 | A new stage label appears | Admin > Stages: map it in the UI, no code |
 | Numbers look wrong | Reconciliation script rerun; the audit + recon docs carry every known delta explanation |
