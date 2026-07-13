@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { sql } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
+import { getSetting, setSetting } from "@/lib/settings";
 
 // The lookup tables the forms read live. Whitelist — nothing else is editable
 // through this action.
@@ -59,6 +60,26 @@ export async function moveOptionAction(list: string, id: string, dir: "up" | "do
   if (i < 0 || j < 0 || j >= rows.length) return;
   await sql`update ${sql(t.schema)}.${sql(t.table)} set sort_order = ${rows[j].sort_order ?? j + 1} where id = ${rows[i].id}`;
   await sql`update ${sql(t.schema)}.${sql(t.table)} set sort_order = ${rows[i].sort_order ?? i + 1} where id = ${rows[j].id}`;
+  revalidatePath("/admin/options");
+}
+
+// --- Sync policy -------------------------------------------------------
+// Master switch for the outbound GHL -> Close push (core.app_setting
+// "close_push_enabled", default OFF). It stays OFF until the pipeline
+// cutover retires the client's booking Zap; flipping it ON hands the Close
+// card moves (bookings, no-shows, lead cancels) to our write-back queue.
+
+export async function closePushEnabled(): Promise<boolean> {
+  const user = await requireSession();
+  if (user.role !== "admin") throw new Error("Admins only");
+  return getSetting<boolean>("close_push_enabled", false);
+}
+
+export async function toggleClosePushAction() {
+  const user = await requireSession();
+  if (user.role !== "admin") throw new Error("Admins only");
+  const on = await getSetting<boolean>("close_push_enabled", false);
+  await setSetting("close_push_enabled", !on);
   revalidatePath("/admin/options");
 }
 
