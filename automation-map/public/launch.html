@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TCB Launch Runbook</title>
+<style>
+  :root{
+    --bg:#0b0e14; --panel:#121722; --panel2:#161d2b; --panel3:#1a2233;
+    --border:#232b3a; --border2:#2c3648;
+    --text:#e7edf5; --muted:#94a1b3; --dim:#6b7789;
+    --accent:#4ea1ff; --accent-dim:rgba(78,161,255,.14);
+    --green:#3fb950; --green-bg:rgba(63,185,80,.13);
+    --amber:#d9a13d; --amber-bg:rgba(217,161,61,.13);
+    --red:#f0564f; --red-bg:rgba(240,86,79,.12);
+    --gray:#8b949e; --gray-bg:rgba(139,148,158,.13);
+    --purple:#b48cf2; --purple-bg:rgba(180,140,242,.14);
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    font-size:15px; line-height:1.5;
+  }
+  code{font-family:var(--mono)}
+
+  /* ---------- sticky nav + progress ---------- */
+  nav{
+    position:sticky; top:0; z-index:50;
+    background:rgba(11,14,20,.92); backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--border);
+    padding:10px 24px; display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+  }
+  nav .brand{font-weight:700; font-size:15px; letter-spacing:.2px; white-space:nowrap}
+  nav .brand span{color:var(--accent)}
+  .backlink{
+    color:var(--muted); text-decoration:none; font-size:13px; padding:4px 11px;
+    border:1px solid var(--border); border-radius:8px; white-space:nowrap;
+  }
+  .backlink:hover{color:var(--text); border-color:var(--border2); background:var(--panel2)}
+  .filters{display:flex; align-items:center; gap:5px; flex-wrap:wrap}
+  .flabel{font-size:12px; color:var(--dim); margin-right:2px}
+  .fbtn{
+    background:var(--panel2); border:1px solid var(--border); color:var(--muted);
+    border-radius:999px; padding:4px 11px; font-size:12.5px; cursor:pointer;
+  }
+  .fbtn:hover{color:var(--text)}
+  .fbtn.on{background:var(--accent-dim); border-color:var(--accent); color:var(--accent)}
+  .prog{margin-left:auto; display:flex; align-items:center; gap:10px; flex-wrap:nowrap}
+  #progtext{font-size:12.5px; color:var(--muted); white-space:nowrap}
+  .progbar{
+    width:170px; height:8px; background:var(--panel2); border:1px solid var(--border);
+    border-radius:99px; overflow:hidden;
+  }
+  #progfill{display:block; height:100%; width:0%; background:var(--green); transition:width .2s}
+
+  /* ---------- layout ---------- */
+  main{max-width:1000px; margin:0 auto; padding:28px 24px 40px}
+  h1{font-size:27px; margin:6px 0 4px}
+  .sub{color:var(--muted); font-size:14.5px; margin:0 0 10px; max-width:900px}
+  .sub strong{color:var(--text)}
+
+  /* ---------- warning banner ---------- */
+  .banner{
+    background:var(--amber-bg); border:1px solid rgba(217,161,61,.5); border-radius:10px;
+    padding:15px 20px; margin:18px 0 26px;
+  }
+  .banner .btitle{
+    font-size:11px; font-weight:700; letter-spacing:.8px; text-transform:uppercase;
+    color:var(--amber); margin-bottom:4px;
+  }
+  .banner .brule{font-size:16.5px; font-weight:700; color:var(--text)}
+  .banner .bsub{font-size:13.5px; color:var(--muted); margin-top:4px}
+
+  /* ---------- owner badges ---------- */
+  .own{
+    display:inline-block; font-size:10.5px; font-weight:700; letter-spacing:.4px;
+    padding:1px 8px; border-radius:999px; white-space:nowrap; line-height:1.7;
+    margin-right:6px; vertical-align:1px;
+  }
+  .o-josh{color:var(--accent); background:var(--accent-dim); border:1px solid rgba(78,161,255,.4)}
+  .o-katie{color:var(--green); background:var(--green-bg); border:1px solid rgba(63,185,80,.4)}
+  .o-team{color:var(--amber); background:var(--amber-bg); border:1px solid rgba(217,161,61,.4)}
+  .o-elisa{color:var(--purple); background:var(--purple-bg); border:1px solid rgba(180,140,242,.4)}
+
+  /* ---------- phase cards ---------- */
+  .phase{
+    background:var(--panel); border:1px solid var(--border); border-radius:12px;
+    padding:18px 20px; margin-bottom:18px;
+  }
+  .phead{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:4px}
+  .phead h2{font-size:18px; margin:0; padding-left:10px; border-left:3px solid var(--accent)}
+  .time{
+    font-family:var(--mono); font-size:11.5px; color:var(--muted);
+    background:var(--panel3); border:1px solid var(--border2); border-radius:5px; padding:2px 8px;
+  }
+  .pnote{color:var(--muted); font-size:13px; margin:6px 0 10px}
+
+  /* ---------- checklist items ---------- */
+  .item{
+    display:flex; gap:12px; padding:11px 13px; border:1px solid var(--border);
+    border-radius:10px; background:var(--panel2); margin-top:8px; cursor:pointer;
+    transition:opacity .15s, border-color .15s;
+  }
+  .item:hover{border-color:var(--border2)}
+  .item input{
+    margin-top:3px; width:16px; height:16px; accent-color:var(--green);
+    cursor:pointer; flex-shrink:0;
+  }
+  .num{
+    font-family:var(--mono); color:var(--accent); font-size:12.5px; font-weight:700;
+    flex-shrink:0; margin-top:2px; min-width:28px;
+  }
+  .itext{font-size:13.5px; color:var(--text); line-height:1.6}
+  .item.done{opacity:.55}
+  .item.done .itext{color:var(--muted)}
+  .item.dim{opacity:.35}
+  .item.dim.done{opacity:.28}
+
+  /* ---------- copyable ids + file refs ---------- */
+  .sid{
+    font-family:var(--mono); font-size:11.5px; color:#c9d4e3;
+    background:var(--panel3); border:1px solid var(--border2); border-radius:5px;
+    padding:1px 6px; cursor:copy; word-break:break-all; position:relative;
+  }
+  .sid:hover{border-color:var(--accent); color:var(--accent)}
+  .sid.copied::after{
+    content:"copied"; position:absolute; top:-24px; left:50%; transform:translateX(-50%);
+    background:var(--green-bg); color:var(--green); border:1px solid rgba(63,185,80,.4);
+    border-radius:5px; padding:1px 8px; font-size:10.5px; white-space:nowrap;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  .ref{
+    font-family:var(--mono); font-size:12px; color:var(--muted);
+    background:var(--panel3); border-radius:4px; padding:0 5px; word-break:break-all;
+  }
+
+  /* ---------- tables ---------- */
+  table{width:100%; border-collapse:collapse; margin:12px 0 4px; font-size:13.5px}
+  th{
+    text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.6px;
+    color:var(--dim); padding:8px 10px; border-bottom:1px solid var(--border2);
+  }
+  td{padding:7px 10px; border-bottom:1px solid var(--border); vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  tbody tr:hover td{background:var(--panel2)}
+  .oldnote{color:var(--muted); font-size:13px; margin:12px 0 0}
+
+  /* ---------- footer ---------- */
+  footer{
+    border-top:1px solid var(--border); color:var(--dim); font-size:12.5px;
+    padding:20px 24px 44px; max-width:1000px; margin:0 auto; line-height:1.7;
+  }
+  #resetall{color:var(--muted); text-decoration:underline; font-size:12.5px; cursor:pointer}
+  #resetall:hover{color:var(--text)}
+
+  @media print{
+    nav{position:static} .item{break-inside:avoid; cursor:auto}
+    body{background:#fff; color:#111}
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="brand">TCB <span>Launch Runbook</span></div>
+  <a class="backlink" href="/">Back to automation map</a>
+  <div class="filters">
+    <span class="flabel">Owner:</span>
+    <button class="fbtn on" data-owner="all">All</button>
+    <button class="fbtn" data-owner="josh">Josh</button>
+    <button class="fbtn" data-owner="katie">Katie</button>
+    <button class="fbtn" data-owner="team">Team</button>
+  </div>
+  <div class="prog">
+    <span id="progtext">0 of 33 steps done (0%)</span>
+    <div class="progbar"><i id="progfill"></i></div>
+  </div>
+</nav>
+
+<main>
+
+<h1>Launch Runbook</h1>
+<p class="sub"><strong>Pipeline cutover + go-live. Written July 13, 2026.</strong> The step-by-step to launch, in execution order. Every Close status id below was pulled live from their org today, so nobody hunts ids tomorrow. Click any monospace id to copy it. Checkbox state saves in this browser.</p>
+<p class="sub">Sources: AUTOMATION-AUDIT.md (line-verified across bdcr-operations, tcb-operations, BDCR-salesmen-dashboard), the automation map site, and the launch plan. Owners: <span class="own o-josh">JOSH</span> client tech, <span class="own o-katie">KATIE</span> 8FS, <span class="own o-team">TEAM</span> reps, <span class="own o-elisa">ELISA</span> NMI checkout (parallel track, not blocking).</p>
+
+<div class="banner">
+  <div class="btitle">The one rule that orders everything</div>
+  <div class="brule">Re-point the automations FIRST, migrate open cards SECOND, flip our push THIRD.</div>
+  <div class="bsub">Any other order either kills onboarding silently or double-fires it.</div>
+</div>
+
+<!-- ============================= REFERENCE ============================= -->
+<section class="phase" id="reference">
+  <div class="phead">
+    <h2>Reference: the new "Sales" pipeline</h2>
+    <span class="time">pipeline id</span>
+    <code class="sid">pipe_5ZtGJ7zT6RjguZ6KPEebkC</code>
+  </div>
+  <p class="pnote">All 19 stages, pulled live July 13. Click any id to copy it.</p>
+  <table>
+    <thead><tr><th>Stage</th><th>status_id</th></tr></thead>
+    <tbody>
+      <tr><td>Lead Opt In</td><td><code class="sid">stat_q8Pyvq8KKMtx720mgtiiVNSa5JpovtGlMsqTBGrhiK9</code></td></tr>
+      <tr><td>Setter Booked</td><td><code class="sid">stat_gDcBm9UkAaY2YU3IOOa2Z5b6X3O2uyBfBUVWYAer62L</code></td></tr>
+      <tr><td>Self Booked</td><td><code class="sid">stat_HHOa6IkTJpf7LJN1zajfrJ6CuoGtXATSmCHMadIBM9I</code></td></tr>
+      <tr><td>Intake Form Submitted</td><td><code class="sid">stat_7kuJqvE18kMjXVx5r8W2t8uIp7m9RJbJ1PZceRBFvAx</code></td></tr>
+      <tr><td>Audit Complete</td><td><code class="sid">stat_fFzaT56wJOQzZrdLGn1zcJwb9Td7eytOSRGEXo8v0AR</code></td></tr>
+      <tr><td>Intake Form Needed</td><td><code class="sid">stat_RbBZHCa7ELQhIemHPjMCytEhnE4CEtNHjshDL7O0slP</code></td></tr>
+      <tr><td>Call Confirmed</td><td><code class="sid">stat_vxqUOMpwJOfLLsnmzTqPj1skXVfBidarWoI6fgP4HJM</code></td></tr>
+      <tr><td>No Show</td><td><code class="sid">stat_RLtswpkT3rooziMmbbn0dHYmn1wfWPeInp9i6ocZ4fM</code></td></tr>
+      <tr><td>Call Canceled (by Lead)</td><td><code class="sid">stat_PcRyq3lu3elnGGzpwdhEmFHDIw1E4p35eGBHaposoyg</code></td></tr>
+      <tr><td>Call Canceled (by Team)</td><td><code class="sid">stat_yYyANSoTbLB67GQgzWtNRrSBLy22sW03dnHG1klZ6HD</code></td></tr>
+      <tr><td>Follow Up Call Booked</td><td><code class="sid">stat_HakGIeriYxLGGWdq2j0PBguT6twU11ZSvKaYfAY2auT</code></td></tr>
+      <tr><td>Warm List</td><td><code class="sid">stat_TgmFhwnsKpfPfuP0p05H7l34lkl8MK8uXnb7O777UOW</code></td></tr>
+      <tr><td>Contract Sent</td><td><code class="sid">stat_ZaLwFAWAp3lEQJNJYZpa91EqtFOBJrsMTgXPczsAy3K</code></td></tr>
+      <tr><td>Contract Signed</td><td><code class="sid">stat_c3DTXr85wR727tZTvQ1UYRDd2wFofqEVmYvfm6l9it9</code></td></tr>
+      <tr><td>Deposit [won]</td><td><code class="sid">stat_r50Y8oCQTMHIamJydiyz42NLlk08T6GTsu7uGCeTu9z</code></td></tr>
+      <tr><td>Won PIF [won]</td><td><code class="sid">stat_6SqcupJuYW3Ic7yUStBHFIAyB51SGBlYMOwavNtgHdE</code></td></tr>
+      <tr><td>Won PP [won]</td><td><code class="sid">stat_be0ywEn3HHhdGCUvyODZZBKFFJz27DE5jBpBTausJ2s</code></td></tr>
+      <tr><td>Lost</td><td><code class="sid">stat_VwofutbkB7An8UANb7Qf1oEw070H6uYdTuJ1aZspjc7</code></td></tr>
+      <tr><td>DQ On Call</td><td><code class="sid">stat_M2KvJaDzpjI4hUS2wv1AiQv8fLpgdMYvlMoUb36lxcM</code></td></tr>
+    </tbody>
+  </table>
+  <p class="oldnote">Old pipeline (BDCR Sales, <code class="sid">pipe_7QGKHLVYed30khcc1R8PyN</code>) stays untouched as the historical archive. Old Closed Won (the current onboarding trigger): <code class="sid">stat_5H0LFdifIUVPfma3Cy38yaIMj2AZIZVQN1icedhUr2E</code>.</p>
+</section>
+
+<!-- ============================= PHASE 0 ============================= -->
+<section class="phase" id="phase0">
+  <div class="phead">
+    <h2>Phase 0: pre-flight</h2>
+    <span class="time">tonight, ~30 min total</span>
+  </div>
+
+  <div class="item" data-key="0.1" data-owners="josh">
+    <input type="checkbox"><span class="num">0.1</span>
+    <div class="itext"><span class="own o-josh">JOSH</span>Decide the Deposit policy: onboarding fires on Won PIF + Won PP EXPLICIT status ids, never on Close's "won" TYPE. (Deposit is also typed won; keying on type would onboard deposit-only clients prematurely.)</div>
+  </div>
+  <div class="item" data-key="0.2" data-owners="josh">
+    <input type="checkbox"><span class="num">0.2</span>
+    <div class="itext"><span class="own o-josh">JOSH</span>Screenshot the Zapier dashboard (Zap names + on/off) so the audit's Zapier picture is verified complete, not just catalog-documented.</div>
+  </div>
+  <div class="item" data-key="0.3" data-owners="katie">
+    <input type="checkbox"><span class="num">0.3</span>
+    <div class="itext"><span class="own o-katie">KATIE</span>Turn on the NMI Silent Post: NMI portal, Settings, Silent Post URL: <code class="sid">https://tcb-sales-system.vercel.app/api/webhooks/nmi?secret=03a493de668fa3fc0acb712885ae394b</code></div>
+  </div>
+  <div class="item" data-key="0.4" data-owners="katie">
+    <input type="checkbox"><span class="num">0.4</span>
+    <div class="itext"><span class="own o-katie">KATIE</span>Configure Slack notifications (Admin &gt; Notifications): channel + test-send per rule; at minimum Deal won, Payment succeeded, No-show, Daily digest. /invite @tcb_sales_system in each private target channel.</div>
+  </div>
+  <div class="item" data-key="0.5" data-owners="katie">
+    <input type="checkbox"><span class="num">0.5</span>
+    <div class="itext"><span class="own o-katie">KATIE</span>Sanity check: dashboard Connections page shows every source green, no needs-attention items pending decisions.</div>
+  </div>
+</section>
+
+<!-- ============================= PHASE 1 ============================= -->
+<section class="phase" id="phase1">
+  <div class="phead">
+    <h2>Phase 1: re-point the automations</h2>
+    <span class="own o-josh">JOSH</span>
+    <span class="time">~2-4 hours</span>
+  </div>
+  <p class="pnote">From AUTOMATION-AUDIT.md. All in tcb-operations unless noted. Ship as ONE PR so the CI-enforced catalog (<span class="ref">config/workflows.json</span>) updates with the code.</p>
+
+  <div class="item" data-key="1.1" data-owners="josh">
+    <input type="checkbox"><span class="num">1.1</span>
+    <div class="itext"><span class="own o-josh">JOSH</span>Worker B /stage-change (THE onboarding chain). CODE change: the Closed Won match is a hardcoded single-id comparison (<span class="ref">worker-b/src/index.js</span> around <span class="ref">:252</span> and <span class="ref">:1411</span>); it must become a SET containing Won PIF (<code class="sid">stat_6SqcupJuYW3Ic7yUStBHFIAyB51SGBlYMOwavNtgHdE</code>) and Won PP (<code class="sid">stat_be0ywEn3HHhdGCUvyODZZBKFFJz27DE5jBpBTausJ2s</code>), per the Phase 0 policy NOT Deposit and NOT type=won. Update the KV config stage map (namespace <code class="sid">ce3fbd35d0cc4373906ada4f27f07877</code>) for the new pipeline ids. The chain it protects: lead status write, Slack win alert (<code class="sid">C069L4NFGSZ</code>), onboarding email (Close template), Monday client records (boards <code class="sid">7002021408</code> + <code class="sid">7117839824</code>), GHL Repair iMessage workflow, commission-rate stamp, agreement PDF attach, Repair Leads board stamping.</div>
+  </div>
+  <div class="item" data-key="1.2" data-owners="josh">
+    <input type="checkbox"><span class="num">1.2</span>
+    <div class="itext"><span class="own o-josh">JOSH</span>Worker A /intake-submitted: writes old Intake Submitted; re-point to Intake Form Submitted (<code class="sid">stat_7kuJqvE18kMjXVx5r8W2t8uIp7m9RJbJ1PZceRBFvAx</code>). Note its failure mode is a hard 500 keyed off the old stage id (<span class="ref">src/index.js:244-245</span>).</div>
+  </div>
+  <div class="item" data-key="1.3" data-owners="josh">
+    <input type="checkbox"><span class="num">1.3</span>
+    <div class="itext"><span class="own o-josh">JOSH</span>nafa-audit-sync: writes old Audit Complete; re-point to new Audit Complete (<code class="sid">stat_fFzaT56wJOQzZrdLGn1zcJwb9Td7eytOSRGEXo8v0AR</code>).</div>
+  </div>
+  <div class="item" data-key="1.4" data-owners="josh">
+    <input type="checkbox"><span class="num">1.4</span>
+    <div class="itext"><span class="own o-josh">JOSH</span>contract-signed-webhook: writes old Contract Signed; re-point to new Contract Signed (<code class="sid">stat_c3DTXr85wR727tZTvQ1UYRDd2wFofqEVmYvfm6l9it9</code>) (Slack #1-signed-agreements unchanged).</div>
+  </div>
+  <div class="item" data-key="1.5" data-owners="josh">
+    <input type="checkbox"><span class="num">1.5</span>
+    <div class="itext"><span class="own o-josh">JOSH</span>ghl-optin-close-sync: <span class="ref">wrangler.toml:37-87</span> vars carry the old pipeline and its 8-stage forward-only ladder; replace with the new pipeline id + new stage ids (config edit + redeploy, no code).</div>
+  </div>
+  <div class="item" data-key="1.6" data-owners="josh">
+    <input type="checkbox"><span class="num">1.6</span>
+    <div class="itext"><span class="own o-josh">JOSH</span>affiliate-partner-sync: <span class="ref">wrangler.toml:35</span> BDCR_PIPELINE_ID points at the old pipeline for its active-sales split; update to <code class="sid">pipe_5ZtGJ7zT6RjguZ6KPEebkC</code>.</div>
+  </div>
+  <div class="item" data-key="1.7" data-owners="josh">
+    <input type="checkbox"><span class="num">1.7</span>
+    <div class="itext"><span class="own o-josh">JOSH</span>quiz-email-draft (WF-54): creates opt-in opps on the old pipeline; re-point creation to Lead Opt In (<code class="sid">stat_q8Pyvq8KKMtx720mgtiiVNSa5JpovtGlMsqTBGrhiK9</code>).</div>
+  </div>
+  <div class="item" data-key="1.8" data-owners="josh">
+    <input type="checkbox"><span class="num">1.8</span>
+    <div class="itext"><span class="own o-josh">JOSH</span>Zapier WF-03 booking Zap (<code class="sid">302729523</code>): TURN OFF. Our dashboard push replaces it (Phase 2). Do not re-point it; retiring removes the dual-writer.</div>
+  </div>
+  <div class="item" data-key="1.9" data-owners="josh">
+    <input type="checkbox"><span class="num">1.9</span>
+    <div class="itext"><span class="own o-josh">JOSH</span>BDCR-salesmen-dashboard (separate repo): 3 constants in <span class="ref">workers/bdcr-sales-dashboard-api/src/index.js</span> (CLOSE_PIPELINE_ID <span class="ref">:1711</span>, eligibility stage <span class="ref">:1695</span>, strategy stage <span class="ref">:1703</span> -&gt; Setter Booked / Self Booked as appropriate) + the WF-40 lead-health stage table (<span class="ref">src/lead-health-spec.js:31-44</span>) + redeploy. Note: its booking write is non-blocking, so un-re-pointed it mis-routes SILENTLY.</div>
+  </div>
+  <div class="item" data-key="1.10" data-owners="josh">
+    <input type="checkbox"><span class="num">1.10</span>
+    <div class="itext"><span class="own o-josh">JOSH</span>Sales Hub commission engine (same repo, <span class="ref">src/index.js:9029-9032</span>) still pays the OLD 10/15 percent rule; either update to the July 2 plan or accept a known temporary divergence from the dashboard statements and tell the reps which number is canonical (the dashboard).</div>
+  </div>
+  <div class="item" data-key="1.11" data-owners="josh">
+    <input type="checkbox"><span class="num">1.11</span>
+    <div class="itext"><span class="own o-josh">JOSH</span>Deploy everything, then verify with ONE synthetic lead: create a test lead in Close, walk it Lead Opt In -&gt; Self Booked -&gt; Won PP on the NEW pipeline; confirm the onboarding chain fires exactly once (Slack win alert, email, Monday records) and NOTHING fires from the old pipeline.</div>
+  </div>
+</section>
+
+<!-- ============================= PHASE 2 ============================= -->
+<section class="phase" id="phase2">
+  <div class="phead">
+    <h2>Phase 2: flip our push</h2>
+    <span class="own o-katie">KATIE</span>
+    <span class="time">10 min, only after 1.8</span>
+  </div>
+
+  <div class="item" data-key="2.1" data-owners="katie">
+    <input type="checkbox"><span class="num">2.1</span>
+    <div class="itext"><span class="own o-katie">KATIE</span>Admin &gt; Options &gt; Sync policy: toggle ON "Push GHL events to Close".</div>
+  </div>
+  <div class="item" data-key="2.2" data-owners="katie">
+    <input type="checkbox"><span class="num">2.2</span>
+    <div class="itext"><span class="own o-katie">KATIE</span>Live test: book a slot on "BDCR Strategy Call (Free Bookings)" in GHL. Verify within a minute: dashboard shows the booking; the Close card moved to (or was created at) Self Booked on the NEW pipeline; the Slack booked notification posted.</div>
+  </div>
+  <div class="item" data-key="2.3" data-owners="katie">
+    <input type="checkbox"><span class="num">2.3</span>
+    <div class="itext"><span class="own o-katie">KATIE</span>Watch the writeback queue for failures (Connections page) for the first hour. Rollback = flip the toggle OFF (and re-enable the Zap if bookings must keep flowing while debugging).</div>
+  </div>
+</section>
+
+<!-- ============================= PHASE 3 ============================= -->
+<section class="phase" id="phase3">
+  <div class="phead">
+    <h2>Phase 3: migrate the open cards</h2>
+    <span class="own o-josh">JOSH</span>
+    <span class="own o-team">TEAM</span>
+    <span class="time">~1 hour</span>
+  </div>
+
+  <div class="item" data-key="3.1" data-owners="josh team">
+    <input type="checkbox"><span class="num">3.1</span>
+    <div class="itext"><span class="own o-josh">JOSH</span><span class="own o-team">TEAM</span>Move OPEN (non-won, non-lost) opportunities from the old pipeline to the new one, mapping: Lead Opt-In -&gt; Lead Opt In; Eligibility Call Booked -&gt; Setter Booked; Strategy Call Booked -&gt; Self Booked (or Setter Booked where a setter actually booked it); Intake Submitted -&gt; Intake Form Submitted; Audit Complete -&gt; Audit Complete; Call Completed / Closing -&gt; Contract Sent or Follow Up Call Booked per reality; Contract Signed -&gt; Contract Signed.</div>
+  </div>
+  <div class="item" data-key="3.2" data-owners="josh team">
+    <input type="checkbox"><span class="num">3.2</span>
+    <div class="itext"><span class="own o-josh">JOSH</span><span class="own o-team">TEAM</span>DO NOT move historical Closed Won or Lost cards. Won cards older than about 90 days have expired idempotency markers and WILL re-fire the full onboarding chain if they land on Won PIF/Won PP.</div>
+  </div>
+  <div class="item" data-key="3.3" data-owners="josh team">
+    <input type="checkbox"><span class="num">3.3</span>
+    <div class="itext"><span class="own o-josh">JOSH</span><span class="own o-team">TEAM</span>Verify on the dashboard: Admin &gt; Stages shows zero unmapped labels; opportunity counts per stage match Close (the reconciliation already proved the mirror exact, so any delta is a migration miss).</div>
+  </div>
+  <div class="item" data-key="3.4" data-owners="josh team">
+    <input type="checkbox"><span class="num">3.4</span>
+    <div class="itext"><span class="own o-josh">JOSH</span><span class="own o-team">TEAM</span>The 22 previously drifted opportunities (ours said Self Booked, Close said Lead Opt-In) settle themselves as cards move; spot-check two.</div>
+  </div>
+</section>
+
+<!-- ============================= PHASE 4 ============================= -->
+<section class="phase" id="phase4">
+  <div class="phead">
+    <h2>Phase 4: team go-live</h2>
+    <span class="own o-katie">KATIE</span>
+    <span class="time">~45 min</span>
+  </div>
+
+  <div class="item" data-key="4.1" data-owners="katie">
+    <input type="checkbox"><span class="num">4.1</span>
+    <div class="itext"><span class="own o-katie">KATIE</span>Security rotation: rotate the Supabase DB password; revoke the two GitHub audit tokens (github_pat + ghp_ on 7fsteam101); confirm the Slack and Meta tokens live only in Vault.</div>
+  </div>
+  <div class="item" data-key="4.2" data-owners="katie">
+    <input type="checkbox"><span class="num">4.2</span>
+    <div class="itext"><span class="own o-katie">KATIE</span>Turn authentication ON (remove AUTH_DISABLED from Vercel env, then redeploy) and create the user accounts: Josh + Chris (admin), closers (Anthony, Isaac, Mike, Sakib, Denis), setter, with per-user Notes access as desired.</div>
+  </div>
+  <div class="item" data-key="4.3" data-owners="katie">
+    <input type="checkbox"><span class="num">4.3</span>
+    <div class="itext"><span class="own o-katie">KATIE</span>Supabase Pro upgrade (backups before the team depends on it).</div>
+  </div>
+  <div class="item" data-key="4.4" data-owners="katie">
+    <input type="checkbox"><span class="num">4.4</span>
+    <div class="itext"><span class="own o-katie">KATIE</span>Brief the reps (15 min): dashboards are read-truth; the three forms (Sales Call Report, Missed Call Report, Post-Call Notes) are the daily ritual and they drive attendance, deals, and commissions; the 876-unmarked calls banner is the backlog to burn down.</div>
+  </div>
+  <div class="item" data-key="4.5" data-owners="katie">
+    <input type="checkbox"><span class="num">4.5</span>
+    <div class="itext"><span class="own o-katie">KATIE</span>Flip the remaining Slack rules ON (booked, lead, refund) once the team channels are chosen.</div>
+  </div>
+</section>
+
+<!-- ============================= PHASE 5 ============================= -->
+<section class="phase" id="phase5">
+  <div class="phead">
+    <h2>Phase 5: first-48-hours watch</h2>
+    <span class="own o-katie">KATIE</span>
+    <span class="own o-josh">JOSH</span>
+  </div>
+
+  <div class="item" data-key="5.1" data-owners="katie josh">
+    <input type="checkbox"><span class="num">5.1</span>
+    <div class="itext"><span class="own o-katie">KATIE</span><span class="own o-josh">JOSH</span>Sync-health banner stays clear (any source silent &gt; 36h shows itself).</div>
+  </div>
+  <div class="item" data-key="5.2" data-owners="katie josh">
+    <input type="checkbox"><span class="num">5.2</span>
+    <div class="itext"><span class="own o-katie">KATIE</span><span class="own o-josh">JOSH</span>Writeback queue: zero stuck ops.</div>
+  </div>
+  <div class="item" data-key="5.3" data-owners="katie josh">
+    <input type="checkbox"><span class="num">5.3</span>
+    <div class="itext"><span class="own o-katie">KATIE</span><span class="own o-josh">JOSH</span>Worker B logs after the first real new-pipeline win; commission statement appears for that closer on the dashboard.</div>
+  </div>
+  <div class="item" data-key="5.4" data-owners="katie josh">
+    <input type="checkbox"><span class="num">5.4</span>
+    <div class="itext"><span class="own o-katie">KATIE</span><span class="own o-josh">JOSH</span>Daily digest posts on schedule with sane numbers.</div>
+  </div>
+  <div class="item" data-key="5.5" data-owners="elisa">
+    <input type="checkbox"><span class="num">5.5</span>
+    <div class="itext"><span class="own o-elisa">ELISA</span>Parallel track: NMI checkout production cutover per NMI-DEV-HANDOFF.md (tokenization key, live key, webhook signing, Apple Pay, DNS).</div>
+  </div>
+</section>
+
+<!-- ============================= ROLLBACK MAP ============================= -->
+<section class="phase" id="rollback">
+  <div class="phead">
+    <h2>Rollback map</h2>
+  </div>
+  <table>
+    <thead><tr><th>Symptom</th><th>Rollback</th></tr></thead>
+    <tbody>
+      <tr><td>Onboarding fires twice / from old pipeline</td><td>Re-check 1.1 set logic; the 90-day markers absorb repeats for recent wins</td></tr>
+      <tr><td>Onboarding does not fire on a new win</td><td>Worker B logs; confirm KV map + the two won ids; the win alert channel is the canary</td></tr>
+      <tr><td>Close cards not moving on bookings</td><td>Admin &gt; Options toggle state; writeback queue errors; contact missing close_id shows as a normalize note</td></tr>
+      <tr><td>Cards moving twice / fighting</td><td>The booking Zap came back on; turn it off (1.8)</td></tr>
+      <tr><td>A new stage label appears</td><td>Admin &gt; Stages: map it in the UI, no code</td></tr>
+      <tr><td>Numbers look wrong</td><td>Reconciliation script rerun; the audit + recon docs carry every known delta explanation</td></tr>
+    </tbody>
+  </table>
+</section>
+
+</main>
+
+<footer>
+  <div>TCB Launch Runbook. Written July 13, 2026. Sources: AUTOMATION-AUDIT.md (line-verified), the automation map site, and the launch plan. Every Close status id pulled live from their org on July 13.</div>
+  <div style="margin-top:8px"><a id="resetall" href="#">Reset all checkboxes</a> (clears saved progress in this browser)</div>
+</footer>
+
+<script>
+(function(){
+  var PREFIX = 'tcb-launch-';
+  var items = Array.prototype.slice.call(document.querySelectorAll('.item'));
+  var progText = document.getElementById('progtext');
+  var progFill = document.getElementById('progfill');
+
+  function refresh(){
+    var done = items.filter(function(it){ return it.querySelector('input').checked; }).length;
+    var pct = items.length ? Math.round(done / items.length * 100) : 0;
+    progText.textContent = done + ' of ' + items.length + ' steps done (' + pct + '%)';
+    progFill.style.width = pct + '%';
+  }
+
+  items.forEach(function(it){
+    var key = PREFIX + it.getAttribute('data-key');
+    var box = it.querySelector('input');
+    try { if (localStorage.getItem(key) === '1') { box.checked = true; it.classList.add('done'); } } catch(e){}
+    function setState(v){
+      box.checked = v;
+      it.classList.toggle('done', v);
+      try { if (v) { localStorage.setItem(key, '1'); } else { localStorage.removeItem(key); } } catch(e){}
+      refresh();
+    }
+    box.addEventListener('change', function(){ setState(box.checked); });
+    it.addEventListener('click', function(e){
+      if (e.target === box || e.target.closest('.sid') || e.target.closest('a')) return;
+      var sel = window.getSelection();
+      if (sel && sel.toString().length) return;
+      setState(!box.checked);
+    });
+  });
+  refresh();
+
+  /* owner filter: dim non-matching items to keep context visible */
+  var chips = Array.prototype.slice.call(document.querySelectorAll('.fbtn'));
+  chips.forEach(function(c){
+    c.addEventListener('click', function(){
+      chips.forEach(function(o){ o.classList.remove('on'); });
+      c.classList.add('on');
+      var f = c.getAttribute('data-owner');
+      items.forEach(function(it){
+        var owners = (it.getAttribute('data-owners') || '').split(' ');
+        it.classList.toggle('dim', f !== 'all' && owners.indexOf(f) === -1);
+      });
+    });
+  });
+
+  /* click-to-copy ids */
+  function copyText(t, done){
+    function legacy(){
+      var ta = document.createElement('textarea');
+      ta.value = t;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch(e){}
+      document.body.removeChild(ta);
+      done();
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(t).then(done, legacy);
+    } else {
+      legacy();
+    }
+  }
+  Array.prototype.slice.call(document.querySelectorAll('.sid')).forEach(function(el){
+    el.setAttribute('title', 'Click to copy');
+    el.addEventListener('click', function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      copyText(el.textContent.trim(), function(){
+        el.classList.add('copied');
+        setTimeout(function(){ el.classList.remove('copied'); }, 900);
+      });
+    });
+  });
+
+  /* reset all */
+  document.getElementById('resetall').addEventListener('click', function(e){
+    e.preventDefault();
+    items.forEach(function(it){
+      it.querySelector('input').checked = false;
+      it.classList.remove('done');
+      try { localStorage.removeItem(PREFIX + it.getAttribute('data-key')); } catch(e2){}
+    });
+    refresh();
+  });
+})();
+</script>
+</body>
+</html>
