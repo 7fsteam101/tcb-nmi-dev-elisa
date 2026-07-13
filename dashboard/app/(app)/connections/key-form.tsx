@@ -16,6 +16,7 @@ export function KeyForm() {
             <option value="nmi">NMI (security key)</option>
             <option value="meta">Meta (system-user token, read-only)</option>
             <option value="dub">Dub (API key, Pro plan)</option>
+            <option value="slack">Slack (bot token xoxb-)</option>
           </select>
         </div>
         <div>

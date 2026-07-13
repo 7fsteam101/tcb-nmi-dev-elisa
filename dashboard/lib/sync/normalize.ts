@@ -1,5 +1,7 @@
 import { sql } from "../db";
 import { upsertContact, findOrCreateActiveOpportunity } from "./contacts";
+import { notifyEvent } from "../notify";
+import { money } from "../format";
 import type { Provider } from "./providers";
 
 // ---------------------------------------------------------------------
@@ -237,6 +239,13 @@ async function normalizeGhl(eventType: string, payload: any): Promise<string> {
               not exists (select 1 from sales.opt_in where contact_id = ${contactId} and submitted_at > now() - interval '30 days'),
               ${counted})`;
     await stampAttribution(oppId, source, "touch");
+    if (counted) {
+      await notifyEvent("lead_created", {
+        contact_name: pc.name ?? pc.full_name ?? pc.email ?? "unknown",
+        source: String(source).replaceAll("_", " "),
+        campaign: p.form?.campaign ? ` (${p.form.campaign})` : "",
+      });
+    }
     return counted ? "opt-in recorded" : "opt-in recorded (form not marked counts-as-lead yet — decide in Admin > Forms)";
   }
 
@@ -277,6 +286,14 @@ async function normalizeGhl(eventType: string, payload: any): Promise<string> {
           where id = ${oppId} and stage in ('lead_opt_in','no_show','call_canceled_by_lead','warm_list')`;
         await sql`update sales.call set booked_by = coalesce(booked_by, 'self_book') where id = ${callId}`;
         await stampAttribution(oppId, p.source ?? null, "booking"); // the booking source = the converting touch
+      }
+      if (calendar.isBooking) {
+        await notifyEvent("appointment_booked", {
+          contact_name: pc.name ?? pc.full_name ?? pc.email ?? "unknown",
+          time: startTime ?? "",
+          calendar: p.appointment?.calendar_name ?? p.appointment?.calendarName ?? "",
+          booked_by: "Self book",
+        });
       }
       return `booking slot recorded (${calendar.type} calendar)`;
     }
@@ -319,6 +336,11 @@ async function normalizeGhl(eventType: string, payload: any): Promise<string> {
     case "appointment_no_show": {
       if (slot && ["scheduled", "confirmed"].includes(slot.status))
         await sql`update sales.appointment set status = 'no_show' where id = ${slot.id}`;
+      await notifyEvent("appointment_no_show", {
+        contact_name: pc.name ?? pc.full_name ?? pc.email ?? "unknown",
+        time: startTime ?? "",
+        calendar: "",
+      });
       return "no-show recorded";
     }
     case "appointment_showed": {
@@ -386,6 +408,12 @@ async function normalizeStripe(eventType: string, payload: any): Promise<string>
       values (${pay?.deal_id ?? null}, ${pay?.id ?? null}, 'refund',
               ${obj.amount_refunded ?? obj.amount ?? pay?.amount_minor ?? 0},
               ${obj.reason ?? "stripe refund"}, now())`;
+    const refundMinor = Number(obj.amount_refunded ?? obj.amount ?? pay?.amount_minor ?? 0);
+    await notifyEvent("payment_refunded", {
+      contact_name: obj.billing_details?.email ?? "",
+      amount: money(refundMinor),
+      kind: "refund",
+    }, refundMinor);
     return pay ? "refund recorded against the payment" : "refund recorded (no matching charge on file)";
   }
 
@@ -429,6 +457,14 @@ async function normalizeStripe(eventType: string, payload: any): Promise<string>
     values (${strategyCallId}, ${contactId ?? null}, 'stripe', 'booking_25', ${amount}, ${occurredAt}, ${chargeId}, ${productType}::public.product_tier)
     returning id`;
   if (strategyCallId) await sql`update sales.call set booking_payment_id = ${pay.id} where id = ${strategyCallId}`;
+  await notifyEvent("payment_succeeded", {
+    contact_name: obj.billing_details?.name ?? email ?? "unknown",
+    amount: money(amount),
+    processor: "Stripe",
+    plan_type: "",
+    collected_pct: "",
+    deal_value: "",
+  }, amount);
   return strategyCallId ? "booking fee linked to strategy call" : "booking fee stored (no matching call yet)";
 }
 
@@ -448,6 +484,12 @@ async function normalizeNmi(eventType: string, payload: any): Promise<string> {
       insert into finance.reversal (deal_id, payment_id, type, amount_minor, reason, occurred_at)
       values (${pay?.deal_id ?? null}, ${pay?.id ?? null}, ${action === "chargeback" ? "chargeback" : "refund"},
               ${Math.round(parseFloat(p.amount ?? "0") * 100) || (pay?.amount_minor ?? 0)}, ${`nmi ${action}`}, now())`;
+    const revMinor = Math.round(parseFloat(p.amount ?? "0") * 100) || Number(pay?.amount_minor ?? 0);
+    await notifyEvent("payment_refunded", {
+      contact_name: p.email ?? p.billing_email ?? "",
+      amount: money(revMinor),
+      kind: action === "chargeback" ? "chargeback" : "refund",
+    }, revMinor);
     return `nmi ${action} recorded`;
   }
   if (String(p.response ?? p.response_code ?? "1") !== "1" && p.condition !== "complete")
@@ -488,10 +530,20 @@ async function normalizeNmi(eventType: string, payload: any): Promise<string> {
     values (${receivable?.deal_id ?? null}, ${receivable?.id ?? null}, ${receivable?.contact_id ?? contactId ?? null}, 'nmi',
             ${payType}, ${amountMinor}, now(), ${txn})
     returning id`;
+  const payVars = {
+    contact_name: email ?? "unknown",
+    amount: money(amountMinor),
+    processor: "NMI",
+    plan_type: receivable?.plan_type ?? "",
+    collected_pct: "",
+    deal_value: "",
+  };
   if (receivable) {
     await sql`update finance.receivable set status = 'paid', paid_at = current_date, payment_id = ${pay.id} where id = ${receivable.id}`;
+    await notifyEvent("payment_succeeded", payVars, amountMinor);
     return "payment matched to receivable";
   }
+  await notifyEvent("payment_succeeded", payVars, amountMinor);
   return "payment stored unmatched — review in Receivables";
 }
 

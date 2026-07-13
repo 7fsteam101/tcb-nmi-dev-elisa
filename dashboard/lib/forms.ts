@@ -1,5 +1,7 @@
 import { sql } from "./db";
 import { queueWriteback, dispatchPending } from "./sync/writeback";
+import { notifyEvent } from "./notify";
+import { money } from "./format";
 
 // Form processing per the authoritative flowcharts (2026-07-02). Every submission:
 //   1. lands in sales.report_submission (audit; duplicates supersede; on_time =
@@ -234,6 +236,12 @@ export async function submitSalesCall(input: SalesCallInput) {
       values (${deal.id}, ${ctx.contact_id}, ${startDate}, ${startDate}::date + interval '6 months', false, 'active', ${ctx.is_demo})`;
     await sql`update core.contact set lifecycle_status = 'customer' where id = ${ctx.contact_id} and lifecycle_status <> 'do_not_contact'`;
     await sql`update sales.opportunity set stage = ${stage}, closed_at = now() where id = ${ctx.opportunity_id}`;
+    await notifyEvent("deal_won", {
+      contact_name: ctx.full_name ?? "unknown",
+      amount: money(tcv),
+      plan_type: planType,
+      closer: "",
+    }, tcv);
     results.push(`Deal won (${dealType === "won_pif" ? "PIF" : `payment plan, ${cadence}`}) — onboarding record created`);
   } else if (input.dealType === "deposit") {
     stage = "deposit";

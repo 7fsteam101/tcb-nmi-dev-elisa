@@ -1,6 +1,8 @@
 import crypto from "crypto";
 import { sql } from "./db";
 import { chargeVault, ok } from "./nmi";
+import { notifyEvent } from "./notify";
+import { money } from "./format";
 
 // Branded NMI checkout: a payment_link now carries a public token and a URL to our
 // own pay page (pay.thecreditbrothers.com/pay/<token>). The card is taken on that
@@ -146,6 +148,16 @@ export async function recordNmiPayment(input: {
   }
   if (input.markLinkPaid) {
     await sql`update finance.payment_link set status = 'paid', paid_payment_id = ${paymentId} where id = ${input.linkId}`;
+  }
+  if (pay?.id) { // only a fresh insert notifies; the on-conflict duplicate path stays silent
+    await notifyEvent("payment_succeeded", {
+      contact_name: "unknown",
+      amount: money(input.amountMinor),
+      processor: "NMI checkout",
+      plan_type: "",
+      collected_pct: "",
+      deal_value: "",
+    }, input.amountMinor);
   }
   return paymentId as string;
 }

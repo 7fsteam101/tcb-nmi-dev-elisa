@@ -1,6 +1,8 @@
 import { sql } from "../db";
 import { getProviderToken } from "./providers";
 import { findContact } from "./contacts";
+import { notifyEvent } from "../notify";
+import { money } from "../format";
 
 // NMI transaction pull (idempotent on nmi_transaction_id). Two callers:
 //   - the daily cron (sinceDays ~3) so approved sales land even before the
@@ -24,7 +26,9 @@ const nmiDate = (s: string | null): string | null => {
   return isNaN(d.getTime()) ? null : d.toISOString();
 };
 
-export async function pullNmiWindow(startIso: string, endIso: string) {
+// notify: fire Slack payment events for fresh inserts (the daily cron wants
+// them; the wide-window history import must stay silent).
+export async function pullNmiWindow(startIso: string, endIso: string, notify = false) {
   const key = await getProviderToken("nmi");
   if (!key) return { error: "no nmi key" };
   const stats = { txns: 0, payments: 0, reversals: 0, existing: 0, skipped: 0 };
@@ -76,6 +80,21 @@ export async function pullNmiWindow(startIso: string, endIso: string) {
           values (${dealId}, ${contactId ?? null}, ${repId}, 'nmi', ${type}::public.payment_type, ${amountMinor}, ${when}, ${txnId}, 'high_ticket'::public.product_tier)`;
         seen.add(txnId);
         stats.payments++;
+        if (notify) {
+          let contactName: string | null = null;
+          if (contactId) {
+            const [ct] = await sql`select full_name from core.contact where id = ${contactId} limit 1`;
+            contactName = ct?.full_name ?? null;
+          }
+          await notifyEvent("payment_succeeded", {
+            contact_name: contactName ?? "unknown",
+            amount: money(amountMinor),
+            processor: "NMI",
+            plan_type: type,
+            collected_pct: "",
+            deal_value: "",
+          }, amountMinor);
+        }
       }
     }
 
@@ -90,6 +109,13 @@ export async function pullNmiWindow(startIso: string, endIso: string) {
             insert into finance.reversal (deal_id, payment_id, type, amount_minor, reason, occurred_at)
             values (${pay?.deal_id ?? null}, ${pay?.id ?? null}, 'refund', ${amountMinor}, ${"nmi txn " + txnId}, ${when})`;
           stats.reversals++;
+          if (notify) {
+            await notifyEvent("payment_refunded", {
+              contact_name: email ?? "",
+              amount: money(amountMinor),
+              kind: "refund",
+            }, amountMinor);
+          }
         }
       }
     }
@@ -100,5 +126,5 @@ export async function pullNmiWindow(startIso: string, endIso: string) {
 /** Daily freshness: the last few days, cheap and idempotent. */
 export async function pullNmiRecent(days = 3) {
   const start = new Date(Date.now() - days * 864e5).toISOString();
-  return pullNmiWindow(start, new Date().toISOString());
+  return pullNmiWindow(start, new Date().toISOString(), true);
 }

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { sql } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
 import { listConnections } from "@/lib/sync/providers";
+import { slackStatus } from "@/lib/notify";
 import { Card, SectionTitle, Badge, STATUS_TONE, label } from "@/components/ui";
 import { dateTime } from "@/lib/format";
 import { KeyForm } from "./key-form";
@@ -27,6 +28,7 @@ export default async function Connections() {
   const ghlMarketingLoc = await getSetting<string>("ghl_marketing_location_id", "");
   const ghlRepairLoc = await getSetting<string>("ghl_repair_location_id", "");
   const attention = await needsAttention();
+  const slack = await slackStatus();
   const h = await headers();
   const base = `https://${h.get("host") ?? "your-app.vercel.app"}`;
   const hook = (p: string) => `${base}/api/webhooks/${p}?secret=<WEBHOOK_SECRET>`;
@@ -105,6 +107,33 @@ export default async function Connections() {
                 </Badge>
               ))}
             </div>
+          </Card>
+          <SectionTitle>Slack notifications</SectionTitle>
+          <Card>
+            {slack ? (
+              <div className="text-sm">
+                <div className="mb-1 flex flex-wrap items-center gap-2">
+                  <Badge tone="good">Connected</Badge>
+                  <span className="font-semibold">{slack.team}</span>
+                  <span style={{ color: "var(--muted)" }}>posting as {slack.botUser}</span>
+                </div>
+                <p className="text-xs" style={{ color: "var(--muted)" }}>
+                  Pick channels and templates in <a href="/admin/notifications" style={{ color: "var(--accent)" }}>Admin, Notifications</a>.
+                  For private channels, /invite the bot there first.
+                </p>
+              </div>
+            ) : (
+              <div className="text-sm">
+                <div className="mb-2"><Badge tone="neutral">Not connected</Badge></div>
+                <ol className="list-decimal space-y-1 pl-5 text-xs" style={{ color: "var(--muted)" }}>
+                  <li>Create an app at api.slack.com/apps (From scratch), in the client&apos;s Slack workspace.</li>
+                  <li>OAuth &amp; Permissions, Bot Token Scopes: add chat:write, channels:read, groups:read.</li>
+                  <li>Install to Workspace, then copy the xoxb- Bot User OAuth Token.</li>
+                  <li>Paste it in Connect with a key (provider Slack).</li>
+                  <li>/invite the bot in any private channel it should post to.</li>
+                </ol>
+              </div>
+            )}
           </Card>
         </div>
       </div>
