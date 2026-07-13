@@ -3,9 +3,8 @@ import { requireAccess } from "@/lib/access";
 import { requireSession } from "@/lib/auth";
 import { sql } from "@/lib/db";
 import { isDemoMode, reportTimezone } from "@/lib/settings";
-import { money, shortDate } from "@/lib/format";
+import { money, num, pct, shortDate } from "@/lib/format";
 import { Card, Stat, SectionTitle, Badge, label } from "@/components/ui";
-import { ProgressRing } from "@/components/charts";
 import { StatusFilter, RowStatusUpdater } from "./controls";
 
 export const dynamic = "force-dynamic";
@@ -110,41 +109,37 @@ export default async function Contracts({
         contracts that were sent.
       </p>
 
+      {/* Uniform tinted Stat boxes, every one clickable: the rate and the counts
+          drill into this page's own table via ?status= (honored by the query). */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat
-          label="Total agreements"
-          value={total.toLocaleString("en-US")}
-          help="Every agreement on record: signed, sent, declined, draft, or voided."
+          label="Signed rate"
+          value={signedRate != null ? pct(signedRate, 0) : "—"}
+          tone={signedRate == null ? "neutral" : signedRate >= 0.6 ? "good" : signedRate >= 0.4 ? "warn" : "bad"}
+          sub={signedRate != null ? `${num(signed)} of ${num(signed + sent)} signed` : "No signed or sent agreements yet"}
+          href="/contracts"
+          help="Signed over signed plus sent. 60%+ is healthy, under 40% needs attention."
         />
         <Stat
           label="Signed"
-          value={signed.toLocaleString("en-US")}
+          value={num(signed)}
           tone="good"
-          help="Agreements marked signed."
+          href="/contracts?status=signed"
+          help="Agreements marked signed. Click to see them in the table."
         />
         <Stat
           label="Awaiting signature"
-          value={sent.toLocaleString("en-US")}
+          value={num(sent)}
           tone="warn"
-          help="Sent for signature and not yet signed."
+          href="/contracts?status=sent"
+          help="Sent for signature and not yet signed. Click to see them in the table."
         />
-        <Card>
-          <div className="text-xs" style={{ color: "var(--muted)" }}>
-            Signed rate
-          </div>
-          {signedRate != null ? (
-            <div className="mt-2 flex items-center gap-3">
-              <ProgressRing value={signedRate} label={`${signed} of ${signed + sent}`} size={72} />
-              <div className="text-xs" style={{ color: "var(--muted)" }}>
-                Signed over signed plus sent
-              </div>
-            </div>
-          ) : (
-            <div className="mt-2 text-sm" style={{ color: "var(--muted)" }}>
-              No signed or sent agreements yet
-            </div>
-          )}
-        </Card>
+        <Stat
+          label="Total agreements"
+          value={num(total)}
+          href="/contracts"
+          help="Every agreement on record: signed, sent, declined, draft, or voided. Click to reset the filter."
+        />
       </div>
 
       <SectionTitle right={<StatusFilter active={filter} />}>Agreements</SectionTitle>

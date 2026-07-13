@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
-import { Geist } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import { cookies } from "next/headers";
 import "./globals.css";
 
 const geist = Geist({ subsets: ["latin"] });
+// exposed as a CSS variable so globals.css can use it for numeric text (.num)
+const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono" });
 
 export const metadata: Metadata = {
   title: "TCB Sales System",
@@ -15,7 +17,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const theme = (await cookies()).get("tcb_theme")?.value === "light" ? "light" : "dark";
   return (
     <html lang="en" data-theme={theme}>
-      <body className={`${geist.className} antialiased`}>{children}</body>
+      <body className={`${geist.className} ${geistMono.variable} antialiased`}>{children}</body>
     </html>
   );
 }

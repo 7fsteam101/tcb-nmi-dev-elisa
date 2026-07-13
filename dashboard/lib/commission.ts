@@ -1,85 +1,144 @@
 import { sql } from "./db";
 
-// Rule-driven commission. Each rep's commission is computed from the rules that
-// are enabled for them (sales.commission_rule + per-rep sales.rep_commission_setting):
-//   base_rate       — rate on cash collected
-//   tier_bonus      — replaces base rate while trailing-14d close rate >= threshold
-//   refund_clawback — deduct a rate on cash tied to now-refunded deals
-// Toggling a rule off for a rep (admin) removes its effect. Estimate only;
-// payroll runs off validated reports.
-export type RepCommission = {
-  rep_id: string; full_name: string;
-  cash_minor: number; refunded_cash_minor: number; close_rate_14d: number;
-  effective_rate: number; tier_active: boolean; owed_minor: number;
-  rules: { key: string; name: string; enabled: boolean }[];
+// July 2 comp plan, computed IN the database by finance.recompute_commissions()
+// (migrations 0036 + 0037) and persisted as finance.commission_payout (one
+// statement per rep per month, status calculated -> approved -> paid) plus
+// finance.commission_line (rate frozen per line). This module is a thin reader
+// over the engine's views:
+//   recomputeCommissions  rebuilds all OPEN statements (never approved/paid)
+//   commissionStale       true when statements are older than 6 hours (or absent)
+//   commissionLeaderboard finance.v_commission_leaderboard (rep x month totals)
+//   commissionStatements  finance.v_commission_statement_line grouped rep -> month
+// Plan summary (help text): closers earn 10% of the invoice, locked until 25%
+// of the invoice is collected, then released into that month's statement;
+// refunds claw back; setter $1k base + 5% (attribution pending); payouts monthly.
+// Every function issues at most one query (pooler-safe; call them sequentially).
+
+export type LeaderboardRow = {
+  rep_id: string;
+  full_name: string;
+  role: string;
+  is_partner: boolean;
+  period_start: string; // YYYY-MM-DD, first day of the month
+  total_minor: number;
+  status: string; // calculated | approved | paid
+  rank_in_period: number;
 };
 
-type RuleRow = { id: string; key: string; name: string; params: any; default_enabled: boolean };
+export type StatementLine = {
+  id: string;
+  type: string; // base | residual | adjustment | clawback | setter_base | setter_pct | partner | bonus
+  deal_id: string | null;
+  contact_id: string | null;
+  contact_name: string | null;
+  rate_applied: number; // frozen at calc time; 0 for flat lines (setter_base, flat bonus)
+  amount_minor: number; // negative for clawbacks
+};
 
-export async function commissionForReps(demo: boolean, days: number): Promise<RepCommission[]> {
-  const [rules, settings, stats] = await Promise.all([
-    sql`select id, key, name, params, default_enabled from sales.commission_rule order by sort_order` as unknown as Promise<RuleRow[]>,
-    sql`select rep_id, rule_id, enabled, override_params from sales.rep_commission_setting`,
-    sql`
-      with cash as (
-        select p.rep_id, coalesce(sum(p.amount_minor),0) as collected
-        from finance.successful_payment p
-        where p.is_demo = ${demo} and p.type <> 'booking_25' and p.occurred_at >= now() - make_interval(days => ${days})
-        group by p.rep_id),
-      refunded as (
-        select p.rep_id, coalesce(sum(p.amount_minor),0) as refunded_cash
-        from finance.successful_payment p join sales.deal d on d.id = p.deal_id and d.status = 'refunded'
-        where p.is_demo = ${demo} and p.type <> 'booking_25' and p.occurred_at >= now() - make_interval(days => ${days})
-        group by p.rep_id),
-      tier as (
-        select c.rep_id, count(*) filter (where c.disposition = 'closed')::numeric / nullif(count(*),0) as close_rate_14d
-        from sales.call c join sales.appointment a on a.call_id = c.id and a.status = 'taken'
-        where c.is_demo = ${demo} and c.type = 'strategy' and a.scheduled_for >= now() - interval '14 days'
-        group by c.rep_id)
-      select rep.id, rep.full_name,
-        coalesce(ch.collected,0) as cash_minor,
-        coalesce(rf.refunded_cash,0) as refunded_cash_minor,
-        coalesce(tr.close_rate_14d,0) as close_rate_14d
-      from sales.rep rep
-      left join cash ch on ch.rep_id = rep.id
-      left join refunded rf on rf.rep_id = rep.id
-      left join tier tr on tr.rep_id = rep.id
-      where rep.active and rep.role in ('closer','hybrid')
-      order by coalesce(ch.collected,0) desc, rep.full_name`,
-  ]);
+export type StatementMonth = {
+  period_start: string; // YYYY-MM-DD, first day of the month
+  status: string; // calculated | approved | paid
+  total_minor: number;
+  lines: StatementLine[];
+};
 
-  const ruleByKey = new Map(rules.map((r) => [r.key, r]));
-  const settingMap = new Map<string, { enabled: boolean; override: any }>();
-  for (const s of settings as any[]) settingMap.set(`${s.rep_id}|${s.rule_id}`, { enabled: s.enabled, override: s.override_params });
+export type RepStatement = {
+  rep_id: string;
+  full_name: string;
+  total_minor: number;
+  months: StatementMonth[]; // newest first
+};
 
-  const enabledFor = (repId: string, rule: RuleRow) => {
-    const s = settingMap.get(`${repId}|${rule.id}`);
-    return s ? s.enabled : rule.default_enabled;
-  };
-  const paramsFor = (repId: string, rule: RuleRow) => {
-    const s = settingMap.get(`${repId}|${rule.id}`);
-    return (s && s.override) ? s.override : rule.params;
-  };
+/** Rebuild all OPEN monthly statements (status 'calculated') for the demo scope.
+ *  Never touches approved/paid statements. ~1.4s in the DB. Returns false on
+ *  failure instead of throwing, so a stale-but-readable page still renders. */
+export async function recomputeCommissions(demo: boolean): Promise<boolean> {
+  try {
+    await sql`select finance.recompute_commissions(${demo})`;
+    return true;
+  } catch (err) {
+    console.error("finance.recompute_commissions failed:", err);
+    return false;
+  }
+}
 
-  return (stats as any[]).map((st) => {
-    const base = ruleByKey.get("base_rate"), tier = ruleByKey.get("tier_bonus"), claw = ruleByKey.get("refund_clawback");
-    const baseOn = base ? enabledFor(st.id, base) : false;
-    const tierOn = tier ? enabledFor(st.id, tier) : false;
-    const clawOn = claw ? enabledFor(st.id, claw) : false;
+/** True when the newest payout was last rebuilt more than 6 hours ago, or no
+ *  payouts exist yet, so the caller knows to recompute before reading. */
+export async function commissionStale(demo: boolean): Promise<boolean> {
+  const rows = await sql`
+    select max(updated_at) as newest
+    from finance.commission_payout
+    where is_demo = ${demo}`;
+  const newest = rows[0]?.newest as string | Date | null | undefined;
+  if (!newest) return true;
+  return Date.now() - new Date(newest).getTime() > 6 * 60 * 60 * 1000;
+}
 
-    const baseRate = baseOn ? Number(paramsFor(st.id, base!).rate ?? 0.1) : 0;
-    const tp = tierOn ? paramsFor(st.id, tier!) : null;
-    const tierActive = !!(tp && Number(st.close_rate_14d) >= Number(tp.threshold ?? 0.333));
-    const effRate = tierActive ? Number(tp!.rate ?? 0.15) : baseRate;
-    const clawRate = clawOn ? Number(paramsFor(st.id, claw!).rate ?? 0.1) : 0;
+/** Per-rep monthly totals with rank, from finance.v_commission_leaderboard.
+ *  monthISO ("YYYY-MM") filters to that month's statements; omit for all months. */
+export async function commissionLeaderboard(demo: boolean, monthISO?: string): Promise<LeaderboardRow[]> {
+  const monthFilter = monthISO ? sql`and period_start = ${`${monthISO}-01`}` : sql``;
+  const rows = await sql`
+    select rep_id, full_name, role::text as role, is_partner,
+           period_start::text as period_start, total_commission_minor,
+           status::text as status, rank_in_period
+    from finance.v_commission_leaderboard
+    where is_demo = ${demo} ${monthFilter}
+    order by period_start desc, rank_in_period asc, full_name asc`;
+  return rows.map((r) => ({
+    rep_id: r.rep_id as string,
+    full_name: r.full_name as string,
+    role: r.role as string,
+    is_partner: Boolean(r.is_partner),
+    period_start: r.period_start as string,
+    total_minor: Number(r.total_commission_minor),
+    status: r.status as string,
+    rank_in_period: Number(r.rank_in_period),
+  }));
+}
 
-    const owed = Math.round(Number(st.cash_minor) * effRate - Number(st.refunded_cash_minor) * clawRate);
-    return {
-      rep_id: st.id, full_name: st.full_name,
-      cash_minor: Number(st.cash_minor), refunded_cash_minor: Number(st.refunded_cash_minor),
-      close_rate_14d: Number(st.close_rate_14d), effective_rate: effRate, tier_active: tierActive,
-      owed_minor: owed,
-      rules: [base, tier, claw].filter(Boolean).map((r) => ({ key: r!.key, name: r!.name, enabled: enabledFor(st.id, r!) })),
-    };
-  });
+/** Statement lines from finance.v_commission_statement_line, grouped per rep and
+ *  per month (newest month first), reps ordered by total desc. monthISO ("YYYY-MM")
+ *  filters the period; repId narrows to a single rep (the closer's own view). */
+export async function commissionStatements(demo: boolean, monthISO?: string, repId?: string): Promise<RepStatement[]> {
+  const monthFilter = monthISO ? sql`and l.period_start = ${`${monthISO}-01`}` : sql``;
+  const repFilter = repId ? sql`and l.rep_id = ${repId}` : sql``;
+  const rows = await sql`
+    select l.id, l.rep_id, rep.full_name, l.period_start::text as period_start,
+           l.status::text as status, l.type::text as type, l.deal_id, l.contact_id,
+           ct.full_name as contact_name, l.rate_applied, l.commission_amount_minor
+    from finance.v_commission_statement_line l
+    join sales.rep rep on rep.id = l.rep_id
+    left join core.contact ct on ct.id = l.contact_id
+    where l.is_demo = ${demo} ${monthFilter} ${repFilter}
+    order by rep.full_name asc, l.period_start desc, l.type asc, l.id asc`;
+
+  const byRep = new Map<string, RepStatement>();
+  for (const r of rows) {
+    const repKey = r.rep_id as string;
+    let rep = byRep.get(repKey);
+    if (!rep) {
+      rep = { rep_id: repKey, full_name: r.full_name as string, total_minor: 0, months: [] };
+      byRep.set(repKey, rep);
+    }
+    const periodStart = r.period_start as string;
+    let month = rep.months.find((m) => m.period_start === periodStart);
+    if (!month) {
+      month = { period_start: periodStart, status: r.status as string, total_minor: 0, lines: [] };
+      rep.months.push(month);
+    }
+    const amount = Number(r.commission_amount_minor);
+    rep.total_minor += amount;
+    month.total_minor += amount;
+    month.lines.push({
+      id: r.id as string,
+      type: r.type as string,
+      deal_id: (r.deal_id as string | null) ?? null,
+      contact_id: (r.contact_id as string | null) ?? null,
+      contact_name: (r.contact_name as string | null) ?? null,
+      rate_applied: Number(r.rate_applied ?? 0),
+      amount_minor: amount,
+    });
+  }
+  return [...byRep.values()].sort((a, b) => b.total_minor - a.total_minor || a.full_name.localeCompare(b.full_name));
 }

@@ -23,7 +23,7 @@ export function Stat({
         {label}
         {help && <InfoTip text={help} />}
       </div>
-      <div className="mt-1.5 text-[26px] font-bold leading-none tracking-tight tabular-nums" style={{ color: c }}>{value}</div>
+      <div className="num mt-1.5 text-[26px] font-bold leading-none" style={{ color: c }}>{value}</div>
       {sub && <div className="mt-1.5 text-[11px]" style={{ color: "var(--muted)" }}>{sub}</div>}
     </>
   );
@@ -52,7 +52,7 @@ export function InfoTip({ text }: { text: string }) {
 export function SectionTitle({ children, right }: { children: ReactNode; right?: ReactNode }) {
   return (
     <div className="mb-3 mt-8 flex items-center justify-between first:mt-0">
-      <h2 className="text-sm font-semibold uppercase tracking-wider" style={{ color: "var(--muted)" }}>{children}</h2>
+      <h2 className="text-[13px] font-semibold uppercase tracking-wider" style={{ color: "var(--muted)" }}>{children}</h2>
       {right}
     </div>
   );

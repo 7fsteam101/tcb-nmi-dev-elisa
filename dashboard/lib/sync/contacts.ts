@@ -1,4 +1,5 @@
 import { sql } from "../db";
+import { evaluateTestRules, setContactTestFlag } from "./test-rules";
 
 // Contact matching per the data-safety rules:
 // - match across ALL identifiers (primary fields + contact_identifier history)
@@ -72,10 +73,46 @@ export async function upsertContact(c: IncomingContact): Promise<{ id: string; c
     }
     return { id: existing, created: false };
   }
+
+  // TWIN GUARD (Katie, July 10): their Close automation creates NAME-ONLY leads
+  // from GHL opt-ins, which used to mirror in as a second contact next to the
+  // identified GHL one. Before creating, adopt an exact-name live counterpart
+  // under the SAME strict rule as the nightly merge (exactly ONE candidate):
+  //  - incoming has no identifiers -> adopt the single identified same-name contact
+  //  - incoming is identified      -> adopt the single identifier-less same-name contact
+  const name = (c.fullName ?? [c.firstName, c.lastName].filter(Boolean).join(" ") ?? "").trim();
+  if (name.length > 6) {
+    const incomingIdentified = Boolean(c.email || c.phone);
+    const twins = await sql`
+      select ct.id from core.contact ct
+      where lower(trim(ct.full_name)) = lower(${name})
+        and ct.merged_into_contact_id is null and not ct.is_demo
+        and ${incomingIdentified}
+            = (ct.primary_email is null and ct.primary_phone is null
+               and not exists (select 1 from core.contact_identifier ci where ci.contact_id = ct.id))
+      limit 2`;
+    if (twins.length === 1) {
+      const adopt = twins[0].id as string;
+      await sql`
+        update core.contact set
+          close_id = coalesce(close_id, ${c.closeId ?? null}),
+          ghl_marketing_id = coalesce(ghl_marketing_id, ${c.ghlMarketingId ?? null}),
+          ghl_repair_id = coalesce(ghl_repair_id, ${c.ghlRepairId ?? null}),
+          primary_email = coalesce(primary_email, ${c.email ?? null}),
+          primary_phone = coalesce(primary_phone, ${c.phone ?? null})
+        where id = ${adopt}`;
+      if (c.email) await sql`insert into core.contact_identifier (contact_id, type, value, is_primary, source)
+        values (${adopt}, 'email', ${c.email}, false, ${c.createdSource ?? "sync"}) on conflict do nothing`;
+      if (c.phone) await sql`insert into core.contact_identifier (contact_id, type, value, is_primary, source)
+        values (${adopt}, 'phone', ${c.phone}, false, ${c.createdSource ?? "sync"}) on conflict do nothing`;
+      return { id: adopt, created: false };
+    }
+  }
+
   const rows = await sql`
     insert into core.contact (full_name, first_name, last_name, primary_email, primary_phone,
                               lifecycle_status, close_id, ghl_marketing_id, ghl_repair_id, created_source)
-    values (${c.fullName ?? [c.firstName, c.lastName].filter(Boolean).join(" ") ?? "Unknown"},
+    values (${name || "Unknown"},
             ${c.firstName ?? null}, ${c.lastName ?? null}, ${c.email ?? null}, ${c.phone ?? null},
             'lead', ${c.closeId ?? null}, ${c.ghlMarketingId ?? null}, ${c.ghlRepairId ?? null},
             ${c.createdSource ?? "unknown"})

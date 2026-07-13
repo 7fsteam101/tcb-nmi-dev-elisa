@@ -7,6 +7,9 @@ import { DateRangeBar } from "@/components/date-range";
 import { BarChart, ProgressRing } from "@/components/charts";
 import { resolveRange, previousWindow } from "@/lib/range";
 import { requireAccess } from "@/lib/access";
+import { getSession } from "@/lib/auth";
+import { needsAttention } from "@/lib/attention";
+import { AttentionBanner } from "@/components/attention-banner";
 import { goalProgress, METRIC_LABEL, isMoneyMetric } from "@/lib/goals";
 
 export const dynamic = "force-dynamic";
@@ -51,6 +54,8 @@ export default async function Overview({ searchParams }: { searchParams: Promise
   // Held out of the Promise.all above so concurrency stays at 4 or fewer.
   const lcr = await leadershipCloseRate({ demo, days, since: range.since, until });
   const companyGoals = await goalProgress(demo, "company");
+  const session = await getSession();
+  const attention = session && ["admin", "leadership"].includes(session.role) ? await needsAttention() : null;
 
   const n = (v: unknown) => Number(v ?? 0);
 
@@ -100,6 +105,7 @@ export default async function Overview({ searchParams }: { searchParams: Promise
   return (
     <div>
       <h1 className="text-xl font-semibold">Overview</h1>
+      {attention && <AttentionBanner a={attention} />}
       <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm" style={{ color: "var(--muted)" }}>
           {range.label}, vs the {range.custom ? "prior period" : `${days} before`}. Times in {tz}.
@@ -115,7 +121,7 @@ export default async function Overview({ searchParams }: { searchParams: Promise
           help="Unique lead-form opt-ins. A returning lead re-counts only after 30 days." />
         <Stat label="Calls booked" value={num(booked)} tone="accent" href={`/explore/booked?${rq}`}
           sub={deltaSub(deltaPct(booked, n(prev.booked)))}
-          help="Unique paid strategy-call bookings, counted once regardless of reschedules." />
+          help="Unique strategy-call bookings on tracked calendars, free and paid alike, counted once regardless of reschedules. The drill-down shows which are paid." />
         <Stat label="Calls taken" value={num(taken)} tone="accent" href={`/explore/taken?${rq}`}
           sub={deltaSub(deltaPct(taken, n(prev.taken)))}
           help="Strategy-call slots that actually happened, by event start date." />

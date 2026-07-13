@@ -22,7 +22,7 @@ const contactCols: ExploreColumn[] = [
 export const EXPLORE: Record<string, ExploreDef> = {
   leads: {
     title: "Leads (unique opt-ins)",
-    description: "Every lead-form submission in range. Unique = first submission, or a return after 30+ days.",
+    description: "Lead-form submissions from forms marked counts-as-lead (Admin > Forms). Unique = first submission, or a return after 30+ days.",
     page: "overview",
     columns: [
       { key: "submitted_at", label: "Submitted", kind: "datetime" },
@@ -33,28 +33,30 @@ export const EXPLORE: Record<string, ExploreDef> = {
       { key: "counts_as_unique", label: "Unique" },
     ],
     query: (demo, days) => sql`
-      select o.submitted_at, ct.full_name as contact_name, ct.close_id, o.source_channel,
+      select o.submitted_at, ct.full_name as contact_name, ct.close_id, ct.id as contact_id, o.source_channel,
              o.source_campaign, o.goal, case when o.counts_as_unique then 'yes' else 'repeat' end as counts_as_unique
       from sales.opt_in o join core.contact ct on ct.id = o.contact_id
-      where o.is_demo = ${demo} and o.submitted_at >= now() - make_interval(days => ${days})
+      where o.is_demo = ${demo} and o.counted and o.submitted_at >= now() - make_interval(days => ${days})
       order by o.submitted_at desc limit 500`,
   },
   booked: {
     title: "Calls booked",
-    description: "Unique paid strategy-call bookings, counted once regardless of reschedules.",
+    description: "Unique strategy-call bookings on tracked calendars (free and paid alike), counted once regardless of reschedules. The Paid column marks the booking-fee variants.",
     page: "overview",
     columns: [
       { key: "scheduled_at", label: "Booked for", kind: "datetime" },
       ...contactCols,
       { key: "closer", label: "Closer" },
       { key: "booking_source_channel", label: "Source" },
+      { key: "paid", label: "Paid", kind: "label" },
       { key: "slots", label: "Slots (1 = never moved)" },
       { key: "current_status", label: "Current status", kind: "label" },
     ],
     query: (demo, days) => sql`
       select coalesce(c.current_scheduled_at, c.scheduled_at) as scheduled_at,
-             ct.full_name as contact_name, ct.close_id, rep.full_name as closer,
+             ct.full_name as contact_name, ct.close_id, ct.id as contact_id, rep.full_name as closer,
              c.booking_source_channel,
+             case when c.is_paid_booking then 'paid' when c.is_paid_booking = false then 'free' else null end as paid,
              (select count(*) from sales.appointment a where a.call_id = c.id) as slots,
              (select a.status from sales.appointment a where a.call_id = c.id and a.is_current) as current_status
       from sales.call c
@@ -77,7 +79,7 @@ export const EXPLORE: Record<string, ExploreDef> = {
       { key: "disposition", label: "Disposition", kind: "label" },
     ],
     query: (demo, days) => sql`
-      select a.scheduled_for, ct.full_name as contact_name, ct.close_id, rep.full_name as closer,
+      select a.scheduled_for, ct.full_name as contact_name, ct.close_id, ct.id as contact_id, rep.full_name as closer,
              a.seq, c.disposition
       from sales.appointment a
       join sales.call c on c.id = a.call_id
@@ -100,7 +102,7 @@ export const EXPLORE: Record<string, ExploreDef> = {
       { key: "recovered", label: "Recovered later" },
     ],
     query: (demo, days) => sql`
-      select a.scheduled_for, ct.full_name as contact_name, ct.close_id, rep.full_name as closer, a.seq,
+      select a.scheduled_for, ct.full_name as contact_name, ct.close_id, ct.id as contact_id, rep.full_name as closer, a.seq,
              case when exists (select 1 from sales.appointment a2 where a2.call_id = a.call_id and a2.seq > a.seq and a2.status = 'taken')
                   then 'yes' else 'no' end as recovered
       from sales.appointment a
@@ -125,7 +127,7 @@ export const EXPLORE: Record<string, ExploreDef> = {
       { key: "seq", label: "Was attempt #" },
     ],
     query: (demo, days) => sql`
-      select a.rescheduled_at, ct.full_name as contact_name, ct.close_id, a.scheduled_for,
+      select a.rescheduled_at, ct.full_name as contact_name, ct.close_id, ct.id as contact_id, a.scheduled_for,
              a.moved_by, r.name as reason, a.seq
       from sales.appointment a
       join sales.call c on c.id = a.call_id
@@ -147,7 +149,7 @@ export const EXPLORE: Record<string, ExploreDef> = {
       { key: "reason", label: "Reason" },
     ],
     query: (demo, days) => sql`
-      select a.scheduled_for, ct.full_name as contact_name, ct.close_id, a.status, r.name as reason
+      select a.scheduled_for, ct.full_name as contact_name, ct.close_id, ct.id as contact_id, a.status, r.name as reason
       from sales.appointment a
       join sales.call c on c.id = a.call_id
       join sales.opportunity o on o.id = c.opportunity_id
@@ -170,7 +172,7 @@ export const EXPLORE: Record<string, ExploreDef> = {
       { key: "status", label: "Status", kind: "label" },
     ],
     query: (demo, days) => sql`
-      select d.deal_close_date, ct.full_name as contact_name, ct.close_id, rep.full_name as closer,
+      select d.deal_close_date, ct.full_name as contact_name, ct.close_id, ct.id as contact_id, rep.full_name as closer,
              d.plan_type_snapshot, d.total_contract_value_minor, d.status
       from sales.deal d
       join core.contact ct on ct.id = d.contact_id
@@ -191,7 +193,7 @@ export const EXPLORE: Record<string, ExploreDef> = {
       { key: "rep", label: "Rep" },
     ],
     query: (demo, days) => sql`
-      select p.occurred_at, coalesce(ct.full_name, '(unlinked)') as contact_name, ct.close_id,
+      select p.occurred_at, coalesce(ct.full_name, '(unlinked)') as contact_name, ct.close_id, ct.id as contact_id,
              p.type, p.amount_minor, p.processor, rep.full_name as rep
       from finance.successful_payment p
       left join sales.deal d on d.id = p.deal_id
@@ -212,7 +214,7 @@ export const EXPLORE: Record<string, ExploreDef> = {
       { key: "cohort_month", label: "Cohort", kind: "date" },
     ],
     query: (demo, days, arg) => sql`
-      select o.opened_at, ct.full_name as contact_name, ct.close_id, rep.full_name as owner, o.cohort_month
+      select o.opened_at, ct.full_name as contact_name, ct.close_id, ct.id as contact_id, rep.full_name as owner, o.cohort_month
       from sales.opportunity o
       join core.contact ct on ct.id = o.contact_id
       left join sales.rep rep on rep.id = o.owner_rep_id
@@ -231,7 +233,7 @@ export const EXPLORE: Record<string, ExploreDef> = {
       { key: "status", label: "Status", kind: "label" },
     ],
     query: (demo, _days, arg) => sql`
-      select r.due_date, ct.full_name as contact_name, ct.close_id, r.installment_no, r.amount_minor, r.status
+      select r.due_date, ct.full_name as contact_name, ct.close_id, ct.id as contact_id, r.installment_no, r.amount_minor, r.status
       from finance.receivable r
       join finance.payment_plan pp on pp.id = r.payment_plan_id and pp.is_current
       join sales.deal d on d.id = r.deal_id
@@ -274,7 +276,7 @@ export const EXPLORE: Record<string, ExploreDef> = {
       { key: "source", label: "Source", kind: "label" },
     ],
     query: (demo, days) => sql`
-      select ob.created_at, ct.full_name as contact_name, ct.close_id, ot.name as objection,
+      select ob.created_at, ct.full_name as contact_name, ct.close_id, ct.id as contact_id, ot.name as objection,
              case when ob.led_to_loss then 'yes' else 'no' end as led_to_loss, ob.source
       from sales.objection ob
       join core.objection_type ot on ot.id = ob.objection_type_id
@@ -296,7 +298,7 @@ export const EXPLORE: Record<string, ExploreDef> = {
       { key: "tcv_minor", label: "Deal value", kind: "money" },
     ],
     query: (demo, days, arg) => sql`
-      select a.scheduled_for, ct.full_name as contact_name, ct.close_id, a.status, c.disposition,
+      select a.scheduled_for, ct.full_name as contact_name, ct.close_id, ct.id as contact_id, a.status, c.disposition,
              d.total_contract_value_minor as tcv_minor
       from sales.call c
       join sales.appointment a on a.call_id = c.id and a.is_current
@@ -318,7 +320,7 @@ export const EXPLORE: Record<string, ExploreDef> = {
       { key: "owner", label: "Owner" },
     ],
     query: (demo) => sql`
-      select o.closed_at, ct.full_name as contact_name, ct.close_id, o.stage, rep.full_name as owner
+      select o.closed_at, ct.full_name as contact_name, ct.close_id, ct.id as contact_id, o.stage, rep.full_name as owner
       from sales.opportunity o
       join core.contact ct on ct.id = o.contact_id
       left join sales.rep rep on rep.id = o.owner_rep_id
@@ -339,7 +341,7 @@ export const EXPLORE: Record<string, ExploreDef> = {
       { key: "reason", label: "Reason" },
     ],
     query: (demo, days) => sql`
-      select v.occurred_at, coalesce(ct.full_name, '(unlinked)') as contact_name, ct.close_id,
+      select v.occurred_at, coalesce(ct.full_name, '(unlinked)') as contact_name, ct.close_id, ct.id as contact_id,
              v.type, v.amount_minor, v.reason
       from finance.reversal v
       left join sales.deal d on d.id = v.deal_id

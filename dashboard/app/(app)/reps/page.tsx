@@ -14,34 +14,25 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 const ratio = (a: number, b: number) => (b > 0 ? a / b : 0);
-// Percentage-point delta of the current period over the previous one. Used only
-// to colour the five headline Stat boxes by direction of change.
-const delta = (cur: number, prev: number) => (prev > 0 ? ((cur - prev) / prev) * 100 : null);
 
-// Tone follows the DIRECTION of change: up is an improvement (green), down a
-// regression (red), flat/no-baseline stays on the default accent. Every headline
-// metric here is "higher is better", so the sign of the delta is the honest signal.
-const deltaTone = (deltaPct: number | null): "good" | "bad" | undefined => {
-  if (deltaPct == null || deltaPct === 0) return undefined;
-  return deltaPct > 0 ? "good" : "bad";
-};
-
-// Rank heat: the top third of active closers get a blue (accent) row tint that is
+// Rank heat: the top third of active closers get a blue (accent) tint that is
 // strongest at #1, the bottom third get a red (bad) tint strongest at last place,
-// the middle stays neutral. color-mix over var() tokens so it reads in dark + light.
-function rankRowStyle(rank: number, activeCount: number): React.CSSProperties {
-  if (activeCount < 2) return {};
+// the middle stays neutral. Returned as a color-mix() color string the row sets
+// as --row-tint, so the hover style can blend on top of it instead of being
+// masked by an inline background. color-mix over var() tokens reads in dark + light.
+function rankRowTint(rank: number, activeCount: number): string | null {
+  if (activeCount < 2) return null;
   const third = activeCount / 3;
   if (rank < third) {
     const strength = 16 - (rank / Math.max(third - 1, 1)) * 10; // ~16% down to ~6%
-    return { background: `color-mix(in srgb, var(--accent) ${strength.toFixed(1)}%, transparent)` };
+    return `color-mix(in srgb, var(--accent) ${strength.toFixed(1)}%, transparent)`;
   }
   if (rank >= activeCount - third) {
     const fromBottom = activeCount - 1 - rank;
     const strength = 16 - (fromBottom / Math.max(third - 1, 1)) * 10;
-    return { background: `color-mix(in srgb, var(--bad) ${strength.toFixed(1)}%, transparent)` };
+    return `color-mix(in srgb, var(--bad) ${strength.toFixed(1)}%, transparent)`;
   }
-  return {};
+  return null;
 }
 
 export default async function Reps({ searchParams }: { searchParams: Promise<{ days?: string; from?: string; to?: string }> }) {
@@ -58,18 +49,11 @@ export default async function Reps({ searchParams }: { searchParams: Promise<{ d
   const complianceByRep = new Map(compliance.map((c) => [c.rep_id, c]));
 
   const cur = cmp.current;
-  const prev = cmp.previous;
   const curShow = ratio(cur.taken, cur.taken + cur.noShows);
-  const prevShow = ratio(prev.taken, prev.taken + prev.noShows);
   const curClose = ratio(cur.won, cur.taken);
-  const prevClose = ratio(prev.won, prev.taken);
 
-  // Deltas drive the Stat tone so a decline never gets painted green.
-  const dTaken = delta(cur.taken, prev.taken);
-  const dWon = delta(cur.won, prev.won);
-  const dCash = delta(cur.cashMinor, prev.cashMinor);
-  const dShow = delta(curShow, prevShow);
-  const dClose = delta(curClose, prevClose);
+  // Close-rate health bands (fractions): 25%+ healthy, 15%+ warning, below bad.
+  const closeTone: "good" | "warn" | "bad" = curClose >= 0.25 ? "good" : curClose >= 0.15 ? "warn" : "bad";
 
   // Count of closers with real activity — drives the rank-heat gradient bounds so
   // idle placeholder rows do not distort the top/bottom bands.
@@ -98,29 +82,39 @@ export default async function Reps({ searchParams }: { searchParams: Promise<{ d
 
   return (
     <div>
+      {/* Row hover that works WITH the rank tint: the tint arrives as --row-tint
+          so hovering blends the standard wash over it instead of being masked by
+          an inline background. Scoped to this page's tables. */}
+      <style>{`
+        tr.rep-row { background-color: var(--row-tint, transparent); transition: background-color 100ms; }
+        tr.rep-row:hover { background-color: color-mix(in srgb, var(--panel-2) 55%, var(--row-tint, transparent)); }
+      `}</style>
+
       <h1 className="text-xl font-semibold">Closer Analytics</h1>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm" style={{ color: "var(--muted)" }}>
-          Last {days} days vs the {days} days before. Commission tier: 10% base, 15% while the trailing 2-week close rate holds 33.3%+.
+          Last {days} days. Commission tier: 10% base, 15% while the trailing 2-week close rate holds 33.3%+.
         </p>
         <DateRangeBar />
       </div>
 
-      {/* The five metrics that matter, as compact colored Stat boxes. */}
+      {/* The five metrics that matter, as tinted Stat boxes: taken/show accent,
+          close rate health-toned, cash green. Values render in the tone color so
+          they stay saturated (never washed gray) in the light theme. */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
-        <Stat label="Calls taken" value={num(cur.taken)} tone={deltaTone(dTaken)}
+        <Stat label="Calls taken" value={num(cur.taken)} tone="accent"
           href={`/explore/taken?days=${days}`}
           help="Strategy-call slots that actually happened, by event start time." />
-        <Stat label="Show rate" value={pct(curShow)} tone={deltaTone(dShow)}
+        <Stat label="Show rate" value={pct(curShow)} tone="accent"
           href={`/explore/no_shows?days=${days}`}
           help="Taken / (taken + no-shows) on slots that reached their time." />
-        <Stat label="Close rate" value={pct(curClose)} tone={deltaTone(dClose)}
+        <Stat label="Close rate" value={pct(curClose)} tone={closeTone}
           href={`/explore/deals?days=${days}`}
-          help="Deals won / calls taken. 33.3%+ on the trailing 2 weeks unlocks the 15% commission tier." />
-        <Stat label="Cash collected" value={money(cur.cashMinor)} tone={deltaTone(dCash)}
+          help="Deals won / calls taken. Green at 25%+, amber at 15%+. 33.3%+ on the trailing 2 weeks unlocks the 15% commission tier." />
+        <Stat label="Cash collected" value={money(cur.cashMinor)} tone="good"
           href={`/explore/cash?days=${days}`}
           help="Gross program payments (NMI), excluding the $25 booking fees, before reversals." />
-        <Stat label="Deals" value={num(cur.won)} tone={deltaTone(dWon)}
+        <Stat label="Deals" value={num(cur.won)} tone="accent"
           href={`/explore/deals?days=${days}`}
           help="Deals won by deal close date. Refunded deals are excluded." />
       </div>
@@ -166,20 +160,25 @@ export default async function Reps({ searchParams }: { searchParams: Promise<{ d
             {closers.map((r: any, i: number) => {
               const hasActivity =
                 Number(r.taken) + Number(r.on_calendar) + Number(r.won) + Number(r.cash_minor) > 0;
+              const tintColor = hasActivity ? rankRowTint(i, activeCount) : null;
+              const rowStyle: React.CSSProperties = {
+                ...(tintColor ? ({ "--row-tint": tintColor } as React.CSSProperties) : {}),
+                ...(hasActivity ? {} : { opacity: 0.6 }),
+              };
               return (
-                <tr key={r.id} style={hasActivity ? rankRowStyle(i, activeCount) : { opacity: 0.45 }}>
-                  <td>{i + 1}</td>
+                <tr key={r.id} className="rep-row" style={rowStyle}>
+                  <td className="num" style={{ color: "var(--text)" }}>{i + 1}</td>
                   <td>
                     <Link href={`/explore/rep?arg=${r.id}&title=${encodeURIComponent(r.full_name)}&days=${days}`}
                       style={{ color: "var(--accent)" }}>
                       {r.full_name}
                     </Link>
                   </td>
-                  <td className="text-right">{num(r.taken)}</td>
-                  <td className="text-right">{num(r.won)}</td>
-                  <td className="text-right">{r.close_rate != null ? pct(r.close_rate) : "—"}</td>
-                  <td className="text-right">{r.show_rate != null ? pct(r.show_rate) : "—"}</td>
-                  <td className="text-right">{money(r.cash_minor)}</td>
+                  <td className="num text-right" style={{ color: "var(--text)" }}>{num(r.taken)}</td>
+                  <td className="num text-right" style={{ color: "var(--text)" }}>{num(r.won)}</td>
+                  <td className="num text-right" style={{ color: "var(--text)" }}>{r.close_rate != null ? pct(r.close_rate) : "—"}</td>
+                  <td className="num text-right" style={{ color: "var(--text)" }}>{r.show_rate != null ? pct(r.show_rate) : "—"}</td>
+                  <td className="num text-right" style={{ color: "var(--text)" }}>{money(r.cash_minor)}</td>
                 </tr>
               );
             })}
@@ -212,16 +211,16 @@ export default async function Reps({ searchParams }: { searchParams: Promise<{ d
               const rate = c.on_time_rate != null ? Number(c.on_time_rate) : null;
               const tone = rate == null ? "neutral" : rate >= 0.9 ? "good" : rate >= 0.7 ? "warn" : "bad";
               return (
-                <tr key={r.id}>
+                <tr key={r.id} className="rep-row">
                   <td>
                     <Link href={`/explore/rep?arg=${r.id}&title=${encodeURIComponent(r.full_name)}&days=${days}`}
                       style={{ color: "var(--accent)" }}>
                       {r.full_name}
                     </Link>
                   </td>
-                  <td className="text-right">{num(c.taken)}</td>
-                  <td className="text-right">{num(c.on_time)}</td>
-                  <td className="text-right" style={Number(c.missing) > 0 ? { color: "var(--bad)" } : undefined}>
+                  <td className="num text-right" style={{ color: "var(--text)" }}>{num(c.taken)}</td>
+                  <td className="num text-right" style={{ color: "var(--text)" }}>{num(c.on_time)}</td>
+                  <td className="num text-right" style={{ color: Number(c.missing) > 0 ? "var(--bad)" : "var(--text)" }}>
                     {num(c.missing)}
                   </td>
                   <td className="text-right">

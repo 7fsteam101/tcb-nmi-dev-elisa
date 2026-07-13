@@ -129,3 +129,8 @@ Attendees: Katie (7FS), Josh Steil (technical / automation lead), Chris Steil (c
 - **GHL:** two sub-accounts. **Repair Fulfillment** holds invoices/payments; **Marketing** holds contracts. Connecting via the GHL Marketplace app using the AI@thecreditbrothers.com account (now admin).
 - **Monday:** Katie added to the workspaces / boards. Data to transfer to Supabase: Sales Call Reports + Missed Call Reports (BDCR Sales workspace), the In House Payment Schedule board (deals: size + plan, high confidence), and the Credit Audits board (NAFA reports). Setter Reports board exists but is unused; no commission board (that goes to a Slack channel).
 - **GitHub `TCB operations` repo** is the source of truth for all automation knowledge (Cloudflare workers + a Zapier catalog). Cloudflare/Zapier details live there.
+
+# July 9: booking tracking policy
+
+- **Tracking follows the admin calendar mapping; paid is an attribute, never a filter (Katie, July 9).** A booking counts in the funnel numbers when its calendar is marked Tracked in Admin > Calendars, free and paid alike. Whether the calendar charges the $25 booking fee is a visible Paid/Free attribute on Call Logs and the booked drill-down, not a condition for counting. Uncategorized calendars record but do not count until an admin maps them. Toggling Tracked or Paid re-applies to that calendar's historical calls (at rollout: 702 tracked paid, 51 tracked free, 360 untracked).
+- **Unmapped Close stages no longer break the sync.** An unknown Close stage label auto-registers in Admin > Stages and the event proceeds without a stage change until it is mapped there (same counts-only-when-mapped principle as calendars).

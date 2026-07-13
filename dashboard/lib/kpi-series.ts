@@ -27,7 +27,7 @@ export async function overviewComparison({ demo, days, prevSince, prevUpto }: Pa
     select
       (select count(*) from sales.opt_in o, range r
         where o.is_demo = ${demo} and o.submitted_at >= r.since and o.submitted_at < r.upto
-          and o.counts_as_unique) as leads,
+          and o.counts_as_unique and o.counted) as leads,
       (select count(*) from sales.call c, range r
         where c.is_demo = ${demo} and c.type = 'strategy' and c.is_primary and c.is_booking
           and not coalesce(c.is_duplicate, false)

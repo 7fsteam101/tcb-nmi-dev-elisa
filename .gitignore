@@ -12,3 +12,7 @@ node_modules/
 # os
 .DS_Store
 **/scripts/.*.mjs
+.claude/worktrees/
+bdcr-operations/
+tcb-operations/
+BDCR-salesmen-dashboard/

@@ -1,23 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { ReactNode, useEffect, useRef, useState } from "react";
+import { Fragment, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { CallLogRow } from "@/lib/kpi-calllog";
 import { Badge, STATUS_TONE, label, InfoTip } from "@/components/ui";
-import { dateTime, shortDate } from "@/lib/format";
+import { dateTime, num, shortDate } from "@/lib/format";
 import { MarkButtons } from "@/app/(app)/calls/mark-buttons";
 
 // User-customizable Call Logs table. The visible column set is chosen from the
-// "Columns" dropdown and persisted per browser in localStorage. Rendering, cell
-// content, and the pending MarkButtons all stay identical to the previous
-// fixed-column table; only which columns show is now user-controlled.
+// "Columns" dropdown and persisted per browser in localStorage; rows can be
+// grouped by closer / status / source with collapsible group headers (same
+// grouping idea as the Explore table). The table scrolls inside a capped-height
+// container so the header row stays visible however deep the log goes.
+// Rendering, cell content, and the pending MarkButtons stay identical to the
+// previous fixed-column table.
 
 const STORAGE_KEY = "tcb_call_columns";
 const PENDING_HELP = "Pending means the slot's time has passed but attendance has not been marked yet (taken or no-show).";
 
 type ColKey =
   | "created" | "event_date" | "lead" | "email" | "phone" | "closer"
-  | "attempt" | "stage" | "source" | "status" | "cancellation" | "actions" | "open";
+  | "attempt" | "stage" | "source" | "paid" | "status" | "cancellation" | "actions" | "open";
 
 type Column = {
   key: ColKey;
@@ -81,6 +84,15 @@ const COLUMNS: Column[] = [
     cell: (r) => (r.booking_source ? label(r.booking_source) : "—"),
   },
   {
+    key: "paid",
+    name: "Paid",
+    help: "Whether the booking came through a paid (booking-fee) calendar. Attribute only; free bookings still count as tracked calls.",
+    cell: (r) =>
+      r.paid_booking === true ? <Badge tone="good">Paid</Badge>
+      : r.paid_booking === false ? <Badge tone="neutral">Free</Badge>
+      : <span style={{ color: "var(--muted)" }}>—</span>,
+  },
+  {
     key: "status",
     name: "Status",
     help: PENDING_HELP,
@@ -121,6 +133,17 @@ function normalize(keys: string[]): ColKey[] {
   return kept.length > 0 ? kept : DEFAULT_KEYS;
 }
 
+// Group-by options: the label-ish fields that make useful buckets. Each value
+// function mirrors what the corresponding column renders, so groups match what
+// the user sees (status folds needs_attendance into "pending").
+type GroupKey = "" | "closer" | "status" | "source";
+
+const GROUPS: { key: Exclude<GroupKey, "">; name: string; value: (r: CallLogRow) => string | null }[] = [
+  { key: "closer", name: "Closer", value: (r) => r.closer },
+  { key: "status", name: "Status", value: (r) => (r.needs_attendance ? "pending" : r.status) },
+  { key: "source", name: "Source", value: (r) => r.booking_source },
+];
+
 export function CallsTable({ rows, tz }: { rows: CallLogRow[]; tz: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
@@ -153,11 +176,62 @@ export function CallsTable({ rows, tz }: { rows: CallLogRow[]; tz: string }) {
     });
   }
 
+  // ---- grouping (session-only state; groups start expanded) ----
+  const [groupKey, setGroupKey] = useState<GroupKey>("");
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+
+  // Rows keep the server's date ordering inside each group; groups are ordered
+  // by size, biggest first (same as the Explore table).
+  const groups = useMemo(() => {
+    const group = GROUPS.find((g) => g.key === groupKey);
+    if (!group) return null;
+    const byValue = new Map<string, CallLogRow[]>();
+    for (const row of rows) {
+      const v = group.value(row);
+      const k = v == null || v === "" ? "" : v;
+      const list = byValue.get(k);
+      if (list) list.push(row);
+      else byValue.set(k, [row]);
+    }
+    return [...byValue.entries()].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]));
+  }, [rows, groupKey]);
+
+  function onGroupChange(value: string) {
+    setGroupKey(value === "closer" || value === "status" || value === "source" ? value : "");
+    setCollapsed(new Set()); // a new grouping starts fully expanded
+  }
+
+  function toggleGroup(value: string) {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(value)) next.delete(value);
+      else next.add(value);
+      return next;
+    });
+  }
+
   const shown = COLUMNS.filter((c) => visible.includes(c.key));
+
+  const bodyRow = (r: CallLogRow) => (
+    <tr key={r.appointment_id}>
+      {shown.map((c) => <td key={c.key}>{c.cell(r, tz)}</td>)}
+    </tr>
+  );
 
   return (
     <div>
-      <div className="mb-3 flex justify-end">
+      <div className="mb-3 flex flex-wrap items-center justify-end gap-3">
+        <label className="flex items-center gap-1.5 text-xs" style={{ color: "var(--muted)" }}>
+          Group by
+          <select
+            value={groupKey}
+            onChange={(e) => onGroupChange(e.target.value)}
+            className="!w-auto !py-1.5 text-sm"
+          >
+            <option value="">None</option>
+            {GROUPS.map((g) => <option key={g.key} value={g.key}>{g.name}</option>)}
+          </select>
+        </label>
         <div className="relative" ref={ref}>
           <button type="button" onClick={() => setOpen((o) => !o)}
             className="flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[12px] font-medium"
@@ -185,23 +259,51 @@ export function CallsTable({ rows, tz }: { rows: CallLogRow[]; tz: string }) {
         </div>
       </div>
 
-      <div className="overflow-x-auto">
-        <table>
+      {/* The table scrolls inside this capped-height container, so the sticky
+          header row (top: 0 within it) stays visible however deep the log
+          goes. border-collapse separate: with collapse, the header's bottom
+          border would scroll away while the cells stay pinned. */}
+      <div className="overflow-auto" style={{ maxHeight: "max(320px, calc(100vh - 320px))" }}>
+        <table style={{ borderCollapse: "separate", borderSpacing: 0 }}>
           <thead>
             <tr>
               {shown.map((c) => (
-                <th key={c.key}>
+                <th key={c.key} style={{ position: "sticky", top: 0, zIndex: 2, background: "var(--panel)" }}>
                   {c.name}{c.help && <> <InfoTip text={c.help} /></>}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
-              <tr key={r.appointment_id}>
-                {shown.map((c) => <td key={c.key}>{c.cell(r, tz)}</td>)}
-              </tr>
-            ))}
+            {groups
+              ? groups.map(([value, groupRows]) => {
+                  const isCollapsed = collapsed.has(value);
+                  return (
+                    <Fragment key={`g:${value}`}>
+                      <tr>
+                        <td
+                          colSpan={shown.length}
+                          className="!p-0"
+                          style={{ background: "color-mix(in srgb, var(--panel-2) 70%, transparent)" }}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => toggleGroup(value)}
+                            aria-expanded={!isCollapsed}
+                            className="flex w-full cursor-pointer items-center gap-1.5 px-3 py-2 text-left text-[13px] font-semibold"
+                            style={{ color: "var(--text)" }}
+                          >
+                            <span aria-hidden style={{ color: "var(--muted)" }}>{isCollapsed ? "▸" : "▾"}</span>
+                            {label(value === "" ? null : value)}
+                            <span className="font-normal" style={{ color: "var(--muted)" }}>({num(groupRows.length)})</span>
+                          </button>
+                        </td>
+                      </tr>
+                      {!isCollapsed && groupRows.map((r) => bodyRow(r))}
+                    </Fragment>
+                  );
+                })
+              : rows.map((r) => bodyRow(r))}
             {rows.length === 0 && (
               <tr><td colSpan={shown.length} style={{ color: "var(--muted)" }}>No call slots match this view</td></tr>
             )}

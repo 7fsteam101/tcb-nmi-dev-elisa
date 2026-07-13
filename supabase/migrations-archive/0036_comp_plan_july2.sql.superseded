@@ -1,0 +1,39 @@
+-- =====================================================================
+-- 0036: the July 2 commission comp plan. Seeds the new rules and retires the
+-- old ones (kept, disabled — history stays). The generic admin UI renders
+-- these automatically with per-rep toggles + param overrides.
+--   closer_deal_pct     10% of the invoice (deal TCV), LOCKED until the
+--                       collection gate (25% of invoice collected), then released.
+--   setter_pct          5% tied to the same deal + gate. applies_to says which
+--                       bookings count for the setter (interim: self_book, per
+--                       Josh; flip to 'setter' when real outbound setting starts).
+--   setter_monthly_base $1,000/month, earned on 25+ qualified shows in the month.
+--   refund_net          refunds on a rep's client net against the next payout.
+--   partner_pct         partner payees (rep.is_partner) — surfaced in admin,
+--                       default off until partner deal attribution is defined.
+-- =====================================================================
+
+update sales.commission_rule set default_enabled = false
+  where key in ('base_rate', 'tier_bonus', 'refund_clawback');
+
+insert into sales.commission_rule (key, name, description, params, default_enabled, sort_order)
+values
+  ('closer_deal_pct', 'Closer: % of invoice (collection gate)',
+   'Percent of the deal''s invoice amount. Locked until the gate share of the invoice is collected, then released.',
+   '{"rate": 0.10, "release_gate": 0.25}', true, 10),
+  ('setter_pct', 'Setter: % of invoice (tied to closer release)',
+   'Percent of the deal''s invoice for the setter side. applies_to controls which bookings count (self_book now, setter later).',
+   '{"rate": 0.05, "release_gate": 0.25, "applies_to": "self_book"}', true, 11),
+  ('setter_monthly_base', 'Setter: monthly base on qualified shows',
+   'Flat monthly base, earned when the month has at least qualified_shows qualified calls that showed.',
+   '{"amount_minor": 100000, "qualified_shows": 25}', true, 12),
+  ('refund_net', 'Refunds net against next payout',
+   'A refund tied to a rep''s client reduces that rep''s next check by the commission on the refunded amount.',
+   '{}', true, 13),
+  ('partner_pct', 'Partner payee %',
+   'Commission percentage for external partners (marked on the rep as partner). Off until partner deal attribution is defined.',
+   '{"rate": 0.10}', false, 20)
+on conflict (key) do update set
+  name = excluded.name, description = excluded.description, sort_order = excluded.sort_order;
+
+-- End of migration 0036.

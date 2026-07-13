@@ -1,0 +1,1470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TCB Automation Map</title>
+<style>
+  :root{
+    --bg:#0b0e14; --panel:#121722; --panel2:#161d2b; --panel3:#1a2233;
+    --border:#232b3a; --border2:#2c3648;
+    --text:#e7edf5; --muted:#94a1b3; --dim:#6b7789;
+    --accent:#4ea1ff; --accent-dim:rgba(78,161,255,.14);
+    --green:#3fb950; --green-bg:rgba(63,185,80,.13);
+    --amber:#d9a13d; --amber-bg:rgba(217,161,61,.13);
+    --red:#f0564f; --red-bg:rgba(240,86,79,.12);
+    --gray:#8b949e; --gray-bg:rgba(139,148,158,.13);
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    font-size:15px; line-height:1.5;
+  }
+  code,.wf,.ev,.mono{font-family:var(--mono)}
+
+  /* ---------- nav ---------- */
+  nav{
+    position:sticky; top:0; z-index:50;
+    background:rgba(11,14,20,.92); backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--border);
+    padding:10px 24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap;
+  }
+  nav .brand{font-weight:700; font-size:15px; letter-spacing:.2px; white-space:nowrap}
+  nav .brand span{color:var(--accent)}
+  nav .links{display:flex; gap:4px; flex-wrap:wrap}
+  nav .links a{
+    color:var(--muted); text-decoration:none; font-size:13.5px; padding:5px 10px;
+    border-radius:6px; white-space:nowrap;
+  }
+  nav .links a:hover{color:var(--text); background:var(--panel2)}
+  nav .links a.active{color:var(--accent); background:var(--accent-dim)}
+  nav .tools{margin-left:auto; display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+  #q{
+    background:var(--panel2); border:1px solid var(--border2); color:var(--text);
+    border-radius:8px; padding:6px 12px; font-size:13.5px; width:250px; outline:none;
+  }
+  #q:focus{border-color:var(--accent)}
+  #q::placeholder{color:var(--dim)}
+  .fbtn{
+    background:var(--panel2); border:1px solid var(--border); color:var(--muted);
+    border-radius:999px; padding:4px 11px; font-size:12.5px; cursor:pointer;
+  }
+  .fbtn:hover{color:var(--text)}
+  .fbtn.on{background:var(--accent-dim); border-color:var(--accent); color:var(--accent)}
+  #count{font-size:12px; color:var(--dim); white-space:nowrap}
+  #xall{background:none; border:1px solid var(--border); color:var(--muted); border-radius:8px; padding:5px 10px; font-size:12.5px; cursor:pointer}
+  #xall:hover{color:var(--text)}
+
+  /* ---------- layout ---------- */
+  main{max-width:1240px; margin:0 auto; padding:28px 24px 60px}
+  section{scroll-margin-top:84px; margin-bottom:64px}
+  h1{font-size:27px; margin:6px 0 4px}
+  .sub{color:var(--muted); font-size:14.5px; margin:0 0 20px}
+  h2{
+    font-size:20px; margin:0 0 6px; padding-left:12px;
+    border-left:3px solid var(--accent);
+  }
+  .secdesc{color:var(--muted); font-size:14px; margin:0 0 22px; max-width:900px}
+  h3.lanehead{font-size:15.5px; margin:34px 0 4px; color:var(--text); display:flex; align-items:center; gap:10px}
+  h3.lanehead .ln{color:var(--accent); font-family:var(--mono); font-size:13px}
+  .lanedesc{color:var(--muted); font-size:13.5px; margin:0 0 14px}
+
+  /* ---------- hero ---------- */
+  .banner{
+    background:var(--red-bg); border:1px solid rgba(240,86,79,.4); border-radius:10px;
+    padding:14px 18px; margin:18px 0; font-size:14px;
+  }
+  .banner strong{color:var(--red)}
+  .stats{display:flex; gap:12px; flex-wrap:wrap; margin:18px 0 8px}
+  .stat{
+    background:var(--panel); border:1px solid var(--border); border-radius:10px;
+    padding:12px 18px; min-width:118px;
+  }
+  .stat .n{font-size:22px; font-weight:700; color:var(--accent)}
+  .stat .l{font-size:12px; color:var(--muted)}
+  .legend{display:flex; gap:8px; flex-wrap:wrap; margin:14px 0 0; align-items:center}
+  .legend .lg{font-size:12px; color:var(--dim); margin-right:2px}
+
+  /* ---------- badges + chips ---------- */
+  .badge{
+    display:inline-block; font-size:11px; font-weight:600; letter-spacing:.3px;
+    padding:2px 9px; border-radius:999px; white-space:nowrap; line-height:1.6;
+  }
+  .b-live{color:var(--green); background:var(--green-bg); border:1px solid rgba(63,185,80,.35)}
+  .b-dormant{color:var(--amber); background:var(--amber-bg); border:1px solid rgba(217,161,61,.35)}
+  .b-archived{color:var(--gray); background:var(--gray-bg); border:1px solid rgba(139,148,158,.35)}
+  .b-repoint{color:var(--amber); background:var(--amber-bg); border:1px solid rgba(217,161,61,.35)}
+  .b-safe{color:var(--green); background:var(--green-bg); border:1px solid rgba(63,185,80,.35)}
+  .b-unknown{color:var(--gray); background:var(--gray-bg); border:1px solid rgba(139,148,158,.35)}
+  .b-conflict{color:var(--red); background:var(--red-bg); border:1px solid rgba(240,86,79,.35)}
+  .b-covers{color:var(--green); background:var(--green-bg); border:1px solid rgba(63,185,80,.35)}
+  .b-theirs{color:var(--accent); background:var(--accent-dim); border:1px solid rgba(78,161,255,.35)}
+  .b-done{color:var(--green); background:var(--green-bg); border:1px solid rgba(63,185,80,.35)}
+  .b-p1{color:#0b0e14; background:var(--accent); border:1px solid var(--accent)}
+  .b-p2{color:var(--accent); background:var(--accent-dim); border:1px solid rgba(78,161,255,.4)}
+  .b-p3{color:var(--muted); background:var(--gray-bg); border:1px solid var(--border2)}
+  .chip{
+    display:inline-block; font-family:var(--mono); font-size:10.5px; color:var(--muted);
+    border:1px solid var(--border2); border-radius:5px; padding:1px 7px; letter-spacing:.4px;
+  }
+  .wf{
+    display:inline-block; font-size:11px; color:var(--accent); background:var(--accent-dim);
+    border-radius:5px; padding:1px 7px; white-space:nowrap;
+  }
+  .eff{
+    display:inline-block; font-family:var(--mono); font-size:11px; color:var(--text);
+    border:1px solid var(--border2); background:var(--panel3); border-radius:5px; padding:1px 8px;
+  }
+  .own{
+    display:inline-block; font-size:11px; font-weight:600; color:var(--muted);
+    border:1px dashed var(--border2); border-radius:999px; padding:2px 9px;
+  }
+  .arrow{color:var(--accent); font-weight:600}
+
+  /* ---------- cards ---------- */
+  .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:14px}
+  .card{
+    background:var(--panel); border:1px solid var(--border); border-radius:12px;
+    padding:14px 16px; cursor:pointer; transition:border-color .15s, background .15s;
+    position:relative;
+  }
+  .card:hover{border-color:var(--border2); background:var(--panel2)}
+  .card.open{border-color:var(--accent); background:var(--panel2)}
+  .card:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+  .chead{display:flex; align-items:flex-start; gap:8px; flex-wrap:wrap}
+  .chead h4{margin:0; font-size:14.5px; flex:1 1 auto; min-width:120px}
+  .chev{
+    color:var(--dim); font-size:11px; margin-left:auto; transition:transform .15s;
+    align-self:center;
+  }
+  .card.open .chev{transform:rotate(90deg); color:var(--accent)}
+  .oneline{margin:8px 0 0; font-size:13.5px; color:var(--muted)}
+  .meta{margin-top:10px; font-size:12.5px; color:var(--muted); display:flex; gap:6px; align-items:baseline}
+  .meta .lbl{color:var(--dim); font-size:11px; text-transform:uppercase; letter-spacing:.5px; flex-shrink:0}
+  .chips{margin-top:9px; display:flex; gap:5px; flex-wrap:wrap}
+  .detail{display:none; margin-top:12px; border-top:1px solid var(--border); padding-top:11px; font-size:13.5px; color:var(--text); cursor:auto}
+  .card.open .detail{display:block}
+  body.xall .detail{display:block}
+  .detail ul,.detail ol{margin:6px 0; padding-left:20px}
+  .detail li{margin:4px 0; color:var(--muted)}
+  .detail li strong,.detail p strong{color:var(--text)}
+  .detail p{margin:6px 0; color:var(--muted)}
+  .whatchanges{
+    background:var(--amber-bg); border:1px solid rgba(217,161,61,.3); border-radius:8px;
+    padding:8px 12px; margin:0 0 8px; font-size:13px; color:var(--text);
+  }
+  .whatchanges strong{color:var(--amber)}
+  .safe-note{
+    background:var(--green-bg); border:1px solid rgba(63,185,80,.25); border-radius:8px;
+    padding:8px 12px; margin:0 0 8px; font-size:13px; color:var(--text);
+  }
+  .safe-note strong{color:var(--green)}
+  .ev{font-size:11.5px; color:var(--dim); margin-top:8px; word-break:break-all}
+
+  /* ---------- vertical flow (sales chain) ---------- */
+  .flow{max-width:880px}
+  .flow .card{margin:0}
+  .fconn{
+    display:flex; flex-direction:column; align-items:center; padding:2px 0; user-select:none;
+  }
+  .fconn .line{width:2px; height:14px; background:var(--border2)}
+  .fconn .head{
+    width:0; height:0; border-left:6px solid transparent; border-right:6px solid transparent;
+    border-top:8px solid var(--border2);
+  }
+  .fconn .stg{font-family:var(--mono); font-size:10.5px; color:var(--dim); margin:2px 0}
+  .stagechip{
+    display:inline-block; font-family:var(--mono); font-size:10.5px; color:var(--amber);
+    border:1px solid rgba(217,161,61,.35); background:var(--amber-bg); border-radius:5px; padding:1px 7px;
+  }
+
+  /* ---------- comparison ---------- */
+  .cmp .card{cursor:pointer}
+  .cmp{display:flex; flex-direction:column; gap:12px}
+  .cmp-cols{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:9px}
+  @media(max-width:760px){.cmp-cols{grid-template-columns:1fr}}
+  .cmp-col{background:var(--panel3); border:1px solid var(--border); border-radius:8px; padding:9px 12px; font-size:13px; color:var(--muted)}
+  .cmp-col .t{font-size:10.5px; text-transform:uppercase; letter-spacing:.6px; color:var(--dim); margin-bottom:4px}
+  .cmp-col.ours .t{color:var(--accent)}
+
+  /* ---------- checklist ---------- */
+  .ck{max-width:920px}
+  .ckprog{
+    display:flex; align-items:center; gap:12px; margin-bottom:16px; font-size:13px; color:var(--muted);
+  }
+  .ckbar{flex:1; height:6px; background:var(--panel2); border:1px solid var(--border); border-radius:99px; overflow:hidden; max-width:280px}
+  .ckbar i{display:block; height:100%; width:0%; background:var(--green); transition:width .2s}
+  .ckstep{
+    background:var(--panel); border:1px solid var(--border); border-radius:12px;
+    padding:13px 16px; margin-bottom:10px; display:flex; gap:13px; cursor:pointer;
+  }
+  .ckstep:hover{border-color:var(--border2)}
+  .ckstep.done{opacity:.55}
+  .ckstep.done .ckt{text-decoration:line-through}
+  .ckstep input{margin-top:3px; width:16px; height:16px; accent-color:var(--green); cursor:pointer; flex-shrink:0}
+  .cknum{
+    font-family:var(--mono); color:var(--accent); font-size:13px; font-weight:700; flex-shrink:0; margin-top:1px;
+  }
+  .ckbody{flex:1}
+  .ckt{font-size:14.5px; font-weight:600}
+  .ckt .own{margin-left:8px}
+  .ckd{font-size:13px; color:var(--muted); margin-top:4px}
+  .ckd ul{margin:5px 0 0; padding-left:18px}
+  .ckd li{margin:3px 0}
+  .callout{
+    background:var(--amber-bg); border:1px solid rgba(217,161,61,.4); border-radius:10px;
+    padding:13px 17px; margin:0 0 16px; font-size:13.5px; max-width:920px;
+  }
+  .callout strong{color:var(--amber)}
+
+  /* ---------- footer ---------- */
+  footer{
+    border-top:1px solid var(--border); color:var(--dim); font-size:12.5px;
+    padding:22px 24px 40px; max-width:1240px; margin:0 auto;
+  }
+  footer .src{margin-top:6px; line-height:1.7}
+  .hidden{display:none!important}
+  .nores{color:var(--dim); font-size:13px; padding:10px 0; display:none}
+
+  @media print{
+    nav{position:static} .detail{display:block} .card{break-inside:avoid; cursor:auto}
+    body{background:#fff; color:#111}
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="brand">TCB <span>Automation Map</span></div>
+  <div class="links" id="navlinks">
+    <a href="#map">The map</a>
+    <a href="#compare">Ours vs theirs</a>
+    <a href="#migration">Migration day</a>
+    <a href="#new">New automations</a>
+  </div>
+  <div class="tools">
+    <input id="q" type="search" placeholder="Filter cards: name, WF, system, stage...">
+    <button class="fbtn on" data-f="all">All</button>
+    <button class="fbtn" data-f="repoint">Re-point</button>
+    <button class="fbtn" data-f="safe">Safe</button>
+    <button class="fbtn" data-f="live">Live</button>
+    <button class="fbtn" data-f="off">Off</button>
+    <span id="count"></span>
+    <button id="xall" title="Expand or collapse every card">Expand all</button>
+  </div>
+</nav>
+
+<main>
+
+<!-- ============================= HERO ============================= -->
+<section id="top">
+  <h1>The Credit Brothers: automation landscape</h1>
+  <p class="sub">Every automation across their three repos, how it meets our tcb-sales-system, the pipeline-migration checklist, and the recommended additions. Line-verified against live clones (2026-07-10/11). Click any card for detail.</p>
+
+  <div class="banner">
+    <strong>Headline finding:</strong> a repo-wide search for the new "Sales" pipeline id and its stage names ("Won PIF", "Setter Booked", "Self Booked", "DQ On Call") returns <strong>zero hits</strong> in their fleet. As of the 2026-07-10 clone, nothing on their side has been re-pointed. Every stage-touching automation still targets the old "BDCR Sales" pipeline. A deal won on the new pipeline today would fire <strong>no onboarding at all</strong>.
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="n">20</div><div class="l">Cloudflare Workers</div></div>
+    <div class="stat"><div class="n">2</div><div class="l">Mac Studio services</div></div>
+    <div class="stat"><div class="n">11</div><div class="l">Zapier zaps (2 off)</div></div>
+    <div class="stat"><div class="n">3</div><div class="l">Their dashboards</div></div>
+    <div class="stat"><div class="n">61</div><div class="l">Catalogued workflows</div></div>
+    <div class="stat"><div class="n">10</div><div class="l">Re-point targets</div></div>
+    <div class="stat"><div class="n">2</div><div class="l">Explicit conflicts</div></div>
+    <div class="stat"><div class="n">10</div><div class="l">Recommended adds</div></div>
+  </div>
+
+  <div class="legend">
+    <span class="lg">Status:</span>
+    <span class="badge b-live">Live</span>
+    <span class="badge b-dormant">Dormant</span>
+    <span class="badge b-archived">Archived</span>
+    <span class="lg" style="margin-left:10px">Migration:</span>
+    <span class="badge b-repoint">Re-point needed</span>
+    <span class="badge b-safe">Safe</span>
+    <span class="badge b-unknown">Unknown</span>
+    <span class="lg" style="margin-left:10px">Systems written:</span>
+    <span class="chip">CLOSE</span><span class="chip">GHL</span><span class="chip">MONDAY</span><span class="chip">SLACK</span>
+  </div>
+</section>
+
+<!-- ============================= 1. THE MAP ============================= -->
+<section id="map">
+  <h2>The map: their existing automations</h2>
+  <p class="secdesc">Six lanes. Parallel entry points sit side by side; the sales chain reads top to bottom in pipeline order. Amber cards need a re-point before the pipeline migration; green cards survive it untouched.</p>
+
+  <!-- ---------- LANE A ---------- -->
+  <h3 class="lanehead"><span class="ln">A</span> Lead intake <span class="badge b-repoint">4 re-points</span></h3>
+  <p class="lanedesc">Parallel front doors, all converging on Close. Every opportunity-creating path here still lands on the old pipeline.</p>
+  <div class="grid lane">
+
+    <article class="card mig-repoint st-live" tabindex="0">
+      <div class="chead">
+        <span class="wf">WF-39/41</span><h4>ghl-optin-close-sync</h4>
+        <span class="badge b-live">Live</span><span class="badge b-repoint">Re-point</span><span class="chev">&#9654;</span>
+      </div>
+      <p class="oneline">Funnel opt-ins and eligibility bookings become Close leads, notes, and opportunities.</p>
+      <div class="meta"><span class="lbl">Trigger</span><span>GHL webhooks /optin/submitted + /booking/submitted, plus a 1-min retry cron</span></div>
+      <div class="chips"><span class="chip">CLOSE</span><span class="chip">MONDAY</span></div>
+      <div class="detail">
+        <p class="whatchanges"><strong>What changes:</strong> 6 wrangler.toml vars + redeploy (opt-in stage, eligibility stage + status, the 8-id forward-only stage ladder). Blocked on the mapping decision: Lead Opt-In and Eligibility Call Booked have no equivalent in the new 19-stage list (Open Q3).</p>
+        <ul>
+          <li>Opt-ins: find-or-create Close lead (source-mapped status, Paid Media / Organic) + Q&amp;A note. <strong>Paid Media opt-ins also get an opportunity at Lead Opt-In, value $2,500.</strong></li>
+          <li>Bookings: Close note + Monday Repair Leads find-or-create + subitems. Eligibility bookings create or advance the opp to Eligibility Call Booked, forward-only. Strategy bookings are note-only (the opp belongs to WF-03 / WF-38).</li>
+          <li>The forward-only guard degrades SAFE on unknown ids: un-re-pointed, it silently stops advancing rather than corrupting.</li>
+        </ul>
+        <p class="ev">ghl-optin-close-sync/wrangler.toml:37-52, 83-87; src/pipeline.js:37-44</p>
+      </div>
+    </article>
+
+    <article class="card mig-repoint st-live" tabindex="0">
+      <div class="chead">
+        <span class="wf">WF-54</span><h4>quiz-email-draft</h4>
+        <span class="badge b-live">Live</span><span class="badge b-repoint">Re-point</span><span class="chev">&#9654;</span>
+      </div>
+      <p class="oneline">Website quiz submissions become a Close lead + opportunity, a GHL contact, a Slack ping, and an AI-drafted follow-up email.</p>
+      <div class="meta"><span class="lbl">Trigger</span><span>tcb-website /api/quiz forwards to POST /intake</span></div>
+      <div class="chips"><span class="chip">CLOSE</span><span class="chip">GHL</span><span class="chip">SLACK</span></div>
+      <div class="detail">
+        <p class="whatchanges"><strong>What changes:</strong> 1 wrangler.toml var + redeploy, plus the same "where does opt-in land" decision as WF-39 (Open Q3).</p>
+        <ul>
+          <li>Creates the opp at old Lead Opt-In. The POST omits pipeline_id, Close infers it from the status id, so the un-re-pointed failure shape is a silent mis-route onto the old pipeline.</li>
+          <li>Claude (claude-sonnet-4-6) drafts the follow-up email; GHL Marketing gets the contact + tag; Slack gets the quiz notification.</li>
+        </ul>
+        <p class="ev">quiz-email-draft/src/sync.js:144-148; wrangler.toml:49</p>
+      </div>
+    </article>
+
+    <article class="card mig-repoint st-live" tabindex="0">
+      <div class="chead">
+        <span class="wf">WF-03</span><h4>Booking Zap: "0 - Lead Booked Call"</h4>
+        <span class="badge b-live">Live</span><span class="badge b-repoint">Re-point</span><span class="chev">&#9654;</span>
+      </div>
+      <p class="oneline">The public-funnel booking Zap creates the Close lead + opportunity when a lead books a call.</p>
+      <div class="meta"><span class="lbl">Trigger</span><span>GHL booking webhook (lead-initiated public funnel only; setter calendars excluded)</span></div>
+      <div class="chips"><span class="chip">CLOSE</span><span class="chip">ZAPIER</span></div>
+      <div class="detail">
+        <p class="whatchanges"><strong>What changes:</strong> in the Zap editor, re-point the create-opportunity step(s) to the new booking stage, plausibly Self Booked (WF-38 takes Setter Booked). The old Lead Opt-In / Eligibility / Strategy ladder is not 1:1 with the new entry stages: needs Josh's mapping (Open Q3).</p>
+        <ul>
+          <li>Zap id 302729523, v45, 91 steps, fully documented in-repo. Creates the opp at <strong>Strategy Call Booked</strong> with lead status Intake Form Needed.</li>
+          <li>Creates lead + opp only when neither the email find nor the phone find matches; existing leads get a reschedule path with status unchanged.</li>
+          <li>Failure shape un-re-pointed: silent mis-route onto the old pipeline (not a stop). Also the source of the timezone bug date-booked-normalizer patches.</li>
+        </ul>
+        <p class="ev">docs/zap-wf03-internals.md; legacy twin WF-50 (zap 251224074) confirmed OFF 2026-06-13</p>
+      </div>
+    </article>
+
+    <article class="card mig-repoint st-live" tabindex="0">
+      <div class="chead">
+        <span class="wf">WF-22</span><h4>affiliate-partner-sync</h4>
+        <span class="badge b-live">Live</span><span class="badge b-repoint">Re-point</span><span class="chev">&#9654;</span>
+      </div>
+      <p class="oneline">Partner bookings land on the separate Affiliate Partners pipeline, splitting off a sibling lead when the person is also an active sales prospect.</p>
+      <div class="meta"><span class="lbl">Trigger</span><span>GHL Marketing partner-booking webhook, POST /affiliate-booked</span></div>
+      <div class="chips"><span class="chip">CLOSE</span></div>
+      <div class="detail">
+        <p class="whatchanges"><strong>What changes (indirect):</strong> 1 wrangler.toml var. The dedup check reads the OLD pipeline id to detect an active sales opp; decide whether it should check the new pipeline only, or both while open old-pipeline cards exist (Open Q5).</p>
+        <ul>
+          <li>Creates the lead/opp at "Interested Partner" on the Affiliate Partners pipeline (the old "Call Booked" partner stage was deleted in Close).</li>
+          <li>Left un-re-pointed, a partner booking by an active new-pipeline prospect attaches to the sales lead instead of splitting to an "(Affiliate)" sibling, polluting live sales reporting.</li>
+        </ul>
+        <p class="ev">affiliate-partner-sync/wrangler.toml:28,35; src/index.js:113; src/dedup.js:26</p>
+      </div>
+    </article>
+
+    <article class="card mig-safe st-live" tabindex="0">
+      <div class="chead">
+        <span class="wf">WF-58</span><h4>close-partner-ghl-sync</h4>
+        <span class="badge b-live">Live</span><span class="badge b-safe">Safe</span><span class="chev">&#9654;</span>
+      </div>
+      <p class="oneline">Mirrors Close partner statuses to four managed GHL Marketing tags, with a daily self-healing reconcile.</p>
+      <div class="meta"><span class="lbl">Trigger</span><span>Close webhook whsub_3fjk... (lead + opportunity events, signature-verified) + 10:30 UTC cron</span></div>
+      <div class="chips"><span class="chip">GHL</span><span class="chip">CLOSE</span></div>
+      <div class="detail">
+        <p class="safe-note"><strong>Safe by design:</strong> opportunity events are dropped unless the pipeline is the Affiliate pipeline; lead events only for Partner-* status transitions. Sales-pipeline events (old or new) are skipped, so the migration cannot break it.</p>
+        <ul>
+          <li>The fleet's first signature-verified Close webhook (registered 2026-07-05). Writes GHL tags + contact create + a Close CF link write-back only.</li>
+        </ul>
+        <p class="ev">close-partner-ghl-sync/src/index.js:65-73, 166; wrangler.toml:21</p>
+      </div>
+    </article>
+
+    <article class="card mig-safe st-live" tabindex="0">
+      <div class="chead">
+        <span class="wf">WF-55</span><h4>careers-intake</h4>
+        <span class="badge b-live">Live</span><span class="badge b-safe">Safe</span><span class="chev">&#9654;</span>
+      </div>
+      <p class="oneline">Careers-form applicants become their own Close lead bucket plus a Monday Hiring row, with an AI-personalized context paragraph.</p>
+      <div class="meta"><span class="lbl">Trigger</span><span>tcb-website /api/careers forwards to POST /intake</span></div>
+      <div class="chips"><span class="chip">CLOSE</span><span class="chip">MONDAY</span></div>
+      <div class="detail">
+        <p class="safe-note"><strong>Safe:</strong> creates a lead + note only, in its own applicant lead-status bucket. No opportunity, no pipeline exposure.</p>
+        <p class="ev">careers-intake/src/index.js:187; wrangler.toml:12</p>
+      </div>
+    </article>
+
+  </div>
+
+  <!-- ---------- LANE B ---------- -->
+  <h3 class="lanehead"><span class="ln">B</span> The sales chain <span class="badge b-repoint">4 re-points, incl. Priority 0</span></h3>
+  <p class="lanedesc">The pipeline's spine, in stage order. Each step writes the Close stage shown on the connector. All four still write OLD-pipeline stage ids.</p>
+  <div class="flow lane">
+
+    <article class="card mig-repoint st-live" tabindex="0">
+      <div class="chead">
+        <span class="wf">WF-04</span><h4>worker-a: intake submitted</h4>
+        <span class="stagechip">writes: Intake Submitted</span>
+        <span class="badge b-live">Live</span><span class="badge b-repoint">Re-point</span><span class="chev">&#9654;</span>
+      </div>
+      <p class="oneline">The intake form moves the deal to Intake Submitted and loads credit-monitoring credentials onto the lead.</p>
+      <div class="meta"><span class="lbl">Trigger</span><span>GHL webhooks /intake-submitted + /repair-contact-linked; 2-min cron drains queued Repair-contact links</span></div>
+      <div class="chips"><span class="chip">CLOSE</span><span class="chip">GHL</span></div>
+      <div class="detail">
+        <p class="whatchanges"><strong>What changes:</strong> the stage id is hardcoded at src/index.js:244 (code change + redeploy) and the pipeline id + lead-status derivation come from KV (covered by the Worker B KV re-seed). If KV is re-seeded without the code change, this route 500s (worker alert fires); if nothing changes, new-pipeline leads 404 "No existing opportunity found".</p>
+        <ul>
+          <li>PUTs the opp to Intake Submitted, sets lead status Audit Needed, writes credit-monitoring CFs (IDIQ/MSIQ credentials, SSN last 4, account type), creates a Close task, relays to GHL.</li>
+        </ul>
+        <p class="ev">worker-a/src/index.js:243-300, 500-521; wrangler.toml:34</p>
+      </div>
+    </article>
+    <div class="fconn"><div class="line"></div><div class="stg">auditor delivers the NAFA report</div><div class="line"></div><div class="head"></div></div>
+
+    <article class="card mig-repoint st-live" tabindex="0">
+      <div class="chead">
+        <span class="wf">WF-30/24</span><h4>nafa-audit-sync</h4>
+        <span class="stagechip">writes: Audit Complete</span>
+        <span class="badge b-live">Live</span><span class="badge b-repoint">Re-point</span><span class="chev">&#9654;</span>
+      </div>
+      <p class="oneline">A NAFA PDF landing on Monday files the audit to Close and moves the deal to Audit Complete.</p>
+      <div class="meta"><span class="lbl">Trigger</span><span>Monday webhook on the NAFA PDF column; /direct-upload from the sales dashboard skips the stage move</span></div>
+      <div class="chips"><span class="chip">CLOSE</span><span class="chip">MONDAY</span><span class="chip">R2</span></div>
+      <div class="detail">
+        <p class="whatchanges"><strong>What changes:</strong> code at :539-540 (pipeline id + Audit Complete id) and the forward-only from-guard at :568-569 (today: Strategy Call Booked + Intake Submitted). The new from-set needs deciding, at least Setter Booked / Self Booked / Intake Form Submitted (Open Q4). Redeploy.</p>
+        <ul>
+          <li>PDF to R2 (90-day retention), Close note + NAFA URL field, forward-only stage move. Violation counting enabled.</li>
+          <li><strong>The only Audit Complete writer.</strong> The Mac Studio WF-24 auto-generation path ends by attaching the PDF to Monday, which fires this worker: one re-point covers the manual and auto paths.</li>
+        </ul>
+        <p class="ev">nafa-audit-sync/src/index.js:539-540, 567-572; /direct-upload at :30</p>
+      </div>
+    </article>
+    <div class="fconn"><div class="line"></div><div class="stg">closer sends the agreement, client signs in GHL</div><div class="line"></div><div class="head"></div></div>
+
+    <article class="card mig-repoint st-live" tabindex="0">
+      <div class="chead">
+        <span class="wf">WF-11/26</span><h4>contract-signed-webhook</h4>
+        <span class="stagechip">writes: Contract Signed</span>
+        <span class="badge b-live">Live</span><span class="badge b-repoint">Re-point</span><span class="chev">&#9654;</span>
+      </div>
+      <p class="oneline">A signed agreement in GHL stamps the contract onto the Close lead and moves the deal to Contract Signed.</p>
+      <div class="meta"><span class="lbl">Trigger</span><span>GHL Marketing "Document &amp; Contract Signed" webhook; /contract-sent is called by the Hub's Send Agreement (note only)</span></div>
+      <div class="chips"><span class="chip">CLOSE</span><span class="chip">SLACK</span></div>
+      <div class="detail">
+        <p class="whatchanges"><strong>What changes:</strong> CONTRACT_SIGNED_STAGE_ID at src/index.js:144 (code change + redeploy). The lead lookup is NOT pipeline-scoped, so un-re-pointed it writes the old id onto a new-pipeline opp and <strong>yanks the card back to the old pipeline</strong>. Separate decision: should /contract-sent start moving cards to the new Contract Sent stage (Open Q6)?</p>
+        <ul>
+          <li>Writes the Agreement URL CF, stores the original signed PDF on the lead as a note attachment, posts the signed note, moves the opp, and posts to #1-signed-agreements.</li>
+          <li>Design note in code: signing deliberately does NOT move to Closed Won. Closed Won stays a manual salesman move.</li>
+        </ul>
+        <p class="ev">contract-signed-webhook/src/index.js:88-111, 144, 296-300, 353, 536-584</p>
+      </div>
+    </article>
+    <div class="fconn"><div class="line"></div><div class="stg">salesman manually moves the card to Closed Won</div><div class="line"></div><div class="head"></div></div>
+
+    <article class="card mig-repoint st-live" tabindex="0">
+      <div class="chead">
+        <span class="wf">WF-05..10/14/15/43</span><h4>worker-b: the Closed Won onboarding chain</h4>
+        <span class="badge b-live">Live</span><span class="badge b-repoint">Re-point: PRIORITY 0</span><span class="chev">&#9654;</span>
+      </div>
+      <p class="oneline">The Closed Won move fires the entire onboarding cascade; every other mapped stage syncs the lead status.</p>
+      <div class="meta"><span class="lbl">Trigger</span><span>Close webhook whsub_62FT... on opportunity.updated, POST /stage-change; plus a Monday /lead-status-changed webhook</span></div>
+      <div class="chips"><span class="chip">CLOSE</span><span class="chip">GHL</span><span class="chip">MONDAY</span><span class="chip">SLACK</span><span class="chip">EMAIL</span></div>
+      <div class="detail">
+        <p class="whatchanges"><strong>What changes (do this FIRST):</strong> (1) map all new-pipeline stage ids in config/kv-mappings.json and re-seed KV; (2) CODE change at src/index.js:252: the single hardcoded Closed Won id must become a SET, because the new pipeline has TWO won stages (Won PIF, Won PP), with Deposit's role an open policy question (Open Q1); (3) consider adding a pipeline_id guard to /stage-change, none exists today.</p>
+        <p><strong>The Closed Won cascade, in verified order:</strong></p>
+        <ol>
+          <li>Lead status set to "Closed Client"</li>
+          <li>Slack win alert to the win channel (C069L4NFGSZ)</li>
+          <li>Onboarding email: Close template sent from support@thecreditbrothers.com</li>
+          <li>Monday: Repair Clients row (create or reuse) + Payment Schedule parent promoted out of "New Invoices" + <strong>closer commission rate locked at close (old 10%/15% rule)</strong> + Monday ids written back to the GHL Repair contact</li>
+          <li>Signed agreement PDF attached to the Monday client item</li>
+          <li>Repair Leads row marked Closed + Joined Program stamped (the Hub's close signal)</li>
+          <li>GHL Repair iMessage webhook fired (starts the onboarding workflows)</li>
+          <li>KV idempotency marker written (closed_won:&lt;lead_id&gt;, 90-day TTL)</li>
+        </ol>
+        <ul>
+          <li><strong>Risk if unmapped (silent stop, verified as designed behavior):</strong> a Won PIF / Won PP close produces no email, no Slack, no Monday records, no commission stamp, no iMessage; Payment Schedule parents pile up unpromoted and the Hub's close signal goes dark.</li>
+          <li><strong>Risk in the other order (double-fire):</strong> bulk-moving historical won cards older than the 90-day TTL re-fires the full chain. Re-point first, then migrate OPEN cards only.</li>
+          <li>Non-won mapped stages take the simple path: lead-status sync only. Unmapped stages skip silently, which may be correct: make each omission an explicit decision (Open Q2).</li>
+        </ul>
+        <p class="ev">worker-b/src/index.js:252, 1185-1329, 1375-1461; config/kv-mappings.json; scripts/seed-kv.js</p>
+      </div>
+    </article>
+
+  </div>
+
+  <!-- ---------- LANE C ---------- -->
+  <h3 class="lanehead"><span class="ln">C</span> Fulfillment + Monday <span class="badge b-safe">all safe</span></h3>
+  <p class="lanedesc">Invoice, payment, and board operations. None write Close stages, but the first card depends on Worker B staying alive.</p>
+  <div class="grid lane">
+
+    <article class="card mig-safe st-live" tabindex="0">
+      <div class="chead">
+        <span class="wf">WF-29/33/34/42</span><h4>payment-schedule-sync</h4>
+        <span class="badge b-live">Live</span><span class="badge b-safe">Safe</span><span class="chev">&#9654;</span>
+      </div>
+      <p class="oneline">GHL Repair invoices drive the Monday Payment Schedule board, Slack payment alerts, and a Close invoice mirror.</p>
+      <div class="meta"><span class="lbl">Trigger</span><span>GHL Repair invoice webhooks (Create / PartiallyPaid / Paid / Update / Void / Refund) + 13:00 UTC past-due cron</span></div>
+      <div class="chips"><span class="chip">MONDAY</span><span class="chip">SLACK</span><span class="chip">CLOSE</span></div>
+      <div class="detail">
+        <p class="safe-note"><strong>Safe:</strong> no stage references. One indirect dependency: if Worker B silently stops (unmapped won stage), this keeps creating Payment Schedule parents in "New Invoices" that nothing promotes. Watch that group during cutover week.</p>
+        <ul>
+          <li>Monday parents + subitems with D1 dedupe; Slack payment alerts.</li>
+          <li>New July 7: on InvoiceCreate it mirrors the invoice URL to Close lead CF "Invoice" + a note, skipping dashboard-created invoices (the Hub writes the same CF; they dedupe by invoice title).</li>
+        </ul>
+        <p class="ev">payment-schedule-sync/src/index.ts:122-146, 233; src/lib/close-mirror.ts:33-40</p>
+      </div>
+    </article>
+
+    <article class="card mig-safe st-live" tabindex="0">
+      <div class="chead">
+        <span class="wf">WF-56</span><h4>hkd-ach-sync</h4>
+        <span class="badge b-live">Live</span><span class="badge b-safe">Safe</span><span class="chev">&#9654;</span>
+      </div>
+      <p class="oneline">Parses HKD Law biweekly ACH PDFs out of Gmail and files HKD Payment subitems on the Payment Schedule board.</p>
+      <div class="meta"><span class="lbl">Trigger</span><span>Cron daily 21:00 UTC + manual /run and /backfill routes</span></div>
+      <div class="chips"><span class="chip">MONDAY</span><span class="chip">GMAIL</span><span class="chip">R2</span></div>
+      <div class="detail">
+        <p class="safe-note"><strong>Safe:</strong> no Close exposure. Corrected from the earlier audit: no longer the paused mission-control pipeline, it is LIVE as a worker.</p>
+        <ul>
+          <li>Reads Gmail via domain-wide delegation (impersonating help@ / chris@ / josh@), fuzzy-matches clients, archives PDFs to R2.</li>
+        </ul>
+        <p class="ev">hkd-ach-sync/src/index.ts:93-123; wrangler.toml:22</p>
+      </div>
+    </article>
+
+    <article class="card mig-safe st-live" tabindex="0">
+      <div class="chead">
+        <span class="wf">&nbsp;</span><h4>date-booked-normalizer</h4>
+        <span class="badge b-live">Live</span><span class="badge b-safe">Safe</span><span class="chev">&#9654;</span>
+      </div>
+      <p class="oneline">Fixes Date Booked rows the WF-03 Zap stamps one day early (timezone bug) on the Repair Leads board.</p>
+      <div class="meta"><span class="lbl">Trigger</span><span>Cron every 15 min + optional keyed GET /run</span></div>
+      <div class="chips"><span class="chip">MONDAY</span><span class="chip">SLACK</span></div>
+      <div class="detail">
+        <p class="safe-note"><strong>Safe, resolved:</strong> the earlier audit flagged it UNCLEAR; line verification shows it is Monday-only and never touches Close. Dropped from the re-point list.</p>
+        <ul>
+          <li>Posts correction notices to the payment-alerts channel. Becomes unnecessary if WF-03's timezone bug is fixed at the source during the Zap re-point.</li>
+        </ul>
+        <p class="ev">date-booked-normalizer/src/index.js:1-31, 80-96</p>
+      </div>
+    </article>
+
+    <article class="card mig-safe st-live" tabindex="0">
+      <div class="chead">
+        <span class="wf">WF-59</span><h4>onboarding-form-close-sync</h4>
+        <span class="badge b-live">Live</span><span class="badge b-safe">Safe</span><span class="chev">&#9654;</span>
+      </div>
+      <p class="oneline">The onboarding form submission writes an OB note to Close and mirrors the S.P.A.D.E. email into the lead's email feed.</p>
+      <div class="meta"><span class="lbl">Trigger</span><span>GHL Repair "3 - OB Form Submitted + S.P.A.D.E. Request" webhook</span></div>
+      <div class="chips"><span class="chip">CLOSE</span></div>
+      <div class="detail">
+        <p class="safe-note"><strong>Safe:</strong> notes only, marker-deduped, log-only email mirror, never creates leads.</p>
+        <p class="ev">onboarding-form-close-sync/src/index.js:288</p>
+      </div>
+    </article>
+
+    <article class="card mig-safe st-live" tabindex="0">
+      <div class="chead">
+        <span class="wf">&nbsp;</span><h4>tcb-client-reports-monday-sync</h4>
+        <span class="badge b-live">Live</span><span class="badge b-safe">Safe</span><span class="chev">&#9654;</span>
+      </div>
+      <p class="oneline">The client-reports browser tool syncs credit scores and capture status to the Repair Clients board on demand.</p>
+      <div class="meta"><span class="lbl">Trigger</span><span>Routes called from the tcb-client-reports "Sync to Monday" panel (used by Kay)</span></div>
+      <div class="chips"><span class="chip">MONDAY</span></div>
+      <div class="detail">
+        <p class="safe-note"><strong>Safe:</strong> Monday writes only (scores + capture status on Repair Clients Source, board 7002021408).</p>
+        <p class="ev">tcb-client-reports-monday-sync/src/index.js:35-41</p>
+      </div>
+    </article>
+
+    <article class="card mig-safe st-archived" tabindex="0">
+      <div class="chead">
+        <span class="wf">WF-21</span><h4>monday-true-offboarding-autofill</h4>
+        <span class="badge b-archived">Archived</span><span class="badge b-safe">Safe</span><span class="chev">&#9654;</span>
+      </div>
+      <p class="oneline">The old Monday off-boarding autofill is gone: directory deleted from the live repo, catalog status DEPRECATED.</p>
+      <div class="meta"><span class="lbl">Trigger</span><span>n/a (was Monday-triggered)</span></div>
+      <div class="chips"><span class="chip">MONDAY</span></div>
+      <div class="detail">
+        <p class="safe-note"><strong>No action:</strong> exists only in the archived docs. Listed here so nobody hunts for it on migration day.</p>
+      </div>
+    </article>
+
+  </div>
+
+  <!-- ---------- LANE D ---------- -->
+  <h3 class="lanehead"><span class="ln">D</span> Credit / IDIQ <span class="badge b-safe">all safe</span></h3>
+  <p class="lanedesc">The credit-monitoring toolchain on the Mac Studio plus its Cloudflare front doors. None write opportunity stages (verified by grep).</p>
+  <div class="grid lane">
+
+    <article class="card mig-safe st-live" tabindex="0">
+      <div class="chead">
+        <span class="wf">WF-17/24/25</span><h4>idiq-login-checker service (Mac Studio)</h4>
+        <span class="badge b-live">Live</span><span class="badge b-safe">Safe</span><span class="chev">&#9654;</span>
+      </div>
+      <p class="oneline">Playwright logs into IdentityIQ or MyScoreIQ, verifies client credentials, and writes results, notes, and follow-up tasks to Close.</p>
+      <div class="meta"><span class="lbl">Trigger</span><span>Called by the front-door worker; WF-24 auto-audit path gated by NAFA_AUTOGEN_ENABLED</span></div>
+      <div class="chips"><span class="chip">CLOSE</span><span class="chip">MONDAY</span></div>
+      <div class="detail">
+        <p class="safe-note"><strong>Safe:</strong> writes check results (Verified / Needs Attention / Failed), notes, and tasks, but NO opportunity stages. The WF-24 NAFA auto-generation ends by attaching the PDF to Monday, which fires nafa-audit-sync, the only stage writer, so the Lane B re-point covers this path too.</p>
+        <ul>
+          <li>Open item for Josh: the catalog says WF-24 is LIVE, but the flag's runtime value is PM2 env on the Mac Studio, not in the repo. Confirm on/off before cutover week (audit Q9).</li>
+        </ul>
+        <p class="ev">services/idiq-login-checker/server.js:2065, 2228; playwright-nafa.js</p>
+      </div>
+    </article>
+
+    <article class="card mig-safe st-live" tabindex="0">
+      <div class="chead">
+        <span class="wf">WF-23</span><h4>idiq-login-checker worker (front door)</h4>
+        <span class="badge b-live">Live</span><span class="badge b-safe">Safe</span><span class="chev">&#9654;</span>
+      </div>
+      <p class="oneline">The public front door: GHL form submissions and Hub manual checks are forwarded to the Mac Studio checker.</p>
+      <div class="meta"><span class="lbl">Trigger</span><span>GHL form webhook + dashboard routes /manual-check, /api/whoami, /api/run-status</span></div>
+      <div class="chips"><span class="chip">MAC STUDIO</span></div>
+      <div class="detail">
+        <p class="safe-note"><strong>Safe:</strong> a secret-gated relay (INTERNAL_SECRET); writes nothing itself.</p>
+        <p class="ev">idiq-login-checker/worker.js:101, 115, 138</p>
+      </div>
+    </article>
+
+    <article class="card mig-safe st-live" tabindex="0">
+      <div class="chead">
+        <span class="wf">WF-16</span><h4>idiq-canary</h4>
+        <span class="badge b-live">Live</span><span class="badge b-safe">Safe</span><span class="chev">&#9654;</span>
+      </div>
+      <p class="oneline">A daily canary run of the login checker, with a Slack alert when it fails.</p>
+      <div class="meta"><span class="lbl">Trigger</span><span>Cron daily 13:00 UTC, POST /run-canary</span></div>
+      <div class="chips"><span class="chip">SLACK</span></div>
+      <div class="detail">
+        <p class="safe-note"><strong>Safe:</strong> monitoring only.</p>
+        <p class="ev">idiq-canary/wrangler.toml:10</p>
+      </div>
+    </article>
+
+    <article class="card mig-safe st-live" tabindex="0">
+      <div class="chead">
+        <span class="wf">&nbsp;</span><h4>nafa-r2-cleanup</h4>
+        <span class="badge b-live">Live</span><span class="badge b-safe">Safe</span><span class="chev">&#9654;</span>
+      </div>
+      <p class="oneline">Weekly cleanup of NAFA PDFs in R2 past the 90-day retention window.</p>
+      <div class="meta"><span class="lbl">Trigger</span><span>Cron Sundays 00:00 UTC</span></div>
+      <div class="chips"><span class="chip">R2</span></div>
+      <div class="detail">
+        <p class="safe-note"><strong>Safe:</strong> storage housekeeping only.</p>
+        <p class="ev">nafa-r2-cleanup/wrangler.toml:8</p>
+      </div>
+    </article>
+
+  </div>
+
+  <!-- ---------- LANE E ---------- -->
+  <h3 class="lanehead"><span class="ln">E</span> Comms: Slack, SMS, workflow exits <span class="badge b-safe">safe</span> <span class="badge b-unknown">1 unknown</span></h3>
+  <p class="lanedesc">The messaging layer: who posts where, and the workers that keep GHL sequences honest when a human actually connects.</p>
+  <div class="grid lane">
+
+    <article class="card mig-safe st-live" tabindex="0">
+      <div class="chead">
+        <span class="wf">WF-27</span><h4>close-call-workflow-exit</h4>
+        <span class="badge b-live">Live</span><span class="badge b-safe">Safe</span><span class="chev">&#9654;</span>
+      </div>
+      <p class="oneline">A logged Close call exits the lead from the SendBlue intro workflow and enters the cooldown workflow in GHL.</p>
+      <div class="meta"><span class="lbl">Trigger</span><span>Close webhook whsub_1gd5... on activity.call.created/updated</span></div>
+      <div class="chips"><span class="chip">GHL</span></div>
+      <div class="detail">
+        <p class="safe-note"><strong>Safe, line-verified:</strong> the qualifying filter is call-shaped only (outbound AND at least 60s or answered). No pipeline or stage test anywhere, so it survives the swap untouched.</p>
+        <p class="ev">close-call-workflow-exit/src/index.js:149-158; README:84</p>
+      </div>
+    </article>
+
+    <article class="card mig-safe st-live" tabindex="0">
+      <div class="chead">
+        <span class="wf">WF-31</span><h4>ghl-inbound-sms-workflow-exit</h4>
+        <span class="badge b-live">Live</span><span class="badge b-safe">Safe</span><span class="chev">&#9654;</span>
+      </div>
+      <p class="oneline">An inbound SMS reply performs the same exit/enter pair, so replies stop the intro sequence.</p>
+      <div class="meta"><span class="lbl">Trigger</span><span>GHL inbound-SMS workflow webhook</span></div>
+      <div class="chips"><span class="chip">GHL</span></div>
+      <div class="detail">
+        <p class="safe-note"><strong>Safe:</strong> workflow membership only, no pipeline exposure.</p>
+      </div>
+    </article>
+
+    <article class="card mig-safe st-live" tabindex="0">
+      <div class="chead">
+        <span class="wf">WF-01/02/28/36...</span><h4>GHL-native workflows</h4>
+        <span class="badge b-live">Live</span><span class="badge b-safe">Safe</span><span class="chev">&#9654;</span>
+      </div>
+      <p class="oneline">The GHL-side layer: reminders, SendBlue intro, cooldown, invoice triggers, Repair contact creation, and the onboarding workflows Worker B fires.</p>
+      <div class="meta"><span class="lbl">Trigger</span><span>GHL-native, both sub-accounts (Marketing + Repair Fulfillment)</span></div>
+      <div class="chips"><span class="chip">GHL</span><span class="chip">SENDBLUE</span></div>
+      <div class="detail">
+        <p class="safe-note"><strong>Safe:</strong> none are Close-stage-coupled. They react to bookings, invoices, and inbound webhooks.</p>
+        <ul>
+          <li>WF-01 appointment reminders; WF-02 SendBlue intro; WF-28 cooldown; WF-33/34/42 invoice triggers (feed payment-schedule-sync); WF-36 Repair-contact creation at booking.</li>
+          <li>The Repair Fulfillment onboarding workflows are fired by Worker B's WF-15 iMessage webhook (workflow a4077faf), so they inherit the Lane B silent-stop until Worker B is re-pointed.</li>
+        </ul>
+      </div>
+    </article>
+
+    <article class="card mig-safe st-live" tabindex="0">
+      <div class="chead">
+        <span class="wf">WF-35</span><h4>fireflies-meeting-logger</h4>
+        <span class="badge b-live">Live</span><span class="badge b-safe">Safe</span><span class="chev">&#9654;</span>
+      </div>
+      <p class="oneline">Completed Fireflies transcriptions are appended to a Google Sheet for the CSM transition.</p>
+      <div class="meta"><span class="lbl">Trigger</span><span>Fireflies "Transcription completed" webhook</span></div>
+      <div class="chips"><span class="chip">SHEETS</span></div>
+      <div class="detail">
+        <p class="safe-note"><strong>Safe:</strong> Sheet append only (Randi CSM transition). Now TypeScript.</p>
+      </div>
+    </article>
+
+    <article class="card mig-safe st-live" tabindex="0">
+      <div class="chead">
+        <span class="wf">WF-43..53</span><h4>Zapier fleet: live relays</h4>
+        <span class="badge b-live">Live</span><span class="badge b-safe">Safe</span><span class="chev">&#9654;</span>
+      </div>
+      <p class="oneline">The surviving Zapier layer: Slack relays, attribution pings, and Monday updates. The one pipeline-touching Zap is WF-03 (Lane A).</p>
+      <div class="meta"><span class="lbl">Trigger</span><span>Various: email parsers, Stripe, Skool, GHL</span></div>
+      <div class="chips"><span class="chip">SLACK</span><span class="chip">MONDAY</span><span class="chip">CLOSE</span><span class="chip">GHL</span></div>
+      <div class="detail">
+        <p class="safe-note"><strong>Safe:</strong> none of these write pipeline stages.</p>
+        <ul>
+          <li>WF-43 intake to Monday board updates (complementary to WF-04, verified not double-processing)</li>
+          <li>WF-44 mailed-docs to Slack; WF-47 support-email ping; WF-49 POA updates to Slack; WF-52/53 access-code relays to Slack</li>
+          <li>WF-45 Stripe charge to ClickMagick (attribution)</li>
+          <li>WF-48 Skool sign-up to Slack + a GHL (not Close) opportunity</li>
+          <li>WF-51 funding-pipeline call to a Close lead (lead only, no Sales-pipeline opp)</li>
+        </ul>
+      </div>
+    </article>
+
+    <article class="card mig-safe st-dormant" tabindex="0">
+      <div class="chead">
+        <span class="wf">WF-46/50</span><h4>Retired Zaps</h4>
+        <span class="badge b-dormant">Dormant</span><span class="badge b-safe">Safe</span><span class="chev">&#9654;</span>
+      </div>
+      <p class="oneline">Two zaps confirmed toggled OFF in Zapier on 2026-06-13; they still exist but do nothing.</p>
+      <div class="meta"><span class="lbl">Trigger</span><span>n/a (switched off)</span></div>
+      <div class="chips"><span class="chip">ZAPIER</span></div>
+      <div class="detail">
+        <ul>
+          <li>WF-46: affiliate referral to Close lead.</li>
+          <li>WF-50: legacy "1 - New In-House Client" (zap 251224074). The earlier audit's "pending manual disable" is resolved; the zap-id ambiguity is too (302729523 is the LIVE WF-03 booking Zap).</li>
+        </ul>
+        <p class="safe-note"><strong>Migration-day check:</strong> confirm both stay OFF; do not re-point them.</p>
+      </div>
+    </article>
+
+    <article class="card mig-safe st-live" tabindex="0">
+      <div class="chead">
+        <span class="wf">&nbsp;</span><h4>Slack surface map</h4>
+        <span class="badge b-live">Live</span><span class="badge b-safe">Safe</span><span class="chev">&#9654;</span>
+      </div>
+      <p class="oneline">Every channel their fleet posts to, and who produces what. Expand for the full map.</p>
+      <div class="meta"><span class="lbl">Trigger</span><span>n/a (reference map)</span></div>
+      <div class="chips"><span class="chip">SLACK</span></div>
+      <div class="detail">
+        <ul>
+          <li><strong>Win alerts</strong> (C069L4NFGSZ): Worker B "New Client Signed"</li>
+          <li><strong>#1-signed-agreements</strong>: contract-signed-webhook</li>
+          <li><strong>Sales x fulfillment</strong>: Worker B "Fulfillment action needed" (missing GHL Repair link, Monday errors, unmatched Repair Leads rows)</li>
+          <li><strong>Payment alerts</strong> (keycap-zero name): payment-schedule-sync + date-booked-normalizer timezone notices</li>
+          <li><strong>Worker errors</strong> (C0BA7KS05UM): fleet-wide alert.js on 12 workers (bot token, 60s throttle). Watch this channel on migration day.</li>
+          <li><strong>Setter reports</strong> (C0BE0144HRU): WF-57 setter-form summaries from the Hub</li>
+          <li><strong>IDIQ results</strong>: checker service results + canary failures</li>
+          <li><strong>Quiz notifications</strong>: quiz-email-draft</li>
+          <li><strong>Zapier private channels</strong>: WF-44/47/49/52/53 relays</li>
+          <li><strong>Commission channel</strong>: manual postings (their current process)</li>
+          <li><strong>Hub channels</strong>: #commission-reports (C0ANVN4BK8D), #closer-reports (C0AQX18GWUV), closer-recon insights (C0B8MBPJE5C) + per-closer DMs. The Hub also READS #leads-general-chat (Jane's schedule posts) and #4-sales-x-fulfilment ("New Client:" posts).</li>
+        </ul>
+        <p><strong>Migration note:</strong> the win alert, fulfillment alerts, commission stamp, agreement attach, and Repair-Leads close stamp are all Closed Won side effects. They inherit the silent stop until Worker B is re-pointed.</p>
+      </div>
+    </article>
+
+    <article class="card mig-unknown st-live" tabindex="0">
+      <div class="chead">
+        <span class="wf">WF-18/19/20/20B</span><h4>bdcr-call-transcriber</h4>
+        <span class="badge b-live">Live</span><span class="badge b-unknown">Unknown</span><span class="chev">&#9654;</span>
+      </div>
+      <p class="oneline">The call transcriber still lives in its own standalone repo; planned to land in the monorepo in a later wave.</p>
+      <div class="meta"><span class="lbl">Trigger</span><span>Out of repo (call recordings)</span></div>
+      <div class="chips"><span class="chip">OUT-OF-REPO</span></div>
+      <div class="detail">
+        <p><strong>Unknown:</strong> no stage exposure is documented, but this repo has not had the line-level pass the other two got. Low risk; confirm during the re-point PR if convenient.</p>
+      </div>
+    </article>
+
+  </div>
+
+  <!-- ---------- LANE F ---------- -->
+  <h3 class="lanehead"><span class="ln">F</span> Their dashboards <span class="badge b-repoint">2 re-points + 1 rules conflict</span></h3>
+  <p class="lanedesc">Three apps. The Sales Hub is almost entirely Monday-derived, so it survives the swap except for exactly two flows, plus a commission-rules conflict.</p>
+  <div class="grid lane">
+
+    <article class="card mig-safe st-live" tabindex="0">
+      <div class="chead">
+        <span class="wf">HUB</span><h4>TCB Sales Hub (overview)</h4>
+        <span class="badge b-live">Live</span><span class="badge b-safe">Safe overall</span><span class="chev">&#9654;</span>
+      </div>
+      <p class="oneline">Their salesmen dashboard at sales.thecreditbrothers.com: Monday-derived KPIs, booking, agreements, invoices, commissions, closer coaching.</p>
+      <div class="meta"><span class="lbl">Trigger</span><span>App (Cloudflare Access, Google auth), v1.479</span></div>
+      <div class="chips"><span class="chip">CLOSE</span><span class="chip">GHL</span><span class="chip">MONDAY</span><span class="chip">SLACK</span><span class="chip">SENDBLUE</span></div>
+      <div class="detail">
+        <p class="safe-note"><strong>Headline from the line-level pass:</strong> exactly TWO old-pipeline exposure points repo-wide (WF-38 and WF-40, next cards). Everything else renders from Monday boards + its own report data, so the rest of the Hub survives the pipeline swap.</p>
+        <ul>
+          <li>One static 35,918-line index.html on Vercel + a 10,521-line API worker (20 modules) + a read-only close-lookup worker. Users: closers chris / isaac / anthony / mike, setter (Anthony), admins josh / chris / miro.</li>
+          <li>Leads tab + KPI strip read the Monday Repair Leads board (2026-01-01 floor); Clients tab reads/writes the Payment Schedule board; Sales Funnel tab reads KV fed by a Mac Studio Playwright scraper of GHL's internal stats endpoint; cost-per-booked-call reads the Meta Graph API.</li>
+          <li>Deliberately DELEGATES its two Close-adjacent flows to the ops fleet via service bindings: agreement send fires /contract-sent (note only) and NAFA uploads proxy to nafa-audit-sync /direct-upload (skips the stage move).</li>
+          <li>WF-26 Send Agreement: GHL merge fields + proposal send, no stage writes. WF-57 setter form: Monday + Slack only. Every mutating request lands in a D1 audit log.</li>
+        </ul>
+        <p class="ev">BDCR-salesmen-dashboard: README.md, version.json, wrangler.toml [[services]], src/audit.js</p>
+      </div>
+    </article>
+
+    <article class="card mig-repoint st-live" tabindex="0">
+      <div class="chead">
+        <span class="wf">WF-38</span><h4>Hub setter booking (/book-call)</h4>
+        <span class="badge b-live">Live</span><span class="badge b-repoint">Re-point</span><span class="chev">&#9654;</span>
+      </div>
+      <p class="oneline">Setter bookings from the Hub create the Close opportunity, still hardcoded to the OLD pipeline.</p>
+      <div class="meta"><span class="lbl">Trigger</span><span>Hub Call Setting tab, POST /book-call (owner-pinned to the logged-in rep)</span></div>
+      <div class="chips"><span class="chip">CLOSE</span><span class="chip">GHL</span><span class="chip">MONDAY</span></div>
+      <div class="detail">
+        <p class="whatchanges"><strong>What changes:</strong> 3 constants in src/index.js (eligibility stage :1695, strategy stage :1703, pipeline id :1711) + wrangler deploy. Both stage and pipeline constants must move together (the POST passes pipeline_id defensively; swapping only one 400s or mis-routes). Maps to the new <strong>Setter Booked</strong> stage, the twin of WF-03's Self Booked (Open Q3). Re-point in the same window as WF-03.</p>
+        <ul>
+          <li>Write shape: POST opportunity {lead_id, status_id, pipeline_id} then PUT lead status.</li>
+          <li><strong>The write is non-blocking: the setter UI shows a success toast either way</strong>, so un-re-pointed mis-routes are invisible to the setter.</li>
+          <li>Lead statuses are org-level in Close, so those two ids survive mechanically; whether they SHOULD change folds into Open Q2.</li>
+        </ul>
+        <p class="ev">bdcr-sales-dashboard-api/src/index.js:1695-1711, 2129-2150</p>
+      </div>
+    </article>
+
+    <article class="card mig-repoint st-live" tabindex="0">
+      <div class="chead">
+        <span class="wf">WF-40</span><h4>Hub lead health check</h4>
+        <span class="badge b-live">Live</span><span class="badge b-repoint">Re-point</span><span class="chev">&#9654;</span>
+      </div>
+      <p class="oneline">The Hub's lead health checker reads old-pipeline stages to decide which artifacts each lead should have by now.</p>
+      <div class="meta"><span class="lbl">Trigger</span><span>Hub lead-health probe</span></div>
+      <div class="chips"><span class="chip">CLOSE</span></div>
+      <div class="detail">
+        <p class="whatchanges"><strong>What changes:</strong> rewrite the STAGES table in lead-health-spec.js (old pipeline id :31, all 7 old stage ids + Lost :35-44) with the new ids, plus per-artifact requiredFrom decisions. A mapping exercise like the Worker B table, not id substitution.</p>
+        <ul>
+          <li>Read-only + id-backfill-only (its "fix" writes are the GHL id/url foreign-key CFs, never workflow re-runs).</li>
+          <li>Failure shape on a new-pipeline opp: the stage resolves null and every check silently returns not_applicable; the report shows stage: "unknown". After cutover, probe one new-pipeline lead: that marker is the tell.</li>
+        </ul>
+        <p class="ev">src/lead-health-spec.js:31-44, 193-201; src/lead-health.js:209-212, 324-344, 479</p>
+      </div>
+    </article>
+
+    <article class="card mig-repoint st-live" tabindex="0">
+      <div class="chead">
+        <span class="wf">HUB</span><h4>Hub commission engine (OLD rules)</h4>
+        <span class="badge b-live">Live</span><span class="badge b-conflict">Conflict</span><span class="chev">&#9654;</span>
+      </div>
+      <p class="oneline">The Hub computes commissions on the OLD 10%/15% tier rule; the July 2 comp plan supersedes it.</p>
+      <div class="meta"><span class="lbl">Trigger</span><span>Draft / submit / mark-paid flows + nightly tally</span></div>
+      <div class="chips"><span class="chip">MONDAY</span><span class="chip">SLACK</span></div>
+      <div class="detail">
+        <p class="whatchanges"><strong>What changes (rules, not pipeline ids):</strong> the tier rule (trailing-2-week close rate at or above 30% pays 15%, else 10%, plus a $20/lead base for Isaac) still lives at src/index.js:9029-9032, and <strong>Worker B mirrors the same rule</strong> in its close-time commission stamp (KV comm_rate). Our engine is live on the NEW plan (closer 10% of invoice, gated at 25% collected). Decide with Josh: update theirs, or retire it and defer to our statements. Until then the two surfaces will disagree.</p>
+        <ul>
+          <li>Posts to #commission-reports + the Monday Commission Reports board (18415101261).</li>
+        </ul>
+        <p class="ev">src/index.js:9029-9032; worker-b/src/index.js:387-389, 540-583</p>
+      </div>
+    </article>
+
+    <article class="card mig-safe st-live" tabindex="0">
+      <div class="chead">
+        <span class="wf">HUB</span><h4>closer-recon</h4>
+        <span class="badge b-live">Live</span><span class="badge b-safe">Safe</span><span class="chev">&#9654;</span>
+      </div>
+      <p class="oneline">Nightly attendance and report-compliance recon from closer calendars, Jane's Slack posts, and Monday reports, with DMs and a weekly rollup.</p>
+      <div class="meta"><span class="lbl">Trigger</span><span>4 crons: nightly tally 03:00 UTC, morning catchup, next-day reminder, Sunday rollup</span></div>
+      <div class="chips"><span class="chip">SLACK</span><span class="chip">GCAL</span><span class="chip">MONDAY</span></div>
+      <div class="detail">
+        <p class="safe-note"><strong>Safe:</strong> none of its crons touch Close stages. Google Calendar domain-wide-delegation reads of closer mailboxes; the "Hank" Q&amp;A bot answers metric questions in-channel.</p>
+        <ul>
+          <li>Overlaps our attendance metrics: theirs is calendar-derived, ours is Close/GHL/report-derived. Two independent measures of the same bottleneck until team rollout.</li>
+        </ul>
+        <p class="ev">closer-recon/ modules; wrangler.toml [triggers]</p>
+      </div>
+    </article>
+
+    <article class="card mig-safe st-live" tabindex="0">
+      <div class="chead">
+        <span class="wf">&nbsp;</span><h4>tcb-client-reports</h4>
+        <span class="badge b-live">Live</span><span class="badge b-safe">Safe</span><span class="chev">&#9654;</span>
+      </div>
+      <p class="oneline">The browser tool Kay uses to pull client credit reports and sync scores to Monday.</p>
+      <div class="meta"><span class="lbl">Trigger</span><span>Manual (browser tool), calls the monday-sync worker</span></div>
+      <div class="chips"><span class="chip">MONDAY</span></div>
+      <div class="detail">
+        <p class="safe-note"><strong>Safe:</strong> standalone repo, no pipeline exposure; its writes go through tcb-client-reports-monday-sync (Lane C).</p>
+      </div>
+    </article>
+
+    <article class="card mig-safe st-live" tabindex="0">
+      <div class="chead">
+        <span class="wf">&nbsp;</span><h4>mission-control + Tech Ops Chat</h4>
+        <span class="badge b-live">Live</span><span class="badge b-safe">Safe</span><span class="chev">&#9654;</span>
+      </div>
+      <p class="oneline">The admin app on the Mac Studio: Workflow Map, Tech Ops Chat, and ops tooling, driven by the 61-workflow catalog.</p>
+      <div class="meta"><span class="lbl">Trigger</span><span>App at admin.thecreditbrothers.com</span></div>
+      <div class="chips"><span class="chip">CATALOG</span></div>
+      <div class="detail">
+        <p class="safe-note"><strong>Safe with one duty:</strong> the bdcr-tech-ops-chat diagnostic agent (investigator only, Slack posting confirmation-gated) learns the pipeline from config/workflows.json. Update the catalog in the re-point PR (CI enforces it) and its answers stay correct.</p>
+        <ul>
+          <li>The gmail-attachments MCP server also lives in the fleet (Claude sessions; no pipeline exposure). The apps/* dirs in the monorepo are doc-only scaffolds; app code still lives in standalone repos.</li>
+        </ul>
+        <p class="ev">config/workflows.json (61 WFs, v14); .github/workflows/validate-workflows.yml</p>
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<!-- ============================= 2. OURS VS THEIRS ============================= -->
+<section id="compare">
+  <h2>Ours vs theirs</h2>
+  <p class="secdesc">What our tcb-sales-system already covers or supersedes (claims per PROJECT-STATUS-AND-LAUNCH-PLAN.md), what deliberately stays theirs, and the two places the systems currently disagree. Click a row for detail.</p>
+
+  <div class="cmp lane">
+
+    <article class="card mig-safe st-live" tabindex="0">
+      <div class="chead"><h4>Pipeline mirroring + KPIs</h4><span class="badge b-covers">Ours covers</span><span class="chev">&#9654;</span></div>
+      <div class="cmp-cols">
+        <div class="cmp-col"><div class="t">Theirs</div>Hub KPIs derived from Monday boards; nobody mirrors Close into a database.</div>
+        <div class="cmp-col ours"><div class="t">Ours</div>LIVE two-way Close mirror: 794 leads, 506 opportunities, real-time webhook; the NEW 19-stage pipeline mapped both directions (we added the missing Won PIF stage).</div>
+      </div>
+      <div class="detail"><p>Two independent KPI pipelines currently read the same funnel: theirs Monday-derived, ours Close-derived. Post-migration ours is the stage-truth surface; their Monday boards keep running fulfillment. The stage-map admin surface (WS2) absorbs future stage additions without code.</p></div>
+    </article>
+
+    <article class="card mig-safe st-live" tabindex="0">
+      <div class="chead"><h4>Attendance + report forms</h4><span class="badge b-covers">Ours covers</span><span class="chev">&#9654;</span></div>
+      <div class="cmp-cols">
+        <div class="cmp-col"><div class="t">Theirs</div>closer-recon reconstructs held-vs-booked nightly from closer Google Calendars, Jane's Slack posts, and Monday report boards.</div>
+        <div class="cmp-col ours"><div class="t">Ours</div>Sales call / missed call / post-call / setter EOD forms live; Monday history import applied attendance truth (taken went 26 to 121). Forms feed attendance, deals, and commissions directly.</div>
+      </div>
+      <div class="detail"><p>Ours becomes the system of record once reps submit forms daily (launch phase 4). Their recon stays useful in parallel as an independent check; retire or keep by choice, not necessity.</p></div>
+    </article>
+
+    <article class="card mig-repoint st-live" tabindex="0">
+      <div class="chead"><h4>Commissions</h4><span class="badge b-covers">Ours supersedes</span><span class="badge b-conflict">Conflict 1</span><span class="chev">&#9654;</span></div>
+      <div class="cmp-cols">
+        <div class="cmp-col"><div class="t">Theirs</div>Hub engine + Worker B's close-time stamp, both on the OLD tier rule: trailing-2-week close rate at or above 30% pays 15%, else 10% (+$20/lead base for Isaac).</div>
+        <div class="cmp-col ours"><div class="t">Ours</div>Engine LIVE on the July 2 plan: closer 10% of invoice gated at 25% collected, monthly statements, leaderboard, per-rep toggles, daily recompute.</div>
+      </div>
+      <div class="detail"><p><strong>Explicit conflict:</strong> the new comp plan supersedes 10%/15% (CLIENT-DECISIONS.md), but both of their surfaces still encode the old rule. Until they update or defer to our statements, the two systems will publish different numbers for the same closer. Flagged to Josh in the migration checklist (step 6).</p></div>
+    </article>
+
+    <article class="card mig-safe st-live" tabindex="0">
+      <div class="chead"><h4>Payments: NMI + Stripe</h4><span class="badge b-covers">Ours covers</span><span class="chev">&#9654;</span></div>
+      <div class="cmp-cols">
+        <div class="cmp-col"><div class="t">Theirs</div>ZERO NMI code across both audited repos (verified by grep). Payment visibility = GHL invoices to Monday (payment-schedule-sync) + the WF-45 Stripe-to-ClickMagick Zap.</div>
+        <div class="cmp-col ours"><div class="t">Ours</div>NMI key live: 606 program payments powering cash-collected + receivables, branded checkout at pay.thecreditbrothers.com (sandbox-tested). Stripe LIVE: 12,064 charges, 253 refunds as reversals, 102 disputes. One unified payments table with product_type.</div>
+      </div>
+      <div class="detail"><p>The NMI surface is ours alone; nothing on their side listens to it. Their GHL-invoice-to-Monday ops stay theirs (fulfillment workflow). Remaining on ours: Silent Post URL confirm + production checkout cutover (the dev).</p></div>
+    </article>
+
+    <article class="card mig-safe st-live" tabindex="0">
+      <div class="chead"><h4>Receivables</h4><span class="badge b-covers">Ours covers</span><span class="chev">&#9654;</span></div>
+      <div class="cmp-cols">
+        <div class="cmp-col"><div class="t">Theirs</div>Monday Payment Schedule board + a 13:00 UTC mark-past-due cron + the Hub Clients tab reading that board.</div>
+        <div class="cmp-col ours"><div class="t">Ours</div>898 receivables with real amounts + paid dates; aging cron (late at due date, delinquent at 14+ days); custom-installment charging; receivables page live.</div>
+      </div>
+      <div class="detail"><p>Ours covers the reporting and aging truth; their board remains the fulfillment team's working surface. Open policy question from the launch plan: whether Monday-paid history should synthesize cash-collected rows (currently cash stays NMI/Stripe-evidenced only).</p></div>
+    </article>
+
+    <article class="card mig-safe st-live" tabindex="0">
+      <div class="chead"><h4>Attribution</h4><span class="badge b-covers">Ours covers</span><span class="chev">&#9654;</span></div>
+      <div class="cmp-cols">
+        <div class="cmp-col"><div class="t">Theirs</div>WF-45 Stripe-to-ClickMagick Zap; Hub cost-per-booked-call from the Meta Graph API; Dub affiliate network in progress.</div>
+        <div class="cmp-col ours"><div class="t">Ours</div>UTM capture fields + campaign report joining Meta / Dub / funnel on utm_campaign (CPL, cost per booked call, CPA, ROAS). Dashboard side DONE.</div>
+      </div>
+      <div class="detail"><p>Pending client-side: Miro's hidden UTM fields + Dub links, the utm_campaign = Meta campaign name convention, and Josh's read-only Meta system-user token. The funnel half already reports from our own data.</p></div>
+    </article>
+
+    <article class="card mig-safe st-live" tabindex="0">
+      <div class="chead"><h4>Onboarding execution</h4><span class="badge b-theirs">Stays theirs</span><span class="chev">&#9654;</span></div>
+      <div class="cmp-cols">
+        <div class="cmp-col"><div class="t">Theirs</div>Worker B's full Closed Won cascade (email, Slack, Monday records, commission stamp, agreement attach, iMessage) + the GHL Repair onboarding workflows.</div>
+        <div class="cmp-col ours"><div class="t">Ours</div>We mirror stages and can move them (form outcomes, allow-listed). We do not onboard clients, by design.</div>
+      </div>
+      <div class="detail"><p>Note for Josh: because our form outcomes can move a card to a won stage, our dashboard becomes one of the hands that can pull the onboarding trigger once Worker B is re-pointed. Desired parity, suppressed within 90 days by their idempotency marker.</p></div>
+    </article>
+
+    <article class="card mig-safe st-live" tabindex="0">
+      <div class="chead"><h4>Credit / IDIQ tooling</h4><span class="badge b-theirs">Stays theirs</span><span class="chev">&#9654;</span></div>
+      <div class="cmp-cols">
+        <div class="cmp-col"><div class="t">Theirs</div>Login checker service + worker, canary, NAFA generation + sync, R2 retention, MyScoreIQ fallback, Mason/Vera parser-fix loop.</div>
+        <div class="cmp-col ours"><div class="t">Ours</div>We import NAFA audit history (1,361 audits, newest-canonical) for reporting; we run none of the tooling.</div>
+      </div>
+      <div class="detail"><p>No overlap to manage. The only migration touch is nafa-audit-sync's stage move (Lane B).</p></div>
+    </article>
+
+    <article class="card mig-safe st-live" tabindex="0">
+      <div class="chead"><h4>Fulfillment Monday ops</h4><span class="badge b-theirs">Stays theirs</span><span class="chev">&#9654;</span></div>
+      <div class="cmp-cols">
+        <div class="cmp-col"><div class="t">Theirs</div>payment-schedule-sync, HKD ACH, client-reports sync, date normalizer, plus the Hub's live Monday writes (6+ boards).</div>
+        <div class="cmp-col ours"><div class="t">Ours</div>One-time history import (298 deals / $718k contracted, 898 receivables, 1,361 NAFA audits, 330 report submissions), then read-only.</div>
+      </div>
+      <div class="detail"><p>We never write their boards. Their fulfillment operation continues unchanged through migration.</p></div>
+    </article>
+
+    <article class="card mig-repoint st-live" tabindex="0">
+      <div class="chead"><h4>Setter bookings write the OLD pipeline</h4><span class="badge b-conflict">Conflict 2</span><span class="chev">&#9654;</span></div>
+      <div class="cmp-cols">
+        <div class="cmp-col"><div class="t">Theirs</div>WF-38 /book-call creates opportunities on the old pipeline with a success toast either way (non-blocking write).</div>
+        <div class="cmp-col ours"><div class="t">Ours</div>Our mirror + forms live on the NEW pipeline; GHL self-bookings already stamp self_booked + booked_by='self_book'.</div>
+      </div>
+      <div class="detail"><p><strong>Explicit conflict:</strong> until WF-38 is re-pointed, every setter booking lands on the old pipeline while the team works the new one, so setter-booked deals would be invisible to the new-pipeline funnel. The intended mapping (WF-38 to Setter Booked, WF-03 to Self Booked) is Open Q3; re-point both in the same window (checklist steps 5-6).</p></div>
+    </article>
+
+  </div>
+</section>
+
+<!-- ============================= 3. MIGRATION DAY ============================= -->
+<section id="migration">
+  <h2>Migration day checklist</h2>
+  <p class="secdesc">The sequence that de-risks the pipeline swap, from the line-verified audit. Order matters: re-point everything BEFORE any cards move. Checkbox state saves in this browser.</p>
+
+  <div class="callout"><strong>Flagged policy question (Open Q1): the Deposit stage.</strong> The new pipeline orders Deposit before Won PIF and Won PP. Does Deposit fire the onboarding chain, or only the two Won stages? Worker B's won check is a single hardcoded id today, so it must become a set either way; the CONTENTS of that set are Josh's decision, and it changes when clients get onboarding emails, Monday records, and commission stamps.</div>
+
+  <div class="ck lane">
+    <div class="ckprog"><span id="ckdone">0 of 10 done</span><div class="ckbar"><i id="ckfill"></i></div><button class="fbtn" id="ckreset">Reset</button></div>
+
+    <div class="ckstep" data-ck="s1">
+      <input type="checkbox" aria-label="step 1"><span class="cknum">1</span>
+      <div class="ckbody">
+        <div class="ckt">Pre-flight: collect ids + decisions <span class="own">Josh + 8FS</span></div>
+        <div class="ckd">Export all 19 new-pipeline stage ids from Close (no repo lists them; only the pipeline id is known). Josh answers: the won set incl. Deposit (Q1), the stage-to-lead-status map for all 19 stages incl. deliberate omissions (Q2), entry-stage mapping for opt-ins / eligibility / WF-03 vs WF-38 (Q3), the NAFA from-set (Q4), affiliate dedup scope (Q5), whether /contract-sent moves cards (Q6), whether Worker B gets a pipeline_id guard (Q7), and the NAFA_AUTOGEN_ENABLED runtime value (Q9).</div>
+      </div>
+    </div>
+
+    <div class="ckstep" data-ck="s2">
+      <input type="checkbox" aria-label="step 2"><span class="cknum">2</span>
+      <div class="ckbody">
+        <div class="ckt">Re-point Worker B FIRST: the onboarding trigger <span class="own">Josh / dev</span></div>
+        <div class="ckd"><ul>
+          <li>config/kv-mappings.json: new pipeline id + the decided stage map; re-seed KV via scripts/seed-kv.js (config-only; re-seeding REPLACES the map, so old-pipeline events no-op automatically after this).</li>
+          <li>CODE: worker-b src/index.js:252, the single Closed Won id becomes the won SET (Won PIF + Won PP; Deposit per Q1) + redeploy. This is the two-won-stages code change; a plain id swap is not enough.</li>
+          <li>Recommended: add a pipeline_id guard to /stage-change (none exists today) so old-pipeline events can never re-trigger the chain.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="ckstep" data-ck="s3">
+      <input type="checkbox" aria-label="step 3"><span class="cknum">3</span>
+      <div class="ckbody">
+        <div class="ckt">Re-point the other stage writers (code + redeploy) <span class="own">Josh / dev</span></div>
+        <div class="ckd"><ul>
+          <li>worker-a src/index.js:244 to the new Intake Form Submitted id (re-seeding KV without this change makes the route 500).</li>
+          <li>nafa-audit-sync :539-540 (pipeline + Audit Complete ids) + the forward-only from-set :568-569 per Q4.</li>
+          <li>contract-signed-webhook :144 to the new Contract Signed id; add the /contract-sent stage move only if Q6 says yes.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="ckstep" data-ck="s4">
+      <input type="checkbox" aria-label="step 4"><span class="cknum">4</span>
+      <div class="ckbody">
+        <div class="ckt">Config-level re-points (vars + redeploy) <span class="own">Josh / dev</span></div>
+        <div class="ckd"><ul>
+          <li>ghl-optin-close-sync: 6 wrangler.toml vars (opt-in stage + value, eligibility stage + status, the forward-only stage ladder) per Q3.</li>
+          <li>quiz-email-draft: 1 var (the opt-in stage).</li>
+          <li>affiliate-partner-sync: 1 var (which pipeline the active-opp dedup checks) per Q5.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="ckstep" data-ck="s5">
+      <input type="checkbox" aria-label="step 5"><span class="cknum">5</span>
+      <div class="ckbody">
+        <div class="ckt">Zapier <span class="own">Josh</span></div>
+        <div class="ckd">WF-03 Zap 302729523 ("0 - Lead Booked Call"): re-point the Close create-opportunity step(s) to the new booking stage (plausibly Self Booked per Q3); leave the reschedule path alone. While in Zapier: confirm WF-46 + WF-50 stay OFF, and consider fixing the Date Booked timezone bug at the source.</div>
+      </div>
+    </div>
+
+    <div class="ckstep" data-ck="s6">
+      <input type="checkbox" aria-label="step 6"><span class="cknum">6</span>
+      <div class="ckbody">
+        <div class="ckt">TCB Sales Hub constants (same window as step 5: the Setter/Self Booked twins) <span class="own">Josh / dev</span></div>
+        <div class="ckd"><ul>
+          <li>bdcr-sales-dashboard-api src/index.js: 3 constants (:1695 eligibility stage, :1703 strategy stage, :1711 pipeline id) + wrangler deploy. Until then every setter booking silently lands on the old pipeline behind a success toast.</li>
+          <li>lead-health-spec.js: rewrite the STAGES table with new ids + per-artifact requiredFrom decisions.</li>
+          <li>Commission constants (:9029-9032) + Worker B's mirrored comm_rate rule: decide update vs retire (the July 2 plan supersedes 10%/15%). Flag, do not skip.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="ckstep" data-ck="s7">
+      <input type="checkbox" aria-label="step 7"><span class="cknum">7</span>
+      <div class="ckbody">
+        <div class="ckt">Same-PR docs + catalog (CI enforces the catalog) <span class="own">Josh / dev</span></div>
+        <div class="ckd">config/workflows.json (the 61-workflow catalog; Tech Ops Chat reads it), docs/manual-lead-backfill-runbook.md:118, docs/bdcr-e2e-testing-plan.md:22,38.</div>
+      </div>
+    </div>
+
+    <div class="ckstep" data-ck="s8">
+      <input type="checkbox" aria-label="step 8"><span class="cknum">8</span>
+      <div class="ckbody">
+        <div class="ckt">Verify BEFORE any cards move <span class="own">Josh + 8FS</span></div>
+        <div class="ckd"><ul>
+          <li>Run one test lead end-to-end on the new pipeline: booking, intake, audit, contract, won.</li>
+          <li>The test won fires the chain EXACTLY once: lead status, Slack win alert, onboarding email, 3 Monday writes, commission stamp, agreement attach, Repair-Leads close stamp, iMessage.</li>
+          <li>Lead-health probe on a new-pipeline lead: no stage "unknown" in the report.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="ckstep" data-ck="s9">
+      <input type="checkbox" aria-label="step 9"><span class="cknum">9</span>
+      <div class="ckbody">
+        <div class="ckt">THEN migrate open opportunities only <span class="own">TCB team</span></div>
+        <div class="ckd">Won/lost history stays on "BDCR Sales" (the July 2 decision). Never bulk-move historical won cards: any win older than the 90-day idempotency TTL re-fires the full onboarding chain (email + iMessage to a long-closed client). The bulk-move burst hits their Worker B and partner-sync subscribers plus our mirror (ours is idempotent).</div>
+      </div>
+    </div>
+
+    <div class="ckstep" data-ck="s10">
+      <input type="checkbox" aria-label="step 10"><span class="cknum">10</span>
+      <div class="ckbody">
+        <div class="ckt">Watch + clean up <span class="own">Josh + 8FS</span></div>
+        <div class="ckd"><ul>
+          <li>During the move: wrangler tail on worker-b + watch the worker-error Slack channel (C0BA7KS05UM) + our dashboard mirror.</li>
+          <li>Week one: watch the Payment Schedule "New Invoices" group for parents nothing promotes (the silent-stop tell).</li>
+          <li>Our side is already prepared: the won-stage write-back fallbacks were removed July 10 (only strategy_call_booked to self_booked remains, new-pipeline direction), and the stage-map admin surface catches any label we have not mapped.</li>
+        </ul></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============================= 4. RECOMMENDED NEW AUTOMATIONS ============================= -->
+<section id="new">
+  <h2>Recommended new automations</h2>
+  <p class="secdesc">The go-live gap list, prioritized. "Already covered" claims are grounded in the launch plan; each card names the owner: our system, their GHL workflows, or their worker fleet. The launch plan already earmarks Slack notifications as the natural next step for our system (WS5.3).</p>
+
+  <div class="grid lane">
+
+    <article class="card pr-p1" tabindex="0">
+      <div class="chead">
+        <span class="badge b-p1">P1</span><h4>Booking-confirmation + attendance-nudge alerts</h4>
+        <span class="own">OURS</span><span class="eff">S</span><span class="chev">&#9654;</span>
+      </div>
+      <p class="oneline">Every booking posts to Slack, and every past call with no attendance outcome nudges the closer until it is marked.</p>
+      <div class="meta"><span class="lbl">Why</span><span>876 past calls have no attendance outcome marked as of today (live dashboard count); booked-to-taken is THE bottleneck metric and it is unmeasurable while calls sit unmarked.</span></div>
+      <div class="detail">
+        <p><strong>Trigger <span class="arrow">&#8594;</span> action:</strong> our appointment_booked event posts a confirmation to Slack (rep, time, lead, source); a daily end-of-day check finds past appointments with no outcome and posts a per-closer nudge list (and pings the manager on repeat offenders).</p>
+        <ul>
+          <li><strong>Depends on:</strong> GHL workflow webhooks (WS1.1, ~30 min click-through, guide ready) for real-time; works day one off the daily sync. A Slack webhook/bot for their workspace.</li>
+          <li>Already in place on ours: appointments with reschedule history, the forms that record outcomes, attendance truth from the Monday import.</li>
+        </ul>
+      </div>
+    </article>
+
+    <article class="card pr-p1" tabindex="0">
+      <div class="chead">
+        <span class="badge b-p1">P1</span><h4>No-show rebook chase</h4>
+        <span class="own">SHARED: ours fires, their GHL sends</span><span class="eff">M</span><span class="chev">&#9654;</span>
+      </div>
+      <p class="oneline">A no-show immediately enrolls the lead in a rebook sequence instead of dying quietly.</p>
+      <div class="meta"><span class="lbl">Why</span><span>No-shows are the largest leak in booked-to-taken; today nothing chases them automatically.</span></div>
+      <div class="detail">
+        <p><strong>Trigger <span class="arrow">&#8594;</span> action:</strong> our appointment_no_show event (GHL webhook or post-call form outcome) fires a GHL Marketing workflow via its inbound-webhook trigger: SMS day 0 / 1 / 3 with the booking link, exit on rebook or reply.</p>
+        <ul>
+          <li><strong>Owner split:</strong> our system detects and fires (one outbound webhook call); their GHL workflow owns the messaging (same inbound-webhook pattern Worker B already uses for iMessage onboarding).</li>
+          <li><strong>Depends on:</strong> WS1.1 webhooks for real-time no-show events; their team builds the GHL workflow (copy).</li>
+        </ul>
+      </div>
+    </article>
+
+    <article class="card pr-p1" tabindex="0">
+      <div class="chead">
+        <span class="badge b-p1">P1</span><h4>Deal-won Slack post from the NEW pipeline</h4>
+        <span class="own">OURS</span><span class="eff">S</span><span class="chev">&#9654;</span>
+      </div>
+      <p class="oneline">A win on the new pipeline posts to their win channel from our system, so the team never loses the win signal during transition.</p>
+      <div class="meta"><span class="lbl">Why</span><span>Worker B's win alert is a Closed Won side effect on the OLD pipeline: until (and unless) it is re-pointed correctly, new-pipeline wins are silent. This is the safety net and the verification signal for cutover week.</span></div>
+      <div class="detail">
+        <p><strong>Trigger <span class="arrow">&#8594;</span> action:</strong> our Close mirror sees a stage change into won_pif / won_pp, posts client, closer, amount, and the Close link to the win channel.</p>
+        <ul>
+          <li><strong>Depends on:</strong> a Slack webhook/bot for their workspace. The stage events already flow (Close webhook LIVE).</li>
+          <li>Deliberately redundant with Worker B post-re-point: during cutover, two posts per win means both systems see it; zero posts means the silent stop is back. Retire or keep after week one.</li>
+        </ul>
+      </div>
+    </article>
+
+    <article class="card pr-p2" tabindex="0">
+      <div class="chead">
+        <span class="badge b-p2">P2</span><h4>Intake chase before the call</h4>
+        <span class="own">SHARED: ours detects, their GHL sends</span><span class="eff">M</span><span class="chev">&#9654;</span>
+      </div>
+      <p class="oneline">Booked but no intake form 24h before the call: the lead gets an SMS and the setter gets a Slack ping.</p>
+      <div class="meta"><span class="lbl">Why</span><span>Calls without intake convert worse and waste closer time; today nobody systematically checks.</span></div>
+      <div class="detail">
+        <p><strong>Trigger <span class="arrow">&#8594;</span> action:</strong> an hourly check joins upcoming strategy calls against intake submissions; at T-24h with no intake, fire the GHL SMS workflow + post the gap to Slack.</p>
+        <ul>
+          <li><strong>Depends on:</strong> intake events (already mirrored: Worker A's stage moves + GHL form syncs), WS1.1 webhooks for freshness, a small GHL workflow for the SMS.</li>
+        </ul>
+      </div>
+    </article>
+
+    <article class="card pr-p2" tabindex="0">
+      <div class="chead">
+        <span class="badge b-p2">P2</span><h4>Contract sent-not-signed 48h nudge</h4>
+        <span class="own">OURS (alt: their GHL)</span><span class="eff">M</span><span class="chev">&#9654;</span>
+      </div>
+      <p class="oneline">An agreement sitting unsigned for 48 hours nudges the client and alerts the closer.</p>
+      <div class="meta"><span class="lbl">Why</span><span>Sent-to-signed is a tracked funnel step (Contract Sent / Contract Signed are new-pipeline stages) with no chase today.</span></div>
+      <div class="detail">
+        <p><strong>Trigger <span class="arrow">&#8594;</span> action:</strong> agreement record has sent_at set and no signed_at after 48h: SMS/email nudge to the client + Slack to the closer.</p>
+        <ul>
+          <li><strong>Depends on:</strong> WS3, the GHL Documents pull (may need one extra app scope + reinstall) so sent_at / signed_at land on sales.agreement. Alternative owner: a GHL Marketing workflow (wait 48h after doc sent unless signed), zero code but less visible.</li>
+        </ul>
+      </div>
+    </article>
+
+    <article class="card pr-p2" tabindex="0">
+      <div class="chead">
+        <span class="badge b-p2">P2</span><h4>Failed / late installment dunning</h4>
+        <span class="own">OURS (greenfield)</span><span class="eff">M</span><span class="chev">&#9654;</span>
+      </div>
+      <p class="oneline">An NMI decline or a receivable going late triggers client SMS, a Slack alert, and a flagged receivable.</p>
+      <div class="meta"><span class="lbl">Why</span><span>Their fleet has ZERO NMI code (verified across both repos): nobody is watching the main processor's declines. Pure greenfield with direct cash impact.</span></div>
+      <div class="detail">
+        <p><strong>Trigger <span class="arrow">&#8594;</span> action:</strong> NMI Silent Post decline (or the aging cron marking a receivable late): SMS to the client via a GHL workflow, Slack to fulfillment, receivable flagged on the dashboard with retry state.</p>
+        <ul>
+          <li><strong>Depends on:</strong> NMI Silent Post URL confirm (WS1.2, key already live); one allow-list extension for the GHL trigger call. Receivable aging states (late / delinquent) already exist.</li>
+        </ul>
+      </div>
+    </article>
+
+    <article class="card pr-p2" tabindex="0">
+      <div class="chead">
+        <span class="badge b-p2">P2</span><h4>Weekly KPI digest to Josh + Chris</h4>
+        <span class="own">OURS</span><span class="eff">S</span><span class="chev">&#9654;</span>
+      </div>
+      <p class="oneline">A Monday-morning email/Slack digest: booked, taken, show rate, won, cash collected, receivables aging, commission accruals.</p>
+      <div class="meta"><span class="lbl">Why</span><span>The owners should get the numbers pushed to them weekly, not have to remember to look.</span></div>
+      <div class="detail">
+        <p><strong>Trigger <span class="arrow">&#8594;</span> action:</strong> cron Monday 8am EST composes the digest from our data (week vs prior week) and sends email + Slack.</p>
+        <ul>
+          <li><strong>Depends on:</strong> the reconciliation pass (WS7) first, so the digest ships numbers that have been verified against the sources. Trust before cadence.</li>
+        </ul>
+      </div>
+    </article>
+
+    <article class="card pr-p3" tabindex="0">
+      <div class="chead">
+        <span class="badge b-p3">P3</span><h4>Lead-response-time alert</h4>
+        <span class="own">OURS</span><span class="eff">M</span><span class="chev">&#9654;</span>
+      </div>
+      <p class="oneline">A new opt-in with no first touch within the SLA window pings the setter channel.</p>
+      <div class="meta"><span class="lbl">Why</span><span>Speed-to-lead drives contact rate; nobody measures it today on either side.</span></div>
+      <div class="detail">
+        <p><strong>Trigger <span class="arrow">&#8594;</span> action:</strong> opt-in created with no first call/SMS after X minutes: Slack ping with the lead link; weekly median response-time stat.</p>
+        <ul>
+          <li><strong>Depends on:</strong> a first-touch signal we do not fully ingest yet (Close call activity or GHL message events); honest prerequisite, which is why this is P3.</li>
+        </ul>
+      </div>
+    </article>
+
+    <article class="card pr-p3" tabindex="0">
+      <div class="chead">
+        <span class="badge b-p3">P3</span><h4>Commission statement approval reminder</h4>
+        <span class="own">OURS</span><span class="eff">S</span><span class="chev">&#9654;</span>
+      </div>
+      <p class="oneline">On the 1st of the month: statements drafted, N pending approval, link to the approve flow.</p>
+      <div class="meta"><span class="lbl">Why</span><span>The engine and monthly statements are live; the human approve step is the part that will get forgotten.</span></div>
+      <div class="detail">
+        <p><strong>Trigger <span class="arrow">&#8594;</span> action:</strong> monthly cron posts the pending-approval count + deep link to Josh (Slack/email); repeats at day 3 if still pending.</p>
+        <ul>
+          <li><strong>Depends on:</strong> nothing new; the commission engine (July 2 plan) is live with monthly statements.</li>
+        </ul>
+      </div>
+    </article>
+
+    <article class="card pr-p3 mig-done" tabindex="0">
+      <div class="chead">
+        <span class="badge b-p3">P3</span><h4>Stale-source alert</h4>
+        <span class="own">OURS</span><span class="badge b-done">Done: live</span><span class="chev">&#9654;</span>
+      </div>
+      <p class="oneline">Any connected source whose last event is older than expected gets flagged: stale is visible, never silent.</p>
+      <div class="meta"><span class="lbl">Why</span><span>A dashboard that quietly stops updating is worse than no dashboard; this is the trust floor under every other alert.</span></div>
+      <div class="detail">
+        <p class="safe-note"><strong>Already shipped</strong> as the Connections sync-health surface (launch plan WS1.3): a Connections-page banner + daily staleness check per source. No further build; listed so the gap list reads complete.</p>
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<p class="nores" id="nores">No cards match the current filter. Clear the search box or click All.</p>
+
+</main>
+
+<footer>
+  <div>Generated 2026-07-11 by 8FS (Katie's Claude Code). Read-only audit artifact; nothing on this page navigates away or calls the network.</div>
+  <div class="src">
+    Sources: AUTOMATION-AUDIT.md (line-verified pass, 2026-07-11) over three repos: <span class="mono">The-Credit-Brothers/tcb-operations</span> (fresh clone 2026-07-10), <span class="mono">The-Credit-Brothers/BDCR-salesmen-dashboard</span> (fresh clone 2026-07-11), <span class="mono">bdcr-operations</span> (archived docs baseline).
+    Our-system claims: PROJECT-STATUS-AND-LAUNCH-PLAN.md (2026-07-09) + CONNECTIONS-TRIGGERS.md sections 1-2.
+    Key ids: old pipeline <span class="mono">pipe_7QGKHLVYed30khcc1R8PyN</span>, new pipeline "Sales" <span class="mono">pipe_5ZtGJ7zT6RjguZ6KPEebkC</span> (19 stages, live 2026-07-07), workflow catalog v14 (61 workflows).
+  </div>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- card expand/collapse ---------- */
+  var cards = Array.prototype.slice.call(document.querySelectorAll('.card'));
+  cards.forEach(function(c){
+    c.setAttribute('role','button');
+    c.setAttribute('aria-expanded','false');
+    c.addEventListener('click', function(e){
+      if (e.target.closest('a,input,button')) return;
+      var sel = window.getSelection();
+      if (sel && sel.toString().length) return;
+      c.classList.toggle('open');
+      c.setAttribute('aria-expanded', c.classList.contains('open') ? 'true' : 'false');
+    });
+    c.addEventListener('keydown', function(e){
+      if (e.key === 'Enter' || e.key === ' ') {
+        if (e.target !== c) return;
+        e.preventDefault();
+        c.classList.toggle('open');
+        c.setAttribute('aria-expanded', c.classList.contains('open') ? 'true' : 'false');
+      }
+    });
+  });
+
+  /* ---------- expand all ---------- */
+  var xall = document.getElementById('xall');
+  xall.addEventListener('click', function(){
+    var on = document.body.classList.toggle('xall');
+    xall.textContent = on ? 'Collapse all' : 'Expand all';
+  });
+
+  /* ---------- search + filter ---------- */
+  cards.forEach(function(c){ c._q = c.textContent.toLowerCase(); });
+  var q = document.getElementById('q');
+  var fbtns = Array.prototype.slice.call(document.querySelectorAll('.fbtn[data-f]'));
+  var state = { q:'', f:'all' };
+
+  function matchFilter(c){
+    /* recommendation cards (pr-*) are future ideas, not existing automations:
+       the status/migration quick filters never hide them (search still applies) */
+    if (c.className.indexOf("pr-") !== -1) return true;
+    switch(state.f){
+      case 'repoint': return c.classList.contains('mig-repoint');
+      case 'safe':    return c.classList.contains('mig-safe');
+      case 'live':    return c.classList.contains('st-live');
+      case 'off':     return c.classList.contains('st-dormant') || c.classList.contains('st-archived');
+      default:        return true;
+    }
+  }
+  function apply(){
+    var tokens = state.q.split(/\s+/).filter(Boolean);
+    var shown = 0;
+    cards.forEach(function(c){
+      var ok = matchFilter(c);
+      if (ok) for (var i=0;i<tokens.length;i++){ if (c._q.indexOf(tokens[i]) === -1){ ok=false; break; } }
+      c.classList.toggle('hidden', !ok);
+      if (ok) shown++;
+    });
+    /* hide lane groups with nothing visible (skip groups that hold no cards, e.g. the checklist) */
+    Array.prototype.forEach.call(document.querySelectorAll('.lane'), function(g){
+      if (!g.querySelector('.card')) return;
+      var any = g.querySelector('.card:not(.hidden)');
+      g.classList.toggle('hidden', !any);
+      var h = g.previousElementSibling;
+      while (h && !(h.tagName==='H3' || h.tagName==='H2')) {
+        if (h.classList && (h.classList.contains('lanedesc')||h.classList.contains('secdesc'))) h.classList.toggle('hidden', !any);
+        h = h.previousElementSibling;
+      }
+      if (h && h.tagName==='H3') h.classList.toggle('hidden', !any);
+    });
+    document.getElementById('count').textContent = shown + ' of ' + cards.length + ' cards';
+    document.getElementById('nores').style.display = shown ? 'none' : 'block';
+    /* auto-expand on active search so matches show context */
+    var active = tokens.length > 0;
+    document.body.classList.toggle('xall', active || xall.textContent === 'Collapse all');
+  }
+  q.addEventListener('input', function(){ state.q = q.value.toLowerCase(); apply(); });
+  fbtns.forEach(function(b){
+    b.addEventListener('click', function(){
+      fbtns.forEach(function(o){ o.classList.remove('on'); });
+      b.classList.add('on');
+      state.f = b.getAttribute('data-f');
+      apply();
+    });
+  });
+  apply();
+
+  /* ---------- checklist persistence ---------- */
+  var KEY = 'tcbmap.ck.v1';
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch(e){ saved = {}; }
+  var steps = Array.prototype.slice.call(document.querySelectorAll('.ckstep'));
+  function persist(){
+    var out = {};
+    steps.forEach(function(s){ out[s.getAttribute('data-ck')] = s.querySelector('input').checked; });
+    try { localStorage.setItem(KEY, JSON.stringify(out)); } catch(e){}
+    var done = steps.filter(function(s){ return s.querySelector('input').checked; }).length;
+    document.getElementById('ckdone').textContent = done + ' of ' + steps.length + ' done';
+    document.getElementById('ckfill').style.width = (steps.length ? (done/steps.length*100) : 0) + '%';
+  }
+  steps.forEach(function(s){
+    var input = s.querySelector('input');
+    if (saved[s.getAttribute('data-ck')]) { input.checked = true; s.classList.add('done'); }
+    input.addEventListener('change', function(){
+      s.classList.toggle('done', input.checked); persist();
+    });
+    s.addEventListener('click', function(e){
+      if (e.target === input || e.target.closest('button')) return;
+      var sel = window.getSelection();
+      if (sel && sel.toString().length) return;
+      input.checked = !input.checked;
+      s.classList.toggle('done', input.checked); persist();
+    });
+  });
+  document.getElementById('ckreset').addEventListener('click', function(e){
+    e.stopPropagation();
+    steps.forEach(function(s){ s.querySelector('input').checked = false; s.classList.remove('done'); });
+    persist();
+  });
+  persist();
+
+  /* ---------- scroll spy ---------- */
+  var links = Array.prototype.slice.call(document.querySelectorAll('#navlinks a'));
+  var secs = links.map(function(a){ return document.querySelector(a.getAttribute('href')); });
+  function spy(){
+    var y = window.scrollY + 100, idx = -1;
+    secs.forEach(function(s,i){ if (s && s.offsetTop <= y) idx = i; });
+    links.forEach(function(a,i){ a.classList.toggle('active', i===idx); });
+  }
+  window.addEventListener('scroll', spy, {passive:true});
+  spy();
+})();
+</script>
+</body>
+</html>

@@ -38,8 +38,8 @@ export default async function AppLayout({ children, drawer }: { children: React.
       { href: "/setter-reports", label: "Setter Reports", icon: "forms", gate: "calls" },
     ]},
     { label: "Money", items: [
+      { href: "/deals", label: "Deals", icon: "revenue", gate: "receivables" },
       { href: "/receivables", label: "Receivables", icon: "money", gate: "receivables" },
-      { href: "/revenue", label: "Revenue", icon: "revenue", gate: "receivables" },
       { href: "/commission", label: "Commissions", icon: "reps", gate: "reps" },
       { href: "/payments", label: "Payment Links", icon: "link", gate: "receivables" },
     ]},

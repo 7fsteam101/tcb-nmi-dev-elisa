@@ -4,8 +4,13 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 // Right-side half-screen slide-over used by intercepting routes. Closing (click
-// backdrop / Esc / the X) does router.back(), which unwinds the intercept and
-// returns to the underlying list without a full navigation.
+// on the dimmed backdrop / Esc / the Close button) does router.back(), which
+// unwinds the intercept and returns to the underlying list without a full
+// navigation. Clicks INSIDE the panel can never close it: the backdrop is a
+// SIBLING of the aside (not an ancestor), so a click composed inside the panel
+// never reaches the backdrop handler, and a drag that starts in the panel and
+// releases over the backdrop fires its click on the shared parent (which has
+// no handler), not on the backdrop.
 export function Drawer({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   useEffect(() => {
@@ -17,7 +22,7 @@ export function Drawer({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="fixed inset-0 z-40">
-      <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.5)" }} onClick={() => router.back()} />
+      <div aria-hidden className="absolute inset-0 cursor-pointer" style={{ background: "rgba(0,0,0,0.5)" }} onClick={() => router.back()} />
       <aside className="absolute right-0 top-0 h-full w-full overflow-y-auto border-l shadow-2xl md:w-[55%] lg:w-[52%]"
         style={{ background: "var(--bg)", borderColor: "var(--line)" }}>
         <div className="sticky top-0 z-10 flex items-center justify-between border-b px-6 py-3"

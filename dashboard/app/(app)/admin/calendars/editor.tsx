@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
-import { setCalendarTypeAction, toggleCalendarBookingAction, renameCalendarAction, addCalendarAction } from "./actions";
+import { setCalendarTypeAction, toggleCalendarBookingAction, toggleCalendarActiveAction, renameCalendarAction, addCalendarAction } from "./actions";
 
 export function CalendarEditor({ calendars }: { calendars: any[] }) {
   const [state, action, pending] = useActionState(addCalendarAction, null as any);
@@ -15,10 +15,11 @@ export function CalendarEditor({ calendars }: { calendars: any[] }) {
         <div className="mb-3 text-sm font-semibold">GHL calendars → call type</div>
         <p className="mb-3 text-xs" style={{ color: "var(--muted)" }}>
           Every calendar GHL sends an appointment from shows up here automatically (defaulting to strategy).
-          Set what each one really is — readiness, strategy, or follow-up — and whether its bookings count in the funnel numbers.
+          Tracked decides whether a calendar's calls count in the funnel numbers; Paid is only an attribute
+          (free bookings still count when tracked). Toggling either re-applies to the calendar's history.
         </p>
         <table>
-          <thead><tr><th>Sub-account</th><th>Calendar</th><th>Call type</th><th>Counts as booked</th></tr></thead>
+          <thead><tr><th>Sub-account</th><th>Calendar</th><th>Tracked</th><th>Call type</th><th>Paid booking</th></tr></thead>
           <tbody>
             {calendars.map((c) => (
               <tr key={c.id}>
@@ -35,6 +36,13 @@ export function CalendarEditor({ calendars }: { calendars: any[] }) {
                   )}
                 </td>
                 <td>
+                  <button className="btn-ghost btn px-2 py-0.5 text-[11px]"
+                    style={{ color: c.active ? "var(--good)" : "var(--muted)" }}
+                    onClick={() => start(() => toggleCalendarActiveAction(c.id))}>
+                    {c.active ? "Tracked" : "Off"}
+                  </button>
+                </td>
+                <td>
                   <select value={c.call_type} className="w-auto py-1"
                     onChange={(e) => start(() => setCalendarTypeAction(c.id, e.target.value))}>
                     <option value="readiness">readiness</option>
@@ -44,13 +52,13 @@ export function CalendarEditor({ calendars }: { calendars: any[] }) {
                 </td>
                 <td>
                   <button className="btn-ghost btn px-2 py-0.5 text-[11px]" onClick={() => start(() => toggleCalendarBookingAction(c.id))}>
-                    {c.is_booking ? "yes" : "no"}
+                    {c.is_booking ? "Paid" : "Free"}
                   </button>
                 </td>
               </tr>
             ))}
             {calendars.length === 0 && (
-              <tr><td colSpan={4} style={{ color: "var(--muted)" }}>
+              <tr><td colSpan={5} style={{ color: "var(--muted)" }}>
                 Nothing yet — calendars appear here automatically as GHL events arrive, or add one manually below.
               </td></tr>
             )}

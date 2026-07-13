@@ -317,10 +317,10 @@ export async function weeklySnapshot({ demo, tz }: { demo: boolean; tz: string }
   const [r] = await sql`
     with wk as (select date_trunc('week', (now() at time zone ${tz}))::date as start)
     select wk.start::text as week_start,
-      (select count(*) from sales.opt_in o where o.is_demo = ${demo} and o.counts_as_unique
+      (select count(*) from sales.opt_in o where o.is_demo = ${demo} and o.counts_as_unique and o.counted
         and (o.submitted_at at time zone ${tz})::date >= wk.start
         and (o.submitted_at at time zone ${tz})::date < wk.start + 7) as leads_cur,
-      (select count(*) from sales.opt_in o where o.is_demo = ${demo} and o.counts_as_unique
+      (select count(*) from sales.opt_in o where o.is_demo = ${demo} and o.counts_as_unique and o.counted
         and (o.submitted_at at time zone ${tz})::date >= wk.start - 7
         and (o.submitted_at at time zone ${tz})::date < wk.start) as leads_prev,
       (select count(*) from sales.call c where c.is_demo = ${demo} and c.type = 'strategy' and c.is_primary and c.is_booking

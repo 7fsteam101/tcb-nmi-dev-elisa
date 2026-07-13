@@ -11,11 +11,14 @@ const VERSION = "2021-07-28";
 
 type GhlToken = { access_token: string; refresh_token: string; expires_at: number; location_id: string };
 
-// Verified scope set for everything we do (docs-checked):
+// Verified scope set for everything we do (docs-checked).
+// locations.readonly was dropped 2026-07-08: the new Private app rejected it at
+// install ("Invalid scope(s)") and nothing in our code calls the /locations API —
+// connections are labeled by location id.
 export const GHL_SCOPES = [
   "contacts.readonly", "contacts.write",
   "calendars.readonly", "calendars/events.readonly", "calendars/events.write",
-  "forms.readonly", "locations.readonly",
+  "forms.readonly",
   "opportunities.readonly", "opportunities.write",
 ].join(" ");
 
