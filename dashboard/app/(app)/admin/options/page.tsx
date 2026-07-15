@@ -1,13 +1,15 @@
-import { listOptions } from "./actions";
-import { OptionsEditor } from "./editor";
+import { listOptions, closePushEnabled } from "./actions";
+import { OptionsEditor, SyncPolicyCard } from "./editor";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 export default async function OptionsAdmin() {
   const lists = await listOptions();
+  const closePush = await closePushEnabled();
   return (
     <div>
+      <SyncPolicyCard enabled={closePush} />
       <p className="mb-4 text-sm" style={{ color: "var(--muted)" }}>
         These lists ARE the form dropdowns — rename, reorder, add, or disable an option and every form updates instantly.
         Disabled options keep their history but stop being selectable.

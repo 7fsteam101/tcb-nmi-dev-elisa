@@ -1,9 +1,38 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
-import { addOptionAction, renameOptionAction, toggleOptionAction, moveOptionAction } from "./actions";
+import { addOptionAction, renameOptionAction, toggleOptionAction, moveOptionAction, toggleClosePushAction } from "./actions";
 
 type Row = { id: string; name: string; sort_order: number | null; active: boolean };
+
+// Sync policy: the GHL -> Close outbound push master switch. OFF until the
+// pipeline cutover (the client's booking Zap still owns the Close card moves
+// until then); ON hands them to our write-back queue.
+export function SyncPolicyCard({ enabled }: { enabled: boolean }) {
+  const [pending, start] = useTransition();
+  return (
+    <div className="card mb-4 max-w-2xl p-4">
+      <div className="mb-2 text-sm font-semibold">Sync policy</div>
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <div className="text-sm">Push GHL events to Close</div>
+          <div className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
+            OFF until pipeline cutover; when ON, bookings/no-shows/lead-cancels move the Close card automatically (replaces the booking Zap).
+          </div>
+        </div>
+        <button
+          className="btn shrink-0"
+          disabled={pending}
+          style={enabled
+            ? { background: "var(--good)", color: "#fff" }
+            : { background: "var(--panel-2)", color: "var(--muted)", border: "1px solid var(--line)" }}
+          onClick={() => start(() => toggleClosePushAction())}>
+          {pending ? "Saving..." : enabled ? "On" : "Off"}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export function OptionsEditor({ listKey, label, rows }: { listKey: string; label: string; rows: Row[] }) {
   const [addState, addAction, adding] = useActionState(addOptionAction, null as any);

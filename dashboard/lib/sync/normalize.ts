@@ -1,5 +1,7 @@
 import { sql } from "../db";
 import { upsertContact, findOrCreateActiveOpportunity } from "./contacts";
+import { queueWriteback, dispatchPending } from "./writeback";
+import { getSetting } from "../settings";
 import { notifyEvent } from "../notify";
 import { money } from "../format";
 import type { Provider } from "./providers";
@@ -199,6 +201,39 @@ async function findOrCreateCall(oppId: string, type: string, startTime: string |
   return created[0].id;
 }
 
+// ---------------------------------------------------------------------
+// Outbound push to Close (setting-gated). Close is the reps' source of
+// truth. When core.app_setting "close_push_enabled" is ON (Admin > Options,
+// "Sync policy" card), tracked GHL events also move the Close card: the job
+// the client's booking Zap does today against the old pipeline. The toggle
+// stays OFF until the pipeline cutover retires that Zap; then our queue owns
+// the moves on the new "Sales" pipeline. Best-effort by design: a push
+// failure only appends a note and never blocks or fails the inbound mirror.
+// ---------------------------------------------------------------------
+const BOOKED_ISH = ["self_booked", "setter_booked", "strategy_call_booked", "call_confirmed"];
+
+// Queue the Close card move for an opportunity. Callers gate on the setting
+// (computed once per event). createIfMissing: a booking with no Close card
+// yet creates one on the lead, carrying our opportunity_id so the dispatcher
+// can stamp the new close_id back onto our row.
+async function queueClosePush(oppId: string, stageLabel: string, createIfMissing: boolean): Promise<string> {
+  const [ids] = await sql`
+    select o.close_id as opp_close_id, ct.close_id as lead_close_id
+    from sales.opportunity o
+    join core.contact ct on ct.id = o.contact_id
+    where o.id = ${oppId} limit 1`;
+  if (ids?.opp_close_id) {
+    await queueWriteback("close", "close_update_opportunity_stage", ids.opp_close_id, { stage_label: stageLabel }, "ghl_event");
+  } else if (createIfMissing && ids?.lead_close_id) {
+    await queueWriteback("close", "close_create_opportunity", ids.lead_close_id,
+      { lead_close_id: ids.lead_close_id, status_label: stageLabel, opportunity_id: oppId }, "ghl_event");
+  } else {
+    return createIfMissing ? " [no Close lead to update]" : " [no Close card to move]";
+  }
+  try { await dispatchPending(); } catch { /* the cron sweep retries */ }
+  return ` [Close push queued: ${stageLabel}]`;
+}
+
 async function normalizeGhl(eventType: string, payload: any): Promise<string> {
   const p = payload ?? {};
   const pc = p.contact ?? {};
@@ -295,7 +330,17 @@ async function normalizeGhl(eventType: string, payload: any): Promise<string> {
           booked_by: "Self book",
         });
       }
-      return `booking slot recorded (${calendar.type} calendar)`;
+      // Setting-gated outbound push (tracked bookings only): move the Close
+      // card to Self Booked; if the lead has no card yet, create one at that
+      // status. No Close lead linked at all: record and note, nothing to push.
+      let pushNote = "";
+      if (calendar.isBooking) {
+        try {
+          if (await getSetting<boolean>("close_push_enabled", false))
+            pushNote = await queueClosePush(oppId, "Self Booked", true);
+        } catch { pushNote = " [Close push skipped: queue error]"; }
+      }
+      return `booking slot recorded (${calendar.type} calendar)${pushNote}`;
     }
     case "appointment_rescheduled": {
       if (slot && ["scheduled", "confirmed", "pending_rebook"].includes(slot.status)) {
@@ -331,17 +376,38 @@ async function normalizeGhl(eventType: string, payload: any): Promise<string> {
             reason_id = (select id from core.cancellation_reason where name = ${p.reason ?? ""} limit 1)
           where id = ${slot.id}`;
       }
-      return "cancellation recorded";
+      // Setting-gated outbound push, LEAD cancels only (team cancels stay
+      // internal): booked-ish internal move first, then the Close card follows.
+      let pushNote = "";
+      if (event === "appointment_cancelled_by_lead") {
+        try {
+          if (await getSetting<boolean>("close_push_enabled", false)) {
+            await sql`update sales.opportunity set stage = 'call_canceled_by_lead' where id = ${oppId} and stage in ${sql(BOOKED_ISH)}`;
+            pushNote = await queueClosePush(oppId, "Call Canceled (by Lead)", false);
+          }
+        } catch { pushNote = " [Close push skipped: queue error]"; }
+      }
+      return `cancellation recorded${pushNote}`;
     }
     case "appointment_no_show": {
       if (slot && ["scheduled", "confirmed"].includes(slot.status))
         await sql`update sales.appointment set status = 'no_show' where id = ${slot.id}`;
+      // Setting-gated outbound push: mirror the miss internally first (only
+      // from booked-ish stages, so terminal stages never regress), then move
+      // the Close card to No Show.
+      let pushNote = "";
+      try {
+        if (await getSetting<boolean>("close_push_enabled", false)) {
+          await sql`update sales.opportunity set stage = 'no_show' where id = ${oppId} and stage in ${sql(BOOKED_ISH)}`;
+          pushNote = await queueClosePush(oppId, "No Show", false);
+        }
+      } catch { pushNote = " [Close push skipped: queue error]"; }
       await notifyEvent("appointment_no_show", {
         contact_name: pc.name ?? pc.full_name ?? pc.email ?? "unknown",
         time: startTime ?? "",
         calendar: "",
       });
-      return "no-show recorded";
+      return `no-show recorded${pushNote}`;
     }
     case "appointment_showed": {
       if (slot && ["scheduled", "confirmed"].includes(slot.status)) {

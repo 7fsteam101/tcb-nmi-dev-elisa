@@ -6,6 +6,7 @@ import { getProviderToken, getConnection } from "./providers";
 const ALLOWED = new Set([
   "close_update_opportunity_stage", // payload: { stage_label }
   "close_create_note",              // payload: { lead_id, note }
+  "close_create_opportunity",       // payload: { lead_close_id, status_label, opportunity_id } target = close lead id
   "ghl_create_contact_note",        // payload: { note } target = ghl contact id
 ]);
 
@@ -78,6 +79,26 @@ async function dispatchClose(key: string, op: string, targetId: string, payload:
       body: JSON.stringify({ lead_id: payload.lead_id, note: payload.note }),
     });
     if (!res.ok) throw new Error(`Close note failed: ${res.status} ${await res.text()}`);
+  } else if (op === "close_create_opportunity") {
+    // A tracked GHL booking landed for a Close lead that has no card yet:
+    // create the opportunity directly at the requested status. status_id
+    // resolves through the same stageIdCache slug matching (and fallback map)
+    // as the stage update above.
+    const statusId = await closeStageId(key, payload.status_label);
+    const res = await fetch(`${CLOSE}/opportunity/`, {
+      method: "POST",
+      headers: { Authorization: closeAuth(key), "Content-Type": "application/json" },
+      body: JSON.stringify({ lead_id: payload.lead_close_id, status_id: statusId }),
+    });
+    if (!res.ok) throw new Error(`Close opportunity create failed: ${res.status} ${await res.text()}`);
+    const created = await res.json();
+    // Echo guard: stamp the new Close id on our row right away, so the
+    // opportunity.created webhook bounce matches by close_id in normalizeClose
+    // and merely mirrors instead of creating a duplicate row. coalesce keeps
+    // any linkage that landed in the meantime (non-destructive).
+    if (payload.opportunity_id && created?.id) {
+      await sql`update sales.opportunity set close_id = coalesce(close_id, ${created.id}) where id = ${payload.opportunity_id}`;
+    }
   } else throw new Error(`Unknown close op ${op}`);
 }
 
