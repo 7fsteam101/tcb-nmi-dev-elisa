@@ -190,6 +190,14 @@ export async function getVaultCardCached(vaultId: string): Promise<VaultCard | n
   return card;
 }
 
+/** Drop a vault's cached card entry so the next getVaultCardCached() re-fetches
+ *  from NMI. Call after the stored card changes (card-on-file update) so the
+ *  portal shows the new brand/last4/exp immediately instead of the 5-min-stale
+ *  cached one. Does NOT disable the cache — only evicts this one vault. */
+export function invalidateVaultCard(vaultId: string): void {
+  cardCache.delete(vaultId);
+}
+
 /**
  * Verify an NMI Event Webhook signature. Header form: `t=<nonce>,s=<hexsig>`;
  * sig = HMAC-SHA256(nonce + "." + rawBody, signingKey). Returns true when no

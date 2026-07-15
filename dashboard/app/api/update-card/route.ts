@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPaymentLinkByToken } from "@/lib/nmi-links";
-import { updateVaultCard, ok } from "@/lib/nmi";
+import { updateVaultCard, invalidateVaultCard, ok } from "@/lib/nmi";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -21,5 +21,8 @@ export async function POST(req: NextRequest) {
 
   const res = await updateVaultCard({ vaultId: link.nmi_customer_vault_id, source });
   if (!ok(res)) return NextResponse.json({ ok: false, message: res.responsetext || "Could not update the card." }, { status: 402 });
+  // Bust this vault's cached card so the portal's Payment methods section reads
+  // the new brand/last4/exp on the next render, not the up-to-5-min-stale cache.
+  invalidateVaultCard(link.nmi_customer_vault_id);
   return NextResponse.json({ ok: true, message: "Your card on file has been updated." });
 }

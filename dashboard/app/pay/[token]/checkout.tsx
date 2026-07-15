@@ -10,9 +10,10 @@ const input: React.CSSProperties = {
 };
 const label: React.CSSProperties = { fontSize: 12, color: "#8aa0bd", marginTop: 12, display: "block" };
 
-export function Checkout({ token, firstAmountLabel, defaultName, defaultEmail, tokenizationKey, testMode, price = "0.00", action = "/api/charge", payLabel, requireContact = true, collectZip = true, showWallets = true }: {
+export function Checkout({ token, firstAmountLabel, defaultName, defaultEmail, tokenizationKey, testMode, price = "0.00", action = "/api/charge", payLabel, requireContact = true, collectZip = true, showWallets = true, successTitle = "Payment received", successSubtitle }: {
   token: string; firstAmountLabel: string; defaultName: string; defaultEmail: string; tokenizationKey: string; testMode: boolean;
   price?: string; action?: string; payLabel?: string; requireContact?: boolean; collectZip?: boolean; showWallets?: boolean;
+  successTitle?: string; successSubtitle?: string;
 }) {
   const [name, setName] = useState(defaultName);
   const [email, setEmail] = useState(defaultEmail);
@@ -85,8 +86,8 @@ export function Checkout({ token, firstAmountLabel, defaultName, defaultEmail, t
     return (
       <div style={{ marginTop: 20, textAlign: "center" }}>
         <div style={{ fontSize: 40 }}>&#10003;</div>
-        <div style={{ fontWeight: 700, marginTop: 6 }}>Payment received</div>
-        <div style={{ color: "#8aa0bd", marginTop: 6, fontSize: 14 }}>{message}</div>
+        <div style={{ fontWeight: 700, marginTop: 6 }}>{successTitle}</div>
+        <div style={{ color: "#8aa0bd", marginTop: 6, fontSize: 14 }}>{successSubtitle ?? message}</div>
       </div>
     );
   }
